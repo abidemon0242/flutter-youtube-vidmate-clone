@@ -1,5 +1,5 @@
-import 'package:dio/dio.dart';
 import 'package:logger/logger.dart';
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 class VideoQualityOption {
   VideoQualityOption({
@@ -42,36 +42,46 @@ class AudioQualityOption {
 }
 
 class YoutubeExtractionService {
-  final logger = Logger();
-  final dio = Dio();
+  YoutubeExtractionService() : _youtube = YoutubeExplode();
 
-  /// Extract video metadata and stream URLs from YouTube video ID
-  /// Uses youtube-oembed and alternative extraction methods
+  final YoutubeExplode _youtube;
+  final logger = Logger();
+
+  Future<void> dispose() async {
+    await _youtube.close();
+  }
+
   Future<Map<String, dynamic>> extractVideoMetadata(String videoUrl) async {
     try {
-      logger.i('Extracting metadata from: $videoUrl');
-
-      // Extract video ID from URL
       final videoId = _extractVideoId(videoUrl);
-      if (videoId == null) {
+      if (videoId == null || videoId.isEmpty) {
         throw Exception('Invalid YouTube URL');
       }
 
-      // Get video info via oEmbed API (public, no auth needed)
-      final response = await dio.get(
-        'https://www.youtube.com/oembed',
-        queryParameters: {'url': 'https://www.youtube.com/watch?v=$videoId', 'format': 'json'},
-      );
+      logger.i('Extracting metadata from YouTube video: $videoId');
+
+      final video = await _youtube.videos.get(videoId);
+      final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
+      final audioStream = manifest.audioOnly.isNotEmpty
+          ? manifest.audioOnly.withHighestBitrate()
+          : null;
+
+      final thumbnail = 'https://img.youtube.com/vi/$videoId/maxresdefault.jpg';
+      final duration = video.duration ?? Duration.zero;
 
       final metadata = {
         'videoId': videoId,
-        'title': response.data['title'] ?? 'Unknown',
-        'author': response.data['author_name'] ?? 'Unknown Channel',
-        'duration': '12:45', // Mock duration
-        'thumbnail': response.data['thumbnail_url'] ?? '',
+        'title': video.title,
+        'author': video.author,
+        'duration': _formatDuration(duration),
+        'durationSeconds': duration.inSeconds,
+        'thumbnail': thumbnail,
+        'thumbnailUrl': thumbnail,
+        'audioUrl': audioStream?.url.toString() ?? '',
+        'description': video.description,
       };
 
-      logger.i('Metadata extracted successfully');
+      logger.i('Metadata extracted successfully for $videoId');
       return metadata;
     } catch (e) {
       logger.e('Error extracting metadata: $e');
@@ -79,118 +89,130 @@ class YoutubeExtractionService {
     }
   }
 
-  /// Get available video quality options
-  /// Simulates extracting multiple quality streams (real impl uses yt-dlp or similar)
   Future<List<VideoQualityOption>> getVideoQualities(String videoUrl) async {
     try {
-      logger.i('Fetching video qualities for: $videoUrl');
+      final videoId = _extractVideoId(videoUrl);
+      if (videoId == null || videoId.isEmpty) {
+        throw Exception('Invalid YouTube URL');
+      }
 
-      // Mock video quality options
-      // In production, this would use youtube_explode_dart or yt-dlp wrapper
-      final qualities = [
-        VideoQualityOption(
-          quality: '360p',
-          format: 'mp4',
-          fileSize: '5.3 MB',
-          videoUrl: 'https://example.com/stream/360p.m4v',
-          audioUrl: 'https://example.com/stream/audio.m4a',
-          fps: 24,
-          bitrate: '500k',
-        ),
-        VideoQualityOption(
-          quality: '480p',
-          format: 'mp4',
-          fileSize: '9.4 MB',
-          videoUrl: 'https://example.com/stream/480p.m4v',
-          audioUrl: 'https://example.com/stream/audio.m4a',
-          fps: 24,
-          bitrate: '1000k',
-        ),
-        VideoQualityOption(
-          quality: '720p',
-          format: 'mp4',
-          fileSize: '18 MB',
-          videoUrl: 'https://example.com/stream/720p.m4v',
-          audioUrl: 'https://example.com/stream/audio.m4a',
-          fps: 30,
-          bitrate: '2000k',
-        ),
-        VideoQualityOption(
-          quality: '1080p',
-          format: 'mp4',
-          fileSize: '34 MB',
-          videoUrl: 'https://example.com/stream/1080p.m4v',
-          audioUrl: 'https://example.com/stream/audio.m4a',
-          fps: 30,
-          bitrate: '4000k',
-        ),
-        VideoQualityOption(
-          quality: '2K',
-          format: 'mp4',
-          fileSize: '58 MB',
-          videoUrl: 'https://example.com/stream/2k.m4v',
-          audioUrl: 'https://example.com/stream/audio.m4a',
-          fps: 60,
-          bitrate: '8000k',
-        ),
-        VideoQualityOption(
-          quality: '4K',
-          format: 'mp4',
-          fileSize: '92 MB',
-          videoUrl: 'https://example.com/stream/4k.m4v',
-          audioUrl: 'https://example.com/stream/audio.m4a',
-          fps: 60,
-          bitrate: '12000k',
-        ),
-      ];
+      logger.i('Fetching video qualities for: $videoId');
 
-      logger.i('Found ${qualities.length} video quality options');
-      return qualities;
+      final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
+      final audioFallbackUrl = manifest.audioOnly.isNotEmpty
+          ? manifest.audioOnly.withHighestBitrate().url.toString()
+          : '';
+
+      final preferredQualities = ['360p', '480p', '720p', '1080p'];
+      final videoStreams = manifest.video.withAudioOnly.toList();
+      final available = <VideoQualityOption>[];
+      final seen = <String>{};
+
+      for (final qualityLabel in preferredQualities) {
+        final match = videoStreams.where((stream) {
+          final label = (stream.qualityLabel ?? '').trim();
+          return label == qualityLabel;
+        }).toList();
+
+        if (match.isEmpty) {
+          continue;
+        }
+
+        final stream = match.first;
+        final normalizedQuality = stream.qualityLabel ?? qualityLabel;
+
+        if (seen.contains(normalizedQuality)) {
+          continue;
+        }
+        seen.add(normalizedQuality);
+
+        available.add(
+          VideoQualityOption(
+            quality: normalizedQuality,
+            format: (stream.container.name ?? 'mp4').toUpperCase(),
+            fileSize: _formatBytes(stream.size.totalBytes),
+            videoUrl: stream.url.toString(),
+            audioUrl: audioFallbackUrl,
+            fps: stream.fps ?? 0,
+            bitrate: _formatBitrate(stream.bitrate),
+          ),
+        );
+      }
+
+      if (available.isEmpty) {
+        for (final stream in videoStreams) {
+          final normalizedQuality = (stream.qualityLabel ?? 'Unknown').trim();
+          if (normalizedQuality.isEmpty || seen.contains(normalizedQuality)) {
+            continue;
+          }
+
+          seen.add(normalizedQuality);
+          available.add(
+            VideoQualityOption(
+              quality: normalizedQuality,
+              format: (stream.container.name ?? 'mp4').toUpperCase(),
+              fileSize: _formatBytes(stream.size.totalBytes),
+              videoUrl: stream.url.toString(),
+              audioUrl: audioFallbackUrl,
+              fps: stream.fps ?? 0,
+              bitrate: _formatBitrate(stream.bitrate),
+            ),
+          );
+        }
+      }
+
+      logger.i('Found ${available.length} real video quality options');
+      return available;
     } catch (e) {
       logger.e('Error fetching video qualities: $e');
       rethrow;
     }
   }
 
-  /// Get available audio quality options
   Future<List<AudioQualityOption>> getAudioQualities(String videoUrl) async {
     try {
-      logger.i('Fetching audio qualities for: $videoUrl');
+      final videoId = _extractVideoId(videoUrl);
+      if (videoId == null || videoId.isEmpty) {
+        throw Exception('Invalid YouTube URL');
+      }
 
-      final audioQualities = [
-        AudioQualityOption(
-          format: 'MP3',
-          bitrate: '128 kbps',
-          fileSize: '2.8 MB',
-          audioUrl: 'https://example.com/stream/audio_128.mp3',
-        ),
-        AudioQualityOption(
-          format: 'MP3',
-          bitrate: '192 kbps',
-          fileSize: '4.2 MB',
-          audioUrl: 'https://example.com/stream/audio_192.mp3',
-        ),
-        AudioQualityOption(
-          format: 'MP3',
-          bitrate: '320 kbps',
-          fileSize: '7.1 MB',
-          audioUrl: 'https://example.com/stream/audio_320.mp3',
-        ),
-        AudioQualityOption(
-          format: 'M4A',
-          bitrate: '128 kbps',
-          fileSize: '2.6 MB',
-          audioUrl: 'https://example.com/stream/audio_128.m4a',
-        ),
-        AudioQualityOption(
-          format: 'M4A',
-          bitrate: '256 kbps',
-          fileSize: '5.2 MB',
-          audioUrl: 'https://example.com/stream/audio_256.m4a',
-        ),
-      ];
+      logger.i('Fetching audio qualities for: $videoId');
 
-      logger.i('Found ${audioQualities.length} audio quality options');
+      final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
+      final audioStreams = manifest.audioOnly.toList();
+      if (audioStreams.isEmpty) {
+        return const [];
+      }
+
+      final sortedStreams = [...audioStreams]
+        ..sort((a, b) => (b.bitrate ?? 0).compareTo(a.bitrate ?? 0));
+
+      final audioQualities = <AudioQualityOption>[];
+      final seen = <String>{};
+
+      for (final stream in sortedStreams) {
+        final bitrateLabel = _formatBitrate(stream.bitrate);
+        final key = 'MP3-$bitrateLabel';
+        if (seen.contains(key)) {
+          continue;
+        }
+
+        seen.add(key);
+        audioQualities.add(
+          AudioQualityOption(
+            format: 'MP3',
+            bitrate: bitrateLabel,
+            fileSize: _formatBytes(stream.size.totalBytes),
+            audioUrl: stream.url.toString(),
+          ),
+        );
+
+        if (audioQualities.length >= 5) {
+          break;
+        }
+      }
+
+      logger.i('Found ${audioQualities.length} real audio quality options');
       return audioQualities;
     } catch (e) {
       logger.e('Error fetching audio qualities: $e');
@@ -198,25 +220,83 @@ class YoutubeExtractionService {
     }
   }
 
-  /// Extract YouTube video ID from various URL formats
   String? _extractVideoId(String url) {
     try {
-      // Handle youtube.com/watch?v=xxx
-      if (url.contains('watch?v=')) {
-        return url.split('watch?v=')[1].split('&')[0];
+      if (url.isEmpty) {
+        return null;
       }
-      // Handle youtu.be/xxx
-      if (url.contains('youtu.be/')) {
-        return url.split('youtu.be/')[1].split('?')[0];
+
+      final trimmed = url.trim();
+      if (trimmed.length == 11 && RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(trimmed)) {
+        return trimmed;
       }
-      // Handle direct video ID
-      if (url.length == 11) {
-        return url;
+
+      final normalized = trimmed.startsWith('http') ? trimmed : 'https://$trimmed';
+      final uri = Uri.tryParse(normalized);
+      if (uri == null) {
+        return null;
       }
+
+      if (uri.host.contains('youtu.be')) {
+        return uri.pathSegments.firstOrNull;
+      }
+
+      final videoId = uri.queryParameters['v'];
+      if (videoId != null && videoId.isNotEmpty) {
+        return videoId;
+      }
+
+      final segments = uri.pathSegments;
+      if (segments.length >= 2 && (segments[0] == 'shorts' || segments[0] == 'embed')) {
+        return segments[1];
+      }
+
       return null;
     } catch (e) {
       logger.e('Error extracting video ID: $e');
       return null;
     }
+  }
+
+  String _formatDuration(Duration duration) {
+    final totalSeconds = duration.inSeconds;
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _formatBytes(int? bytes) {
+    if (bytes == null || bytes <= 0) {
+      return 'Unknown';
+    }
+
+    const suffixes = ['B', 'KB', 'MB', 'GB'];
+    var value = bytes.toDouble();
+    var unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < suffixes.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+
+    final text = value >= 10 || unitIndex == 0
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(1);
+    return '$text ${suffixes[unitIndex]}';
+  }
+
+  String _formatBitrate(int? bitrate) {
+    if (bitrate == null || bitrate <= 0) {
+      return 'Unknown';
+    }
+
+    final kbps = (bitrate / 1000).round();
+    return '$kbps kbps';
   }
 }
