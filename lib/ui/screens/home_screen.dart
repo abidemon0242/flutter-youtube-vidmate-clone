@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -97,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       _toggleSelection(video.id);
                       return;
                     }
-                    await Navigator.pushNamed(context, '/watch');
+                    context.go('/watch');
                   },
                 );
               },
@@ -116,10 +117,10 @@ class _HomeScreenState extends State<HomeScreen> {
             case 0:
               break;
             case 1:
-              Navigator.pushNamed(context, '/downloads');
+              context.go('/downloads');
               break;
             case 2:
-              Navigator.pushNamed(context, '/library');
+              context.go('/library');
               break;
           }
         },
