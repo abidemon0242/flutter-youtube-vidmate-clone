@@ -36,7 +36,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   List<String> _readUrls() {
     final seen = <String>{};
     return _urlsController.text
-        .split(RegExp(r'\\r?\\n'))
+        .split(RegExp(r'\r?\n'))
         .map((value) => value.trim())
         .where((value) => value.isNotEmpty && seen.add(value))
         .toList();
@@ -45,13 +45,13 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   VideoQualityOption _chooseQuality(List<VideoQualityOption> options) {
     final ranked = [...options]
       ..sort((a, b) {
-        final aHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
-        final bHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+        final aHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
+        final bHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
         return aHeight.compareTo(bHeight);
       });
 
     final atOrBelow720 = ranked.where((option) {
-      final height = int.tryParse(RegExp(r'(\\d+)p').firstMatch(option.quality)?.group(1) ?? '');
+      final height = int.tryParse(RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ?? '');
       return height != null && height <= 720;
     }).toList();
 
@@ -95,7 +95,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             ? (metadata['title'] as String).trim()
             : videoId;
         final downloadId = 'youtube-$videoId';
-        final safeTitle = title.replaceAll(RegExp(r'[^\\w\\s-]'), '').trim();
+        final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
         final extension = quality.format.toLowerCase().contains('webm') ? 'webm' : 'mp4';
         final fileName = '${safeTitle.isEmpty ? videoId : safeTitle}.$extension';
         final savePath = '${documents.path}/TubeArena/Downloads/$fileName';
@@ -150,7 +150,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         builder: (dialogContext) => AlertDialog(
           title: const Text('Some links were skipped'),
           content: SingleChildScrollView(
-            child: Text(failures.join('\\n\\n')),
+            child: Text(failures.join('\n\n')),
           ),
           actions: [
             TextButton(
