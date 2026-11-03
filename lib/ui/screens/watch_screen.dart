@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
@@ -42,12 +42,6 @@ class _WatchScreenState extends State<WatchScreen> {
     super.dispose();
   }
 
-  void _showDownloadNotice() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Downloads are not enabled for demo videos yet.')),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final video = widget.video;
@@ -59,7 +53,9 @@ class _WatchScreenState extends State<WatchScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AspectRatio(
-              aspectRatio: _playerReady ? _controller.value.aspectRatio : 16 / 9,
+              aspectRatio: _playerReady && _controller.value.aspectRatio > 0
+                  ? _controller.value.aspectRatio
+                  : 16 / 9,
               child: Container(
                 decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)),
                 clipBehavior: Clip.antiAlias,
@@ -96,22 +92,20 @@ class _WatchScreenState extends State<WatchScreen> {
               spacing: 10,
               runSpacing: 8,
               children: [
-                ActionChip(label: const Text('Like'), avatar: const Icon(Icons.thumb_up_outlined, size: 18), onPressed: () => _notice('Likes are a demo feature.')),
+                ActionChip(label: const Text('Like'), avatar: const Icon(Icons.thumb_up_outlined, size: 18), onPressed: () => _notice('Likes are not connected to an account in this demo.')),
                 ActionChip(label: const Text('Share'), avatar: const Icon(Icons.share_outlined, size: 18), onPressed: () => _notice('Sharing is not configured yet.')),
-                ActionChip(label: const Text('Download'), avatar: const Icon(Icons.download_rounded, size: 18), onPressed: _showDownloadNotice),
+                ActionChip(label: const Text('Download'), avatar: const Icon(Icons.download_rounded, size: 18), onPressed: () => _notice('Downloads are not enabled for demo videos yet.')),
                 ActionChip(label: Text(_saved ? 'Saved' : 'Save'), avatar: Icon(_saved ? Icons.bookmark : Icons.bookmark_border, size: 18), onPressed: () => setState(() => _saved = !_saved)),
               ],
             ),
             const SizedBox(height: 24),
-            Row(
-              children: [
-                CircleAvatar(backgroundImage: NetworkImage(video.channelAvatar)),
-                const SizedBox(width: 12),
-                Expanded(child: Text(video.channelName, style: const TextStyle(fontWeight: FontWeight.w700))),
-              ],
-            ),
+            Row(children: [
+              CircleAvatar(backgroundImage: NetworkImage(video.channelAvatar)),
+              const SizedBox(width: 12),
+              Expanded(child: Text(video.channelName, style: const TextStyle(fontWeight: FontWeight.w700))),
+            ]),
             const SizedBox(height: 20),
-            const Text('Playback note: this prototype uses a sample video stream. The feed content is mock data.'),
+            const Text('This prototype uses mock feed data and a sample video stream.'),
           ],
         ),
       ),

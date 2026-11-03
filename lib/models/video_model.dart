@@ -8,6 +8,7 @@ class VideoModel {
     required this.thumbnailUrl,
     required this.channelAvatar,
     required this.isVerified,
+    this.category = 'Tech',
     this.playbackUrl = demoPlaybackUrl,
   });
 
@@ -22,6 +23,7 @@ class VideoModel {
   final String thumbnailUrl;
   final String channelAvatar;
   final bool isVerified;
+  final String category;
   final String playbackUrl;
 
   static const demo = VideoModel(
