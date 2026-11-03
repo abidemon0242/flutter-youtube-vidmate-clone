@@ -12,6 +12,7 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
+  static const Set<String> _defaultFolders = {'Music', 'Tutorials', 'Movies', 'Shorts'};
   late final LocalFileManagerService fileManager;
   List<String> folders = [];
   final Map<String, int> folderCounts = {};
@@ -45,6 +46,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   void _toggleFolderSelection(String folder) {
+    if (_defaultFolders.contains(folder)) return;
     setState(() {
       if (selectedFolders.contains(folder)) {
         selectedFolders.remove(folder);
@@ -214,8 +216,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
               folderName: folder,
               fileCount: folderCounts[folder] ?? 0,
               isSelected: selected,
-              onRename: () => _renameFolder(folder),
-              onDelete: () => _deleteFolder(folder),
+              onRename: _defaultFolders.contains(folder) ? null : () => _renameFolder(folder),
+              onDelete: _defaultFolders.contains(folder) ? null : () => _deleteFolder(folder),
               onTap: () {
                 if (multiSelectMode) {
                   _toggleFolderSelection(folder);
