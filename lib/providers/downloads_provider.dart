@@ -189,6 +189,15 @@ class DownloadsProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> pauseDownload(String id) =>
+      _downloadService.pauseDownload(id);
+
+  Future<bool> resumeDownload(String id) =>
+      _downloadService.resumeDownload(id);
+
+  Future<bool> cancelDownload(String id) =>
+      _downloadService.cancelDownload(id);
+
   void removeSelected() {
     for (final id in List<String>.from(_selectedIds)) {
       _items.removeWhere((item) => item.id == id);
