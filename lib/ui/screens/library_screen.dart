@@ -220,11 +220,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
               isSelected: selected,
               onRename: _defaultFolders.contains(folder) ? null : () => _renameFolder(folder),
               onDelete: _defaultFolders.contains(folder) ? null : () => _deleteFolder(folder),
-              onTap: () {
+              onTap: () async {
                 if (multiSelectMode) {
                   _toggleFolderSelection(folder);
                 } else {
-                  context.go('/library/${Uri.encodeComponent(folder)}');
+                  await context.push('/library/${Uri.encodeComponent(folder)}');
+                  if (mounted) await _loadFolders();
                 }
               },
               onLongPress: () => _toggleFolderSelection(folder),
