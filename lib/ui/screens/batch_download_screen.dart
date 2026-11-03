@@ -19,6 +19,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   late final YoutubeExtractionService _extractionService;
   bool _isProcessing = false;
   String _preferredQuality = '720p';
+  bool _audioOnly = false;
   String _status = 'Paste one video link per line.';
 
   @override
@@ -96,23 +97,77 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
 
       try {
         final metadata = await _extractionService.extractVideoMetadata(url);
-        final options = await _extractionService.getVideoQualities(url);
-        if (options.isEmpty) {
-          failures.add('${metadata['title']}: no compatible video stream');
-          continue;
-        }
-
-        final quality = _chooseQuality(options);
         final videoId = metadata['videoId'] as String;
         final title = (metadata['title'] as String?)?.trim().isNotEmpty == true
             ? (metadata['title'] as String).trim()
             : videoId;
-        final downloadId = 'youtube-$videoId';
-        if (!seenVideoIds.add(videoId) || downloads.items.any((item) => item.id == downloadId)) {
-          failures.add('$title: duplicate or already queued');
+        if (!seenVideoIds.add(videoId)) {
+          failures.add('$title: duplicate link in this batch');
           continue;
         }
+
         final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
+        if (_audioOnly) {
+          final audioOptions = await _extractionService.getAudioQualities(url);
+          if (audioOptions.isEmpty) {
+            failures.add('$title: no compatible audio stream');
+            continue;
+          }
+          final audio = audioOptions.first;
+          final downloadId = 'youtube-audio-$videoId';
+          if (downloads.items.any((item) => item.id == downloadId)) {
+            failures.add('$title: audio is already queued');
+            continue;
+          }
+          final safeId = downloadId.replaceAll(RegExp(r'[^\w-]'), '');
+          final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
+          final extension = audio.format.toLowerCase().contains('webm')
+              ? 'webm'
+              : audio.format.toLowerCase().contains('aac')
+                  ? 'aac'
+                  : 'm4a';
+          final fileName = '$fileBase.$extension';
+          final savePath = '${documentsPath}/TubeArena/Downloads/$fileName';
+          final taskId = await downloadService.startDownload(
+            id: downloadId,
+            title: title,
+            videoUrl: '',
+            audioUrl: audio.audioUrl,
+            quality: audio.bitrate,
+            format: audio.format,
+            isAudioOnly: true,
+          );
+          if (taskId == null) {
+            failures.add('$title: audio download could not be queued');
+            continue;
+          }
+          downloads.addDownload(
+            DownloadEntry(
+              id: downloadId,
+              title: title,
+              url: audio.audioUrl,
+              size: audio.fileSize,
+              format: 'Audio ${audio.bitrate} ${audio.format}',
+              progress: 0,
+              savedPath: savePath,
+              isAudioOnly: true,
+            ),
+          );
+          queued++;
+          continue;
+        }
+
+        final options = await _extractionService.getVideoQualities(url);
+        if (options.isEmpty) {
+          failures.add('$title: no compatible video stream');
+          continue;
+        }
+        final quality = _chooseQuality(options);
+        final downloadId = 'youtube-$videoId';
+        if (downloads.items.any((item) => item.id == downloadId)) {
+          failures.add('$title: video is already queued');
+          continue;
+        }
         final safeId = downloadId.replaceAll(RegExp(r'[^\w-]'), '');
         final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
         final extension = quality.format.toLowerCase().contains('webm') ? 'webm' : 'mp4';
@@ -128,12 +183,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           format: quality.format,
           isAudioOnly: false,
         );
-
         if (taskId == null) {
           failures.add('$title: download could not be queued');
           continue;
         }
-
         downloads.addDownload(
           DownloadEntry(
             id: downloadId,
@@ -196,7 +249,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Paste one YouTube URL per line. Tube Arena will select the best available stream that already includes audio. Some videos may only offer lower resolutions.',
+            'Paste one YouTube URL per line. Choose a compatible video stream or save the original audio stream. Only use media you are authorized to download.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 16),
@@ -212,13 +265,20 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                       child: Text(quality),
                     ))
                 .toList(),
-            onChanged: _isProcessing
+            onChanged: _isProcessing || _audioOnly
                 ? null
                 : (value) {
                     if (value != null) setState(() => _preferredQuality = value);
                   },
           ),
-          const SizedBox(height: 16),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _audioOnly,
+            title: const Text('Audio only'),
+            subtitle: const Text('Save the original audio format; this does not convert to MP3.'),
+            onChanged: _isProcessing ? null : (value) => setState(() => _audioOnly = value),
+          ),
+          const SizedBox(height: 8),
           TextField(
             controller: _urlsController,
             minLines: 5,
