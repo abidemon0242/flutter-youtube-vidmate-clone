@@ -12,7 +12,7 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  static const Set<String> _defaultFolders = {'Music', 'Tutorials', 'Movies', 'Shorts'};
+  static const Set<String> _defaultFolders = {'Music', 'Tutorials', 'Movies', 'Shorts', 'Downloads'};
   late final LocalFileManagerService fileManager;
   List<String> folders = [];
   final Map<String, int> folderCounts = {};
@@ -31,7 +31,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     for (final folder in ['Music', 'Tutorials', 'Movies', 'Shorts']) {
       await fileManager.createFolder(folder);
     }
-    final items = await fileManager.getFolders();
+    final items = (await fileManager.getFolders())
+        .where((folder) => folder.name != 'Downloads')
+        .toList();
     final counts = <String, int>{};
     for (final folder in items) {
       counts[folder.name] = (await fileManager.getFilesInFolder(folder.name)).length;
