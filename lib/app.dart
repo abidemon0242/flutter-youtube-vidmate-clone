@@ -6,6 +6,10 @@ import 'ui/screens/home_screen.dart';
 import 'ui/screens/watch_screen.dart';
 import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/library_screen.dart';
+import 'ui/screens/folder_contents_screen.dart';
+import 'ui/screens/batch_download_screen.dart';
+import 'ui/screens/local_media_player_screen.dart';
+import 'models/video_model.dart';
 
 class TubeArenaApp extends StatelessWidget {
   const TubeArenaApp({super.key});
@@ -20,8 +24,20 @@ class TubeArenaApp extends StatelessWidget {
           builder: (context, state) => const HomeScreen(),
         ),
         GoRoute(
+          path: '/add-downloads',
+          builder: (context, state) => const BatchDownloadScreen(),
+        ),
+        GoRoute(
+          path: '/local-player',
+          builder: (context, state) => LocalMediaPlayerScreen(
+            filePath: state.extra as String,
+          ),
+        ),
+        GoRoute(
           path: '/watch',
-          builder: (context, state) => const WatchScreen(),
+          builder: (context, state) => WatchScreen(
+            video: state.extra is VideoModel ? state.extra as VideoModel : null,
+          ),
         ),
         GoRoute(
           path: '/downloads',
@@ -30,6 +46,14 @@ class TubeArenaApp extends StatelessWidget {
         GoRoute(
           path: '/library',
           builder: (context, state) => const LibraryScreen(),
+          routes: [
+            GoRoute(
+              path: ':folder',
+              builder: (context, state) => FolderContentsScreen(
+                folderName: state.pathParameters['folder']!,
+              ),
+            ),
+          ],
         ),
       ],
     );

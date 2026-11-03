@@ -192,7 +192,8 @@ class YoutubeExtractionService {
 
       for (final stream in sortedStreams) {
         final bitrateLabel = _formatBitrate(stream.bitrate);
-        final key = 'MP3-$bitrateLabel';
+        final audioFormat = (stream.container.name ?? 'm4a').toUpperCase();
+        final key = '$audioFormat-$bitrateLabel';
         if (seen.contains(key)) {
           continue;
         }
@@ -200,7 +201,7 @@ class YoutubeExtractionService {
         seen.add(key);
         audioQualities.add(
           AudioQualityOption(
-            format: 'MP3',
+            format: audioFormat,
             bitrate: bitrateLabel,
             fileSize: _formatBytes(stream.size.totalBytes),
             audioUrl: stream.url.toString(),
@@ -237,21 +238,39 @@ class YoutubeExtractionService {
         return null;
       }
 
-      if (uri.host.contains('youtu.be')) {
-        return uri.pathSegments.firstOrNull;
+      const allowedHosts = {
+        'youtube.com',
+        'www.youtube.com',
+        'm.youtube.com',
+        'music.youtube.com',
+        'youtu.be',
+        'www.youtu.be',
+        'youtube-nocookie.com',
+        'www.youtube-nocookie.com',
+      };
+      if (!['http', 'https'].contains(uri.scheme.toLowerCase()) ||
+          !allowedHosts.contains(uri.host.toLowerCase())) {
+        return null;
       }
 
-      final videoId = uri.queryParameters['v'];
-      if (videoId != null && videoId.isNotEmpty) {
-        return videoId;
+      String? videoId;
+      if (uri.host.toLowerCase().endsWith('youtu.be')) {
+        videoId = uri.pathSegments.firstOrNull;
+      } else {
+        videoId = uri.queryParameters['v'];
+        if (videoId == null || videoId.isEmpty) {
+          final segments = uri.pathSegments;
+          if (segments.length >= 2 &&
+              (segments[0] == 'shorts' || segments[0] == 'embed' || segments[0] == 'live')) {
+            videoId = segments[1];
+          }
+        }
       }
 
-      final segments = uri.pathSegments;
-      if (segments.length >= 2 && (segments[0] == 'shorts' || segments[0] == 'embed')) {
-        return segments[1];
+      if (videoId == null || videoId.length != 11 || !RegExp(r'^[A-Za-z0-9_-]{11}').hasMatch(videoId)) {
+        return null;
       }
-
-      return null;
+      return videoId;
     } catch (e) {
       logger.e('Error extracting video ID: $e');
       return null;

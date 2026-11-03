@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:isolate';
+import 'dart:ui' show IsolateNameServer;
 
-import 'package:dio/dio.dart';
-import 'package:flutter_downloader/flutter_downloader.dart';
+import 'package:flutter_downloader/flutter_downloader.dart' as fd;
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
-class DownloadTask {
-  DownloadTask({
+class AppDownloadTask {
+  AppDownloadTask({
     required this.id,
     required this.title,
     required this.videoUrl,
@@ -16,6 +18,9 @@ class DownloadTask {
     required this.quality,
     required this.format,
     required this.isAudioOnly,
+    this.taskId,
+    this.status = DownloadStatus.pending,
+    this.progress = 0,
   });
 
   final String id;
@@ -26,10 +31,43 @@ class DownloadTask {
   final String quality;
   final String format;
   final bool isAudioOnly;
-
-  DownloadStatus status = DownloadStatus.pending;
-  double progress = 0.0;
   String? taskId;
+  DownloadStatus status;
+  double progress;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'videoUrl': videoUrl,
+        'audioUrl': audioUrl,
+        'savePath': savePath,
+        'quality': quality,
+        'format': format,
+        'isAudioOnly': isAudioOnly,
+        'taskId': taskId,
+        'status': status.name,
+        'progress': progress,
+      };
+
+  factory AppDownloadTask.fromJson(Map<String, dynamic> json) {
+    final statusName = json['status'] as String? ?? 'pending';
+    return AppDownloadTask(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? 'Download',
+      videoUrl: json['videoUrl'] as String? ?? '',
+      audioUrl: json['audioUrl'] as String? ?? '',
+      savePath: json['savePath'] as String? ?? '',
+      quality: json['quality'] as String? ?? '',
+      format: json['format'] as String? ?? '',
+      isAudioOnly: json['isAudioOnly'] as bool? ?? false,
+      taskId: json['taskId'] as String?,
+      status: DownloadStatus.values.firstWhere(
+        (value) => value.name == statusName,
+        orElse: () => DownloadStatus.pending,
+      ),
+      progress: (json['progress'] as num?)?.toDouble() ?? 0,
+    );
+  }
 }
 
 enum DownloadStatus {
@@ -42,35 +80,151 @@ enum DownloadStatus {
 }
 
 class BackgroundDownloadService {
-  static final BackgroundDownloadService _instance = BackgroundDownloadService._internal();
-  final logger = Logger();
-  final dio = Dio();
+  static const String _portName = 'tube_arena_download_callback';
+  static final BackgroundDownloadService _instance =
+      BackgroundDownloadService._internal();
 
-  final Map<String, DownloadTask> _activeTasks = {};
-  final _statusStreamController = StreamController<Map<String, DownloadTask>>.broadcast();
+  final Logger logger = Logger();
+  final Map<String, AppDownloadTask> _activeTasks = {};
+  final StreamController<Map<String, AppDownloadTask>> _statusStreamController =
+      StreamController<Map<String, AppDownloadTask>>.broadcast();
 
-  factory BackgroundDownloadService() {
-    return _instance;
-  }
+  ReceivePort? _receivePort;
+  bool _initialized = false;
+  String? _metadataPath;
+
+  factory BackgroundDownloadService() => _instance;
 
   BackgroundDownloadService._internal();
 
-  /// Initialize background download service
-  /// Must be called on app startup
+  @pragma('vm:entry-point')
+  static void downloadCallback(
+    String taskId,
+    int status,
+    int progress,
+  ) {
+    final sendPort = IsolateNameServer.lookupPortByName(_portName);
+    sendPort?.send([taskId, status, progress]);
+  }
+
   Future<void> initialize() async {
+    if (_initialized) return;
+
     try {
-      logger.i('Initializing BackgroundDownloadService...');
-      await FlutterDownloader.initialize(
-        debug: true,
-        ignoreSsl: true,
+      final documents = await getApplicationDocumentsDirectory();
+      _metadataPath = '${documents.path}/TubeArena/download_tasks.json';
+      await Directory('${documents.path}/TubeArena').create(recursive: true);
+
+      await fd.FlutterDownloader.initialize(
+        debug: false,
+        ignoreSsl: false,
       );
-      logger.i('FlutterDownloader initialized successfully');
-    } catch (e) {
-      logger.e('Error initializing background download: $e');
+
+      _receivePort = ReceivePort();
+      IsolateNameServer.removePortNameMapping(_portName);
+      IsolateNameServer.registerPortWithName(_receivePort!.sendPort, _portName);
+      _receivePort!.listen(_handleCallback);
+      await fd.FlutterDownloader.registerCallback(downloadCallback);
+
+      await _restoreMetadata();
+      await _restorePluginTasks();
+      _initialized = true;
+      _notifyListeners();
+      logger.i('Background download service initialized and restored');
+    } catch (error, stackTrace) {
+      IsolateNameServer.removePortNameMapping(_portName);
+      _receivePort?.close();
+      _receivePort = null;
+      _initialized = false;
+      logger.e('Error initializing download service', error: error, stackTrace: stackTrace);
     }
   }
 
-  /// Start downloading a video or audio file
+  void _handleCallback(dynamic message) {
+    if (message is! List || message.length != 3) return;
+    final taskId = message[0] as String;
+    final statusIndex = message[1] as int;
+    final progress = message[2] as int;
+
+    final task = _activeTasks.values.cast<AppDownloadTask?>().firstWhere(
+      (item) => item?.taskId == taskId,
+      orElse: () => null,
+    );
+    if (task == null) return;
+
+    task.progress = progress.toDouble();
+    if (statusIndex >= 0 && statusIndex < fd.DownloadTaskStatus.values.length) {
+      task.status = _mapStatus(fd.DownloadTaskStatus.values[statusIndex]);
+    }
+    _persistMetadata();
+    _notifyListeners();
+  }
+
+  DownloadStatus _mapStatus(fd.DownloadTaskStatus status) {
+    if (status == fd.DownloadTaskStatus.running) return DownloadStatus.downloading;
+    if (status == fd.DownloadTaskStatus.paused) return DownloadStatus.paused;
+    if (status == fd.DownloadTaskStatus.complete) return DownloadStatus.completed;
+    if (status == fd.DownloadTaskStatus.failed) return DownloadStatus.failed;
+    if (status == fd.DownloadTaskStatus.canceled) return DownloadStatus.cancelled;
+    return DownloadStatus.pending;
+  }
+
+  Future<void> _restoreMetadata() async {
+    final path = _metadataPath;
+    if (path == null) return;
+    final file = File(path);
+    if (!await file.exists()) return;
+
+    try {
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is List) {
+        for (final item in decoded) {
+          if (item is Map<String, dynamic>) {
+            final task = AppDownloadTask.fromJson(item);
+            _activeTasks[task.id] = task;
+          }
+        }
+      }
+    } catch (error) {
+      logger.w('Could not restore download metadata: $error');
+    }
+  }
+
+  Future<void> _restorePluginTasks() async {
+    try {
+      final pluginTasks = await fd.FlutterDownloader.loadTasks();
+      if (pluginTasks == null) return;
+
+      final tasksById = {for (final task in pluginTasks) task.taskId: task};
+      for (final task in _activeTasks.values) {
+        final pluginTaskId = task.taskId;
+        if (pluginTaskId == null) continue;
+        final pluginTask = tasksById[pluginTaskId];
+        if (pluginTask == null) continue;
+        task.progress = pluginTask.progress.toDouble();
+        task.status = _mapStatus(pluginTask.status);
+      }
+      await _persistMetadata();
+    } catch (error) {
+      logger.w('Could not restore native download tasks: $error');
+    }
+  }
+
+  Future<void> _persistMetadata() async {
+    final path = _metadataPath;
+    if (path == null) return;
+    try {
+      final file = File(path);
+      await file.parent.create(recursive: true);
+      await file.writeAsString(
+        jsonEncode(_activeTasks.values.map((task) => task.toJson()).toList()),
+        flush: true,
+      );
+    } catch (error) {
+      logger.w('Could not save download metadata: $error');
+    }
+  }
+
   Future<String?> startDownload({
     required String id,
     required String title,
@@ -81,137 +235,187 @@ class BackgroundDownloadService {
     required bool isAudioOnly,
   }) async {
     try {
+      if (!_initialized) await initialize();
+      if (!_initialized) {
+        logger.e('Download service is unavailable; refusing to queue a task');
+        return null;
+      }
+
       final applicationDocDir = await getApplicationDocumentsDirectory();
       final downloadPath = '${applicationDocDir.path}/TubeArena/Downloads';
+      await Directory(downloadPath).create(recursive: true);
 
-      logger.i('Starting download: $title');
-      logger.i('Download path: $downloadPath');
-
-      // Determine file extension
+      final normalizedFormat = format.toLowerCase();
       final fileExt = isAudioOnly
-          ? (format.contains('MP3') ? '.mp3' : '.m4a')
-          : '.mp4';
+          ? (normalizedFormat.contains('mp3')
+              ? '.mp3'
+              : normalizedFormat.contains('webm')
+                  ? '.webm'
+                  : normalizedFormat.contains('aac')
+                      ? '.aac'
+                      : normalizedFormat.contains('wav')
+                          ? '.wav'
+                          : '.m4a')
+          : (normalizedFormat.contains('webm') ? '.webm' : '.mp4');
 
-      // Create download task
-      final downloadTask = DownloadTask(
-        id: id,
-        title: title,
-        videoUrl: videoUrl,
-        audioUrl: audioUrl,
-        savePath: '$downloadPath/${title.replaceAll(RegExp(r'[^\w\s]'), '')}$fileExt',
-        quality: quality,
-        format: format,
-        isAudioOnly: isAudioOnly,
-      );
-
-      // Use the first available URL (video or audio)
       final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
+      final parsedUrl = Uri.tryParse(downloadUrl);
+      if (parsedUrl == null ||
+          !parsedUrl.hasScheme ||
+          !['http', 'https'].contains(parsedUrl.scheme) ||
+          parsedUrl.host.isEmpty) {
+        logger.w('Rejected invalid download URL');
+        return null;
+      }
 
-      // Start download using FlutterDownloader
-      final taskId = await FlutterDownloader.enqueue(
+      final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
+      final safeId = id.replaceAll(RegExp(r'[^\w-]'), '');
+      final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
+      final safeFileName = '$fileBase$fileExt';
+
+      final taskId = await fd.FlutterDownloader.enqueue(
         url: downloadUrl,
         savedDir: downloadPath,
-        fileName: '${title.replaceAll(RegExp(r'[^\w\s]'), '')}$fileExt',
+        fileName: safeFileName,
         showNotification: true,
         openFileFromNotification: false,
         saveInPublicStorage: false,
       );
 
-      if (taskId != null) {
-        downloadTask.taskId = taskId;
-        downloadTask.status = DownloadStatus.downloading;
-        _activeTasks[id] = downloadTask;
-        _notifyListeners();
+      if (taskId == null) return null;
 
-        logger.i('Download started with task ID: $taskId');
-        return taskId;
-      }
-    } catch (e) {
-      logger.e('Error starting download: $e');
-    }
-    return null;
-  }
-
-  /// Pause an active download
-  Future<bool> pauseDownload(String downloadId) async {
-    try {
-      final task = _activeTasks[downloadId];
-      if (task?.taskId != null) {
-        await FlutterDownloader.pause(taskId: task!.taskId!);
-        task.status = DownloadStatus.paused;
-        _notifyListeners();
-        logger.i('Download paused: $downloadId');
-        return true;
-      }
-    } catch (e) {
-      logger.e('Error pausing download: $e');
-    }
-    return false;
-  }
-
-  /// Resume a paused download
-  Future<bool> resumeDownload(String downloadId) async {
-    try {
-      final task = _activeTasks[downloadId];
-      if (task?.taskId != null) {
-        final newTaskId = await FlutterDownloader.resume(taskId: task!.taskId!);
-        if (newTaskId != null) {
-          task.taskId = newTaskId;
-          task.status = DownloadStatus.downloading;
-          _notifyListeners();
-          logger.i('Download resumed: $downloadId');
-          return true;
-        }
-      }
-    } catch (e) {
-      logger.e('Error resuming download: $e');
-    }
-    return false;
-  }
-
-  /// Cancel a download
-  Future<bool> cancelDownload(String downloadId) async {
-    try {
-      final task = _activeTasks[downloadId];
-      if (task?.taskId != null) {
-        await FlutterDownloader.cancel(taskId: task!.taskId!);
-        task.status = DownloadStatus.cancelled;
-        _activeTasks.remove(downloadId);
-        _notifyListeners();
-        logger.i('Download cancelled: $downloadId');
-        return true;
-      }
-    } catch (e) {
-      logger.e('Error cancelling download: $e');
-    }
-    return false;
-  }
-
-  /// Update download progress
-  void updateProgress(String downloadId, double progress) {
-    final task = _activeTasks[downloadId];
-    if (task != null) {
-      task.progress = progress;
-      if (progress >= 100) {
-        task.status = DownloadStatus.completed;
-      }
+      final task = AppDownloadTask(
+        id: id,
+        title: title,
+        videoUrl: videoUrl,
+        audioUrl: audioUrl,
+        savePath: '$downloadPath/$safeFileName',
+        quality: quality,
+        format: format,
+        isAudioOnly: isAudioOnly,
+        taskId: taskId,
+        status: DownloadStatus.pending,
+      );
+      _activeTasks[id] = task;
+      await _persistMetadata();
       _notifyListeners();
+      logger.i('Download queued: $title ($taskId)');
+      return taskId;
+    } catch (error, stackTrace) {
+      logger.e('Error starting download', error: error, stackTrace: stackTrace);
+      return null;
     }
   }
 
-  /// Get all active downloads
-  Map<String, DownloadTask> getActiveTasks() => Map.unmodifiable(_activeTasks);
-
-  /// Stream of download status updates
-  Stream<Map<String, DownloadTask>> get statusStream => _statusStreamController.stream;
-
-  /// Notify listeners of status changes
-  void _notifyListeners() {
-    _statusStreamController.add(Map.unmodifiable(_activeTasks));
+  Future<bool> pauseDownload(String downloadId) async {
+    final task = _activeTasks[downloadId];
+    if (task?.taskId == null) return false;
+    try {
+      await fd.FlutterDownloader.pause(taskId: task!.taskId!);
+      task.status = DownloadStatus.paused;
+      await _persistMetadata();
+      _notifyListeners();
+      return true;
+    } catch (error) {
+      logger.e('Error pausing download: $error');
+      return false;
+    }
   }
 
-  /// Dispose resources
-  void dispose() {
-    _statusStreamController.close();
+  Future<bool> resumeDownload(String downloadId) async {
+    final task = _activeTasks[downloadId];
+    if (task?.taskId == null) return false;
+    try {
+      final newTaskId = await fd.FlutterDownloader.resume(taskId: task!.taskId!);
+      if (newTaskId == null) return false;
+      task.taskId = newTaskId;
+      task.status = DownloadStatus.pending;
+      await _persistMetadata();
+      _notifyListeners();
+      return true;
+    } catch (error) {
+      logger.e('Error resuming download: $error');
+      return false;
+    }
+  }
+
+  Future<bool> retryDownload(String downloadId) async {
+    final task = _activeTasks[downloadId];
+    if (task == null ||
+        (task.status != DownloadStatus.failed &&
+            task.status != DownloadStatus.cancelled)) {
+      return false;
+    }
+    try {
+      final downloadUrl = task.isAudioOnly ? task.audioUrl : task.videoUrl;
+      final uri = Uri.tryParse(downloadUrl);
+      if (uri == null ||
+          !uri.hasScheme ||
+          !['http', 'https'].contains(uri.scheme) ||
+          uri.host.isEmpty) {
+        return false;
+      }
+      final documents = await getApplicationDocumentsDirectory();
+      final downloadsDirectory = Directory('${documents.path}/TubeArena/Downloads');
+      await downloadsDirectory.create(recursive: true);
+      final targetFile = File(task.savePath);
+      final expectedPrefix = '${downloadsDirectory.absolute.path}${Platform.pathSeparator}';
+      if (!targetFile.absolute.path.startsWith(expectedPrefix)) return false;
+      await targetFile.parent.create(recursive: true);
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
+      final newTaskId = await fd.FlutterDownloader.enqueue(
+        url: downloadUrl,
+        savedDir: targetFile.parent.path,
+        fileName: targetFile.uri.pathSegments.last,
+        showNotification: true,
+        openFileFromNotification: false,
+        saveInPublicStorage: false,
+      );
+      if (newTaskId == null) return false;
+      task.taskId = newTaskId;
+      task.status = DownloadStatus.pending;
+      task.progress = 0;
+      await _persistMetadata();
+      _notifyListeners();
+      return true;
+    } catch (error) {
+      logger.e('Error retrying download: $error');
+      return false;
+    }
+  }
+
+  Future<bool> cancelDownload(String downloadId) async {
+    final task = _activeTasks[downloadId];
+    if (task?.taskId == null) return false;
+    try {
+      await fd.FlutterDownloader.cancel(taskId: task!.taskId!);
+      task.status = DownloadStatus.cancelled;
+      await _persistMetadata();
+      _notifyListeners();
+      return true;
+    } catch (error) {
+      logger.e('Error cancelling download: $error');
+      return false;
+    }
+  }
+
+  Future<void> forgetTask(String downloadId) async {
+    _activeTasks.remove(downloadId);
+    await _persistMetadata();
+    _notifyListeners();
+  }
+
+  Map<String, AppDownloadTask> getActiveTasks() =>
+      Map.unmodifiable(_activeTasks);
+
+  Stream<Map<String, AppDownloadTask>> get statusStream =>
+      _statusStreamController.stream;
+
+  void _notifyListeners() {
+    if (!_statusStreamController.isClosed) {
+      _statusStreamController.add(Map.unmodifiable(_activeTasks));
+    }
   }
 }

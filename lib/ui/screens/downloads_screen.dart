@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -12,8 +15,6 @@ class DownloadsScreen extends StatefulWidget {
 }
 
 class _DownloadsScreenState extends State<DownloadsScreen> {
-  int get _selectedCount => context.watch<DownloadsProvider>().selectedIds.length;
-
   @override
   Widget build(BuildContext context) {
     final downloads = context.watch<DownloadsProvider>();
@@ -93,20 +94,135 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: Text(
-                    '${item.format} • ${item.size}',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${item.format} • ${item.size}',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      LinearProgressIndicator(
+                        value: (item.progress.clamp(0, 100) / 100).toDouble(),
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${item.status} • ${item.progress.toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
-                  trailing: PopupMenuButton(
+                  onTap: item.status == 'completed'
+                      ? () async {
+                          final file = File(item.savedPath);
+                          if (await file.exists()) {
+                            if (context.mounted) {
+                              context.push('/local-player', extra: item.savedPath);
+                            }
+                          } else if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('The downloaded file is missing.')),
+                            );
+                          }
+                        }
+                      : null,
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (action) async {
+                      var success = false;
+                      switch (action) {
+                        case 'pause':
+                          success = await downloads.pauseDownload(item.id);
+                          break;
+                        case 'resume':
+                          success = await downloads.resumeDownload(item.id);
+                          break;
+                        case 'cancel':
+                          success = await downloads.cancelDownload(item.id);
+                          break;
+                        case 'retry':
+                          success = await downloads.retryDownload(item.id);
+                          break;
+                        case 'delete':
+                          final removed = await downloads.deleteFileFor(item);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  removed
+                                      ? 'Download removed'
+                                      : 'Download removed from the list, but its file could not be deleted',
+                                ),
+                              ),
+                            );
+                          }
+                          return;
+                      }
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            success
+                                ? 'Download action completed'
+                                : 'Could not perform download action',
+                          ),
+                        ),
+                      );
+                    },
                     itemBuilder: (context) => [
+                      if (item.status == 'failed' || item.status == 'cancelled')
+                        const PopupMenuItem(
+                          value: 'retry',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.refresh),
+                            title: Text('Retry'),
+                          ),
+                        ),
+                      if (item.status == 'downloading')
+                        const PopupMenuItem(
+                          value: 'pause',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.pause_circle_outline),
+                            title: Text('Pause'),
+                          ),
+                        ),
+                      if (item.status == 'paused')
+                        const PopupMenuItem(
+                          value: 'resume',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.play_circle_outline),
+                            title: Text('Resume'),
+                          ),
+                        ),
+                      if (item.status == 'downloading' ||
+                          item.status == 'pending' ||
+                          item.status == 'paused')
+                        const PopupMenuItem(
+                          value: 'cancel',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.cancel_outlined),
+                            title: Text('Cancel'),
+                          ),
+                        ),
                       const PopupMenuItem(
-                        child: Text('Move'),
-                      ),
-                      const PopupMenuItem(
-                        child: Text('Rename'),
-                      ),
-                      const PopupMenuItem(
-                        child: Text('Delete'),
+                        value: 'delete',
+                        child: ListTile(
+                          dense: true,
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('Remove'),
+                        ),
                       ),
                     ],
                   ),
@@ -124,12 +240,12 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
         onTap: (index) {
           switch (index) {
             case 0:
-              Navigator.pushNamed(context, '/');
+              context.go('/');
               break;
             case 1:
               break;
             case 2:
-              Navigator.pushNamed(context, '/library');
+              context.go('/library');
               break;
           }
         },
@@ -141,11 +257,12 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       ),
       floatingActionButton: downloads.hasSelection
           ? FloatingActionButton.extended(
-              onPressed: () {
-                downloads.removeSelected();
+              onPressed: () async {
+                final deletedCount = await downloads.removeSelected();
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${_selectedCount} download(s) deleted'),
+                    content: Text('$deletedCount download(s) removed'),
                     duration: const Duration(seconds: 2),
                   ),
                 );

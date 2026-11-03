@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../modals/download_quality_modal.dart';
+import '../../models/video_model.dart';
 
 class WatchScreen extends StatefulWidget {
-  const WatchScreen({super.key});
+  const WatchScreen({super.key, this.video});
+
+  final VideoModel? video;
 
   @override
   State<WatchScreen> createState() => _WatchScreenState();
@@ -13,8 +16,11 @@ class WatchScreen extends StatefulWidget {
 
 class _WatchScreenState extends State<WatchScreen> {
   late final VideoPlayerController _controller;
-  bool isAudioOnly = false;
   bool isPlaying = false;
+  bool _playerFailed = false;
+  bool isLiked = false;
+  bool isDisliked = false;
+  bool isSaved = false;
 
   @override
   void initState() {
@@ -24,7 +30,9 @@ class _WatchScreenState extends State<WatchScreen> {
         'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
       ),
     )..initialize().then((_) {
-      setState(() {});
+      if (mounted) setState(() {});
+    }).catchError((Object error) {
+      if (mounted) setState(() => _playerFailed = true);
     });
   }
 
@@ -34,23 +42,18 @@ class _WatchScreenState extends State<WatchScreen> {
     super.dispose();
   }
 
+  Future<void> _shareVideo() async {
+    final title = widget.video?.title ?? 'Tube Arena sample video';
+    final channel = widget.video?.channelName ?? 'Tube Arena Demo';
+    await Share.share('$title — $channel');
+  }
+
   void _showDownloadPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DownloadQualityModal(
-        videoTitle: 'Sample Video Title',
-        onDownloadAudio: (format, bitrate) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Downloading audio: $format $bitrate')),
-          );
-        },
-        onDownloadVideo: (quality, format) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Downloading video: $quality $format')),
-          );
-        },
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'The home feed contains demo videos only. Use Add video links to download videos you own or are authorized to save.',
+        ),
       ),
     );
   }
@@ -80,6 +83,10 @@ class _WatchScreenState extends State<WatchScreen> {
                   children: [
                     if (_controller.value.isInitialized)
                       VideoPlayer(_controller)
+                    else if (_playerFailed)
+                      const Center(
+                        child: Text('Sample video could not be loaded', style: TextStyle(color: Colors.white)),
+                      )
                     else
                       const Center(child: CircularProgressIndicator()),
                     if (!isPlaying)
@@ -113,30 +120,27 @@ class _WatchScreenState extends State<WatchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Build a YouTube-like media app with beautiful UI',
+                      Text(
+                        widget.video?.title ?? 'Sample video preview',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Tube Arena • 2.4M views • 4 days ago',
+                      Text(
+                        widget.video == null
+                            ? 'Tube Arena • Demo playback'
+                            : '${widget.video!.channelName} • ${widget.video!.views}',
                         style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                       ),
                     ],
                   ),
                 ),
-                GestureDetector(
-                  onTap: () => setState(() => isAudioOnly = !isAudioOnly),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: isAudioOnly ? AppColors.primaryStart : AppColors.card,
+                Tooltip(
+                  message: 'Audio-only playback is not implemented yet',
+                  child: IconButton(
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Audio-only playback is not available yet.')),
                     ),
-                    child: Icon(
-                      isAudioOnly ? Icons.volume_up : Icons.videocam,
-                      color: isAudioOnly ? Colors.white : AppColors.textSecondary,
-                    ),
+                    icon: const Icon(Icons.headphones_outlined),
                   ),
                 ),
               ],
@@ -148,23 +152,23 @@ class _WatchScreenState extends State<WatchScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _actionPill('Like', Icons.thumb_up_outlined, () {}),
-                  _actionPill('Dislike', Icons.thumb_down_outlined, () {}),
-                  _actionPill('Share', Icons.share_outlined, () {}),
+                  _actionPill(isLiked ? 'Liked' : 'Like', isLiked ? Icons.thumb_up : Icons.thumb_up_outlined, () => setState(() { isLiked = !isLiked; if (isLiked) isDisliked = false; })),
+                  _actionPill(isDisliked ? 'Disliked' : 'Dislike', isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined, () => setState(() { isDisliked = !isDisliked; if (isDisliked) isLiked = false; })),
+                  _actionPill('Share', Icons.share_outlined, _shareVideo),
                   _actionPill('Download', Icons.download_rounded, _showDownloadPicker),
-                  _actionPill('Save', Icons.bookmark_border_rounded, () {}),
+                  _actionPill(isSaved ? 'Saved' : 'Save', isSaved ? Icons.bookmark : Icons.bookmark_border_rounded, () => setState(() => isSaved = !isSaved)),
                 ],
               ),
             ),
             const SizedBox(height: 24),
 
             // Channel Info
-            const Row(
+            Row(
               children: [
                 CircleAvatar(
                   radius: 24,
                   backgroundImage: NetworkImage(
-                    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+                    widget.video?.channelAvatar ?? 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
                   ),
                 ),
                 SizedBox(width: 12),
@@ -172,11 +176,11 @@ class _WatchScreenState extends State<WatchScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Tube Arena Official',
+                      widget.video?.channelName ?? 'Tube Arena Demo',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     Text(
-                      '1.2M subscribers',
+                      'Demo channel',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                     ),
                   ],
@@ -193,9 +197,11 @@ class _WatchScreenState extends State<WatchScreen> {
             // Description
             ExpansionTile(
               title: const Text('Description'),
-              children: const [
+              children: [
                 Text(
-                  'Tube Arena is a cross-platform media app built with Flutter, featuring YouTube-inspired UI, advanced download capabilities with multiple quality options, local library management, and a native ad-blocker.',
+                  widget.video == null
+                      ? 'This is a sample playback preview. The home feed currently contains demonstration content, not a live video catalogue.'
+                      : 'This is demonstration metadata for ${widget.video!.title}. The current player uses a sample video stream; it is not the original media for this card.',
                   style: TextStyle(color: AppColors.textSecondary, height: 1.6),
                 ),
               ],
