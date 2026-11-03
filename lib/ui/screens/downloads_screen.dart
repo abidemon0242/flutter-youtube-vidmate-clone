@@ -13,8 +13,6 @@ class DownloadsScreen extends StatefulWidget {
 }
 
 class _DownloadsScreenState extends State<DownloadsScreen> {
-  int get _selectedCount => context.watch<DownloadsProvider>().selectedIds.length;
-
   @override
   Widget build(BuildContext context) {
     final downloads = context.watch<DownloadsProvider>();
