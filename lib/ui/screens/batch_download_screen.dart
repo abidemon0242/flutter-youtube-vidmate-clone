@@ -111,8 +111,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           continue;
         }
         final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
+        final safeId = downloadId.replaceAll(RegExp(r'[^\w-]'), '');
+        final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
         final extension = quality.format.toLowerCase().contains('webm') ? 'webm' : 'mp4';
-        final fileName = '${safeTitle.isEmpty ? videoId : safeTitle}.$extension';
+        final fileName = '$fileBase.$extension';
         final savePath = '${documentsPath}/TubeArena/Downloads/$fileName';
 
         final taskId = await downloadService.startDownload(
