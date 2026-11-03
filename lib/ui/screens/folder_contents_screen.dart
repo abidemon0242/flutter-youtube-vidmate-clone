@@ -74,7 +74,7 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
       builder: (dialogContext) => SimpleDialog(
         title: const Text('Move to folder'),
         children: folders
-            .where((folder) => folder.name != widget.folderName)
+            .where((folder) => folder.name != widget.folderName && folder.name != 'Downloads')
             .map((folder) => SimpleDialogOption(
                   onPressed: () => Navigator.pop(dialogContext, folder.name),
                   child: Text(folder.name),
