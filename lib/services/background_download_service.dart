@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:isolate';
+import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
@@ -44,7 +43,6 @@ enum DownloadStatus {
 class BackgroundDownloadService {
   static final BackgroundDownloadService _instance = BackgroundDownloadService._internal();
   final logger = Logger();
-  final dio = Dio();
 
   final Map<String, DownloadTask> _activeTasks = {};
   final _statusStreamController = StreamController<Map<String, DownloadTask>>.broadcast();
@@ -83,6 +81,7 @@ class BackgroundDownloadService {
     try {
       final applicationDocDir = await getApplicationDocumentsDirectory();
       final downloadPath = '${applicationDocDir.path}/TubeArena/Downloads';
+      await Directory(downloadPath).create(recursive: true);
 
       logger.i('Starting download: $title');
       logger.i('Download path: $downloadPath');
