@@ -208,7 +208,8 @@ class DownloadsProvider extends ChangeNotifier {
       if (item.status == 'pending' ||
           item.status == 'downloading' ||
           item.status == 'paused') {
-        await _downloadService.cancelDownload(id);
+        final cancelled = await _downloadService.cancelDownload(id);
+        if (!cancelled) continue;
       }
       final path = item.savedPath;
       if (path.isNotEmpty) {
@@ -235,7 +236,8 @@ class DownloadsProvider extends ChangeNotifier {
     if (item.status == 'pending' ||
         item.status == 'downloading' ||
         item.status == 'paused') {
-      await _downloadService.cancelDownload(item.id);
+      final cancelled = await _downloadService.cancelDownload(item.id);
+      if (!cancelled) return false;
     }
     var deleted = true;
     if (item.savedPath.isNotEmpty) {
