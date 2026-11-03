@@ -72,9 +72,20 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
 
     final downloads = context.read<DownloadsProvider>();
     final downloadService = BackgroundDownloadService();
-    final documents = await getApplicationDocumentsDirectory();
+    late final String documentsPath;
+    try {
+      documentsPath = (await getApplicationDocumentsDirectory()).path;
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _status = 'Could not access the app download folder: $error';
+      });
+      return;
+    }
     var queued = 0;
     final failures = <String>[];
+    final seenVideoIds = <String>{};
 
     for (var index = 0; index < urls.length; index++) {
       if (!mounted) return;
@@ -95,10 +106,14 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             ? (metadata['title'] as String).trim()
             : videoId;
         final downloadId = 'youtube-$videoId';
+        if (!seenVideoIds.add(videoId) || downloads.items.any((item) => item.id == downloadId)) {
+          failures.add('$title: duplicate or already queued');
+          continue;
+        }
         final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
         final extension = quality.format.toLowerCase().contains('webm') ? 'webm' : 'mp4';
         final fileName = '${safeTitle.isEmpty ? videoId : safeTitle}.$extension';
-        final savePath = '${documents.path}/TubeArena/Downloads/$fileName';
+        final savePath = '${documentsPath}/TubeArena/Downloads/$fileName';
 
         final taskId = await downloadService.startDownload(
           id: downloadId,
@@ -186,6 +201,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             minLines: 5,
             maxLines: 10,
             keyboardType: TextInputType.multiline,
+            onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(
               hintText: 'https://www.youtube.com/watch?v=…',
               alignLabelWithHint: true,
