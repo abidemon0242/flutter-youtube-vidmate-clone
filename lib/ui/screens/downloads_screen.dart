@@ -92,9 +92,32 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  subtitle: Text(
-                    '${item.format} • ${item.size}',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${item.format} • ${item.size}',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      LinearProgressIndicator(
+                        value: (item.progress.clamp(0, 100) / 100).toDouble(),
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${item.status} • ${item.progress.toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ),
                   trailing: PopupMenuButton(
                     itemBuilder: (context) => [
