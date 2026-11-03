@@ -257,7 +257,7 @@ class DownloadsProvider extends ChangeNotifier {
     return deleted;
   }
 
-  void _persist() {
+  Future<void> _persist() {
     _saveQueue = _saveQueue.then((_) async {
       try {
         final file = await _storageFile;
@@ -269,6 +269,7 @@ class DownloadsProvider extends ChangeNotifier {
         debugPrint('Could not save download list: $error');
       }
     });
+    return _saveQueue;
   }
 
   @override
