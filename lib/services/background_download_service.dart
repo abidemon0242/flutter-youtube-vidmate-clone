@@ -103,7 +103,9 @@ class BackgroundDownloadService {
       }
 
       final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
-      final safeFileName = '${safeTitle.isEmpty ? id : safeTitle}$fileExt';
+      final safeId = id.replaceAll(RegExp(r'[^\w-]'), '');
+      final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
+      final safeFileName = '$fileBase$fileExt';
 
       // Create download task
       final downloadTask = DownloadTask(
