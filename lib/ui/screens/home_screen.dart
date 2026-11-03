@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/repositories/mock_youtube_repository.dart';
 import '../../models/video_model.dart';
-import '../../providers/downloads_provider.dart';
 import '../widgets/video_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -55,6 +54,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Add video links',
+            onPressed: () => context.push('/add-downloads'),
+            icon: const Icon(Icons.playlist_add_rounded),
+          ),
           IconButton(
             onPressed: () {},
             icon: const Icon(Icons.search_rounded),
