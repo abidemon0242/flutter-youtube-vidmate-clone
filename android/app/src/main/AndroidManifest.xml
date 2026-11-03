@@ -10,8 +10,6 @@
     <!-- Background download permissions -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Audio permissions -->
-
     <application
         android:label="Tube Arena"
         android:icon="@mipmap/ic_launcher"
