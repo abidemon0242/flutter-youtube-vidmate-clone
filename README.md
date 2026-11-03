@@ -10,7 +10,8 @@ Tube Arena is an Android-focused Flutter media app prototype with a YouTube-insp
 - Sample video playback screen with clear demo-content labeling.
 - Batch link entry for videos the user owns or is authorized to save.
 - YouTube URL validation and metadata/stream inspection.
-- Selection of compatible streams that already contain both audio and video.
+- Selection of compatible video streams that already contain both audio and video.
+- Audio-only downloads that preserve the source audio container (no conversion).
 - Background download queue using FlutterDownloader.
 - Download progress, persisted task metadata, and startup restoration.
 - Pause, resume, cancel, retry, and remove controls.
@@ -23,7 +24,7 @@ Tube Arena is an Android-focused Flutter media app prototype with a YouTube-insp
 - The home feed is mock data, not a live YouTube feed.
 - The Watch screen uses a sample MP4; it does not play the original media represented by a demo card.
 - Separate adaptive video/audio stream merging is not implemented.
-- Actual MP3 conversion is not implemented. Extracted audio retains its original container.
+- Actual MP3 conversion is not implemented. Audio-only downloads retain their original container.
 - Like/dislike/bookmark actions are local UI state only; there is no account sync or cloud persistence.
 - Full folder/file management UI, advanced queue controls, and comprehensive retry/backoff behavior are still in progress.
 - The app has not yet passed a verified Android build and physical-device test cycle.
