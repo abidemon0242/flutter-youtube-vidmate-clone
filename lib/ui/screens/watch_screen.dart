@@ -17,6 +17,7 @@ class WatchScreen extends StatefulWidget {
 class _WatchScreenState extends State<WatchScreen> {
   late final VideoPlayerController _controller;
   bool isPlaying = false;
+  bool _playerFailed = false;
   bool isLiked = false;
   bool isDisliked = false;
   bool isSaved = false;
@@ -31,7 +32,7 @@ class _WatchScreenState extends State<WatchScreen> {
     )..initialize().then((_) {
       if (mounted) setState(() {});
     }).catchError((Object error) {
-      if (mounted) setState(() {});
+      if (mounted) setState(() => _playerFailed = true);
     });
   }
 
@@ -82,6 +83,10 @@ class _WatchScreenState extends State<WatchScreen> {
                   children: [
                     if (_controller.value.isInitialized)
                       VideoPlayer(_controller)
+                    else if (_playerFailed)
+                      const Center(
+                        child: Text('Sample video could not be loaded', style: TextStyle(color: Colors.white)),
+                      )
                     else
                       const Center(child: CircularProgressIndicator()),
                     if (!isPlaying)
