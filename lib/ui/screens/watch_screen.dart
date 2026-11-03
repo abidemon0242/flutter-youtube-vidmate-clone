@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../modals/download_quality_modal.dart';
+import '../../models/video_model.dart';
 
 class WatchScreen extends StatefulWidget {
-  const WatchScreen({super.key});
+  const WatchScreen({super.key, this.video});
+
+  final VideoModel? video;
 
   @override
   State<WatchScreen> createState() => _WatchScreenState();
@@ -24,7 +26,9 @@ class _WatchScreenState extends State<WatchScreen> {
         'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
       ),
     )..initialize().then((_) {
-      setState(() {});
+      if (mounted) setState(() {});
+    }).catchError((Object error) {
+      if (mounted) setState(() {});
     });
   }
 
@@ -35,22 +39,11 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   void _showDownloadPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DownloadQualityModal(
-        videoTitle: 'Sample Video Title',
-        onDownloadAudio: (format, bitrate) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Downloading audio: $format $bitrate')),
-          );
-        },
-        onDownloadVideo: (quality, format) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Downloading video: $quality $format')),
-          );
-        },
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'The home feed contains demo videos only. Use Add video links to download videos you own or are authorized to save.',
+        ),
       ),
     );
   }
@@ -113,13 +106,15 @@ class _WatchScreenState extends State<WatchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Build a YouTube-like media app with beautiful UI',
+                      Text(
+                        widget.video?.title ?? 'Sample video preview',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Tube Arena • 2.4M views • 4 days ago',
+                      Text(
+                        widget.video == null
+                            ? 'Tube Arena • Demo playback'
+                            : '${widget.video!.channelName} • ${widget.video!.views}',
                         style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                       ),
                     ],
@@ -159,12 +154,12 @@ class _WatchScreenState extends State<WatchScreen> {
             const SizedBox(height: 24),
 
             // Channel Info
-            const Row(
+            Row(
               children: [
                 CircleAvatar(
                   radius: 24,
                   backgroundImage: NetworkImage(
-                    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+                    widget.video?.channelAvatar ?? 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
                   ),
                 ),
                 SizedBox(width: 12),
@@ -193,9 +188,11 @@ class _WatchScreenState extends State<WatchScreen> {
             // Description
             ExpansionTile(
               title: const Text('Description'),
-              children: const [
+              children: [
                 Text(
-                  'Tube Arena is a cross-platform media app built with Flutter, featuring YouTube-inspired UI, advanced download capabilities with multiple quality options, local library management, and a native ad-blocker.',
+                  widget.video == null
+                      ? 'This is a sample playback preview. The home feed currently contains demonstration content, not a live video catalogue.'
+                      : 'This is demonstration metadata for ${widget.video!.title}. The current player uses a sample video stream; it is not the original media for this card.',
                   style: TextStyle(color: AppColors.textSecondary, height: 1.6),
                 ),
               ],
