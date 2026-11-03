@@ -18,6 +18,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   final TextEditingController _urlsController = TextEditingController();
   late final YoutubeExtractionService _extractionService;
   bool _isProcessing = false;
+  String _preferredQuality = '720p';
   String _status = 'Paste one video link per line.';
 
   @override
@@ -50,12 +51,13 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         return aHeight.compareTo(bHeight);
       });
 
-    final atOrBelow720 = ranked.where((option) {
+    final targetHeight = int.tryParse(_preferredQuality.replaceAll('p', '')) ?? 720;
+    final atOrBelowTarget = ranked.where((option) {
       final height = int.tryParse(RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ?? '');
-      return height != null && height <= 720;
+      return height != null && height <= targetHeight;
     }).toList();
 
-    return atOrBelow720.isNotEmpty ? atOrBelow720.last : ranked.first;
+    return atOrBelowTarget.isNotEmpty ? atOrBelowTarget.last : ranked.first;
   }
 
   Future<void> _startBatch() async {
@@ -196,6 +198,25 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           const Text(
             'Paste one YouTube URL per line. Tube Arena will select the best available stream that already includes audio. Some videos may only offer lower resolutions.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _preferredQuality,
+            decoration: const InputDecoration(
+              labelText: 'Preferred maximum quality',
+              border: OutlineInputBorder(),
+            ),
+            items: const ['360p', '480p', '720p', '1080p']
+                .map((quality) => DropdownMenuItem(
+                      value: quality,
+                      child: Text(quality),
+                    ))
+                .toList(),
+            onChanged: _isProcessing
+                ? null
+                : (value) {
+                    if (value != null) setState(() => _preferredQuality = value);
+                  },
           ),
           const SizedBox(height: 16),
           TextField(
