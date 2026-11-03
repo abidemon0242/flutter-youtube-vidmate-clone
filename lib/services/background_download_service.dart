@@ -347,7 +347,12 @@ class BackgroundDownloadService {
           uri.host.isEmpty) {
         return false;
       }
+      final documents = await getApplicationDocumentsDirectory();
+      final downloadsDirectory = Directory('${documents.path}/TubeArena/Downloads');
+      await downloadsDirectory.create(recursive: true);
       final targetFile = File(task.savePath);
+      final expectedPrefix = '${downloadsDirectory.absolute.path}${Platform.pathSeparator}';
+      if (!targetFile.absolute.path.startsWith(expectedPrefix)) return false;
       await targetFile.parent.create(recursive: true);
       if (await targetFile.exists()) {
         await targetFile.delete();
