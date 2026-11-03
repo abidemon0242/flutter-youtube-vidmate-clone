@@ -247,7 +247,8 @@ class YoutubeExtractionService {
         'youtube-nocookie.com',
         'www.youtube-nocookie.com',
       };
-      if (!allowedHosts.contains(uri.host.toLowerCase())) {
+      if (!['http', 'https'].contains(uri.scheme.toLowerCase()) ||
+          !allowedHosts.contains(uri.host.toLowerCase())) {
         return null;
       }
 
