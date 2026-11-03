@@ -87,9 +87,10 @@ class BackgroundDownloadService {
       logger.i('Download path: $downloadPath');
 
       // Determine file extension
+      final normalizedFormat = format.toLowerCase();
       final fileExt = isAudioOnly
-          ? (format.contains('MP3') ? '.mp3' : '.m4a')
-          : '.mp4';
+          ? (normalizedFormat.contains('mp3') ? '.mp3' : '.m4a')
+          : (normalizedFormat.contains('webm') ? '.webm' : '.mp4');
 
       final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
       final parsedUrl = Uri.tryParse(downloadUrl);
