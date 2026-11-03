@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -119,6 +121,20 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                       ),
                     ],
                   ),
+                  onTap: item.status == 'completed'
+                      ? () async {
+                          final file = File(item.savedPath);
+                          if (await file.exists()) {
+                            if (context.mounted) {
+                              context.push('/local-player', extra: item.savedPath);
+                            }
+                          } else if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('The downloaded file is missing.')),
+                            );
+                          }
+                        }
+                      : null,
                   trailing: PopupMenuButton<String>(
                     onSelected: (action) async {
                       var success = false;
