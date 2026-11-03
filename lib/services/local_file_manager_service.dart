@@ -31,242 +31,232 @@ class LocalFile {
 }
 
 class LocalFileManagerService {
-  static final LocalFileManagerService _instance = LocalFileManagerService._internal();
-  final logger = Logger();
+  static final LocalFileManagerService _instance =
+      LocalFileManagerService._internal();
 
-  late Directory _baseDirectory;
+  final Logger logger = Logger();
+  Directory? _baseDirectory;
+  Future<void>? _initializing;
 
-  factory LocalFileManagerService() {
-    return _instance;
-  }
+  factory LocalFileManagerService() => _instance;
 
   LocalFileManagerService._internal();
 
-  /// Initialize file manager with base directory
   Future<void> initialize() async {
+    if (_baseDirectory != null) return;
+    final pending = _initializing;
+    if (pending != null) return pending;
+
+    final initialization = _initialize();
+    _initializing = initialization;
     try {
-      logger.i('Initializing LocalFileManagerService...');
-      _baseDirectory = (await getApplicationDocumentsDirectory());
-      final tubeArenaDir = Directory('${_baseDirectory.path}/TubeArena');
-
-      if (!tubeArenaDir.existsSync()) {
-        await tubeArenaDir.create(recursive: true);
-        logger.i('Created Tube Arena base directory');
-      }
-
-      _baseDirectory = tubeArenaDir;
-      logger.i('File manager initialized at: ${_baseDirectory.path}');
-    } catch (e) {
-      logger.e('Error initializing file manager: $e');
+      await initialization;
+    } finally {
+      _initializing = null;
     }
   }
 
-  /// Create a custom folder
+  Future<void> _initialize() async {
+    final documents = await getApplicationDocumentsDirectory();
+    final directory = Directory('${documents.path}/TubeArena');
+    await directory.create(recursive: true);
+    _baseDirectory = directory;
+    logger.i('File manager initialized at: ${directory.path}');
+  }
+
+  Directory get _root {
+    final directory = _baseDirectory;
+    if (directory == null) {
+      throw StateError('LocalFileManagerService has not been initialized');
+    }
+    return directory;
+  }
+
+  String? _validatedFolderName(String name) {
+    final value = name.trim();
+    if (value.isEmpty ||
+        value == '.' ||
+        value == '..' ||
+        value.contains('/') ||
+        value.contains(r'\\') ||
+        value.contains('..')) {
+      return null;
+    }
+    if (!RegExp(r'^[A-Za-z0-9 _-]{1,50}$').hasMatch(value)) return null;
+    return value;
+  }
+
   Future<bool> createFolder(String folderName) async {
+    await initialize();
+    final name = _validatedFolderName(folderName);
+    if (name == null) return false;
     try {
-      final folder = Directory('${_baseDirectory.path}/$folderName');
-      if (!folder.existsSync()) {
-        await folder.create(recursive: true);
-        logger.i('Folder created: $folderName');
-        return true;
-      }
-      return false;
-    } catch (e) {
-      logger.e('Error creating folder: $e');
+      final folder = Directory('${_root.path}/$name');
+      if (await folder.exists()) return false;
+      await folder.create(recursive: true);
+      return true;
+    } catch (error) {
+      logger.e('Error creating folder: $error');
       return false;
     }
   }
 
-  /// Delete a folder
   Future<bool> deleteFolder(String folderName) async {
+    await initialize();
+    final name = _validatedFolderName(folderName);
+    if (name == null) return false;
     try {
-      final folder = Directory('${_baseDirectory.path}/$folderName');
-      if (folder.existsSync()) {
-        await folder.delete(recursive: true);
-        logger.i('Folder deleted: $folderName');
-        return true;
-      }
-      return false;
-    } catch (e) {
-      logger.e('Error deleting folder: $e');
+      final folder = Directory('${_root.path}/$name');
+      if (!await folder.exists()) return false;
+      await folder.delete(recursive: true);
+      return true;
+    } catch (error) {
+      logger.e('Error deleting folder: $error');
       return false;
     }
   }
 
-  /// Rename a folder
   Future<bool> renameFolder(String oldName, String newName) async {
-    try {
-      final oldFolder = Directory('${_baseDirectory.path}/$oldName');
-      final newFolder = Directory('${_baseDirectory.path}/$newName');
-
-      if (oldFolder.existsSync()) {
-        await oldFolder.rename(newFolder.path);
-        logger.i('Folder renamed: $oldName -> $newName');
-        return true;
-      }
+    await initialize();
+    final oldValue = _validatedFolderName(oldName);
+    final newValue = _validatedFolderName(newName);
+    if (oldValue == null || newValue == null || oldValue == newValue) {
       return false;
-    } catch (e) {
-      logger.e('Error renaming folder: $e');
+    }
+    try {
+      final oldFolder = Directory('${_root.path}/$oldValue');
+      final newFolder = Directory('${_root.path}/$newValue');
+      if (!await oldFolder.exists() || await newFolder.exists()) return false;
+      await oldFolder.rename(newFolder.path);
+      return true;
+    } catch (error) {
+      logger.e('Error renaming folder: $error');
       return false;
     }
   }
 
-  /// Get all folders
   Future<List<LocalFile>> getFolders() async {
+    await initialize();
     try {
-      final items = _baseDirectory.listSync();
-      final folders = items
-          .where((item) => item is Directory)
-          .map((item) {
-            final stat = item.statSync();
-            return LocalFile(
-              path: item.path,
-              name: item.path.split('/').last,
-              size: 0,
-              createdAt: stat.modified,
-              isDirectory: true,
-            );
-          })
-          .toList();
-
-      logger.i('Found ${folders.length} folders');
+      final items = await _root.list(followLinks: false).toList();
+      final folders = <LocalFile>[];
+      for (final item in items.whereType<Directory>()) {
+        final stat = await item.stat();
+        folders.add(LocalFile(
+          path: item.path,
+          name: item.uri.pathSegments.where((part) => part.isNotEmpty).last,
+          size: 0,
+          createdAt: stat.modified,
+          isDirectory: true,
+        ));
+      }
+      folders.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       return folders;
-    } catch (e) {
-      logger.e('Error getting folders: $e');
+    } catch (error) {
+      logger.e('Error getting folders: $error');
       return [];
     }
   }
 
-  /// Get files in a folder
   Future<List<LocalFile>> getFilesInFolder(String folderName) async {
+    await initialize();
+    final name = _validatedFolderName(folderName);
+    if (name == null) return [];
     try {
-      final folder = Directory('${_baseDirectory.path}/$folderName');
-      if (!folder.existsSync()) {
-        return [];
+      final folder = Directory('${_root.path}/$name');
+      if (!await folder.exists()) return [];
+      final items = await folder.list(followLinks: false).toList();
+      final files = <LocalFile>[];
+      for (final item in items.whereType<File>()) {
+        final stat = await item.stat();
+        files.add(LocalFile(
+          path: item.path,
+          name: item.uri.pathSegments.last,
+          size: stat.size,
+          createdAt: stat.modified,
+          isDirectory: false,
+        ));
       }
-
-      final items = folder.listSync();
-      final files = items
-          .where((item) => item is File)
-          .map((item) {
-            final stat = item.statSync();
-            return LocalFile(
-              path: item.path,
-              name: item.path.split('/').last,
-              size: stat.size,
-              createdAt: stat.modified,
-              isDirectory: false,
-            );
-          })
-          .toList();
-
-      logger.i('Found ${files.length} files in $folderName');
+      files.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return files;
-    } catch (e) {
-      logger.e('Error getting files: $e');
+    } catch (error) {
+      logger.e('Error getting files in $name: $error');
       return [];
     }
   }
 
-  /// Move file to different folder
   Future<bool> moveFile(String filePath, String targetFolder) async {
+    await initialize();
+    final name = _validatedFolderName(targetFolder);
+    if (name == null) return false;
     try {
-      final file = File(filePath);
-      if (file.existsSync()) {
-        final fileName = filePath.split('/').last;
-        final newPath = '${_baseDirectory.path}/$targetFolder/$fileName';
-        await file.rename(newPath);
-        logger.i('File moved: $filePath -> $newPath');
-        return true;
-      }
-      return false;
-    } catch (e) {
-      logger.e('Error moving file: $e');
+      final source = File(filePath);
+      if (!await source.exists()) return false;
+      final target = Directory('${_root.path}/$name');
+      await target.create(recursive: true);
+      final destination = File('${target.path}/${source.uri.pathSegments.last}');
+      if (await destination.exists()) return false;
+      await source.rename(destination.path);
+      return true;
+    } catch (error) {
+      logger.e('Error moving file: $error');
       return false;
     }
   }
 
-  /// Move multiple files to folder
   Future<bool> moveFilesInBatch(List<String> filePaths, String targetFolder) async {
-    try {
-      bool allSuccessful = true;
-      for (final filePath in filePaths) {
-        final success = await moveFile(filePath, targetFolder);
-        if (!success) allSuccessful = false;
-      }
-      logger.i('Batch move completed. Success: $allSuccessful');
-      return allSuccessful;
-    } catch (e) {
-      logger.e('Error in batch move: $e');
-      return false;
+    var allSuccessful = true;
+    for (final filePath in filePaths) {
+      if (!await moveFile(filePath, targetFolder)) allSuccessful = false;
     }
+    return allSuccessful;
   }
 
-  /// Delete a file
   Future<bool> deleteFile(String filePath) async {
+    await initialize();
     try {
       final file = File(filePath);
-      if (file.existsSync()) {
-        await file.delete();
-        logger.i('File deleted: $filePath');
-        return true;
-      }
-      return false;
-    } catch (e) {
-      logger.e('Error deleting file: $e');
+      if (!await file.exists()) return false;
+      await file.delete();
+      return true;
+    } catch (error) {
+      logger.e('Error deleting file: $error');
       return false;
     }
   }
 
-  /// Delete multiple files
   Future<bool> deleteFilesInBatch(List<String> filePaths) async {
-    try {
-      bool allSuccessful = true;
-      for (final filePath in filePaths) {
-        final success = await deleteFile(filePath);
-        if (!success) allSuccessful = false;
-      }
-      logger.i('Batch delete completed. Success: $allSuccessful');
-      return allSuccessful;
-    } catch (e) {
-      logger.e('Error in batch delete: $e');
-      return false;
+    var allSuccessful = true;
+    for (final filePath in filePaths) {
+      if (!await deleteFile(filePath)) allSuccessful = false;
     }
+    return allSuccessful;
   }
 
-  /// Get total storage size of all downloaded files
   Future<int> getTotalStorageSize() async {
+    await initialize();
     try {
-      final items = _baseDirectory.listSync(recursive: true, followLinks: false);
-      int totalSize = 0;
-      for (final item in items) {
-        if (item is File) {
-          totalSize += item.lengthSync();
-        }
+      var totalSize = 0;
+      await for (final item in _root.list(recursive: true, followLinks: false)) {
+        if (item is File) totalSize += await item.length();
       }
-      logger.i('Total storage size: ${(totalSize / (1024 * 1024)).toStringAsFixed(2)} MB');
       return totalSize;
-    } catch (e) {
-      logger.e('Error calculating storage size: $e');
+    } catch (error) {
+      logger.e('Error calculating storage size: $error');
       return 0;
     }
   }
 
-  /// Clear all downloads
   Future<bool> clearAllDownloads() async {
+    await initialize();
     try {
-      final items = _baseDirectory.listSync();
-      for (final item in items) {
-        if (item is Directory) {
-          await item.delete(recursive: true);
-        } else if (item is File) {
-          await item.delete();
-        }
-      }
-      logger.i('All downloads cleared');
+      final downloads = Directory('${_root.path}/Downloads');
+      if (!await downloads.exists()) return true;
+      await downloads.delete(recursive: true);
+      await downloads.create(recursive: true);
       return true;
-    } catch (e) {
-      logger.e('Error clearing downloads: $e');
+    } catch (error) {
+      logger.e('Error clearing downloads: $error');
       return false;
     }
   }
