@@ -349,6 +349,9 @@ class BackgroundDownloadService {
       }
       final targetFile = File(task.savePath);
       await targetFile.parent.create(recursive: true);
+      if (await targetFile.exists()) {
+        await targetFile.delete();
+      }
       final newTaskId = await fd.FlutterDownloader.enqueue(
         url: downloadUrl,
         savedDir: targetFile.parent.path,
