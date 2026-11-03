@@ -7,6 +7,7 @@ import 'ui/screens/watch_screen.dart';
 import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/library_screen.dart';
 import 'ui/screens/folder_contents_screen.dart';
+import 'ui/screens/batch_download_screen.dart';
 
 class TubeArenaApp extends StatelessWidget {
   const TubeArenaApp({super.key});
@@ -19,6 +20,10 @@ class TubeArenaApp extends StatelessWidget {
         GoRoute(
           path: '/',
           builder: (context, state) => const HomeScreen(),
+        ),
+        GoRoute(
+          path: '/add-downloads',
+          builder: (context, state) => const BatchDownloadScreen(),
         ),
         GoRoute(
           path: '/watch',
