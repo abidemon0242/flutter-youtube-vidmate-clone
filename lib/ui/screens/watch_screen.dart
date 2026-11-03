@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
@@ -15,8 +16,10 @@ class WatchScreen extends StatefulWidget {
 
 class _WatchScreenState extends State<WatchScreen> {
   late final VideoPlayerController _controller;
-  bool isAudioOnly = false;
   bool isPlaying = false;
+  bool isLiked = false;
+  bool isDisliked = false;
+  bool isSaved = false;
 
   @override
   void initState() {
@@ -36,6 +39,12 @@ class _WatchScreenState extends State<WatchScreen> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _shareVideo() async {
+    final title = widget.video?.title ?? 'Tube Arena sample video';
+    final channel = widget.video?.channelName ?? 'Tube Arena Demo';
+    await Share.share('$title — $channel');
   }
 
   void _showDownloadPicker() {
@@ -120,18 +129,13 @@ class _WatchScreenState extends State<WatchScreen> {
                     ],
                   ),
                 ),
-                GestureDetector(
-                  onTap: () => setState(() => isAudioOnly = !isAudioOnly),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: isAudioOnly ? AppColors.primaryStart : AppColors.card,
+                Tooltip(
+                  message: 'Audio-only playback is not implemented yet',
+                  child: IconButton(
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Audio-only playback is not available yet.')),
                     ),
-                    child: Icon(
-                      isAudioOnly ? Icons.volume_up : Icons.videocam,
-                      color: isAudioOnly ? Colors.white : AppColors.textSecondary,
-                    ),
+                    icon: const Icon(Icons.headphones_outlined),
                   ),
                 ),
               ],
@@ -143,11 +147,11 @@ class _WatchScreenState extends State<WatchScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _actionPill('Like', Icons.thumb_up_outlined, () {}),
-                  _actionPill('Dislike', Icons.thumb_down_outlined, () {}),
-                  _actionPill('Share', Icons.share_outlined, () {}),
+                  _actionPill(isLiked ? 'Liked' : 'Like', isLiked ? Icons.thumb_up : Icons.thumb_up_outlined, () => setState(() { isLiked = !isLiked; if (isLiked) isDisliked = false; })),
+                  _actionPill(isDisliked ? 'Disliked' : 'Dislike', isDisliked ? Icons.thumb_down : Icons.thumb_down_outlined, () => setState(() { isDisliked = !isDisliked; if (isDisliked) isLiked = false; })),
+                  _actionPill('Share', Icons.share_outlined, _shareVideo),
                   _actionPill('Download', Icons.download_rounded, _showDownloadPicker),
-                  _actionPill('Save', Icons.bookmark_border_rounded, () {}),
+                  _actionPill(isSaved ? 'Saved' : 'Save', isSaved ? Icons.bookmark : Icons.bookmark_border_rounded, () => setState(() => isSaved = !isSaved)),
                 ],
               ),
             ),
@@ -167,11 +171,11 @@ class _WatchScreenState extends State<WatchScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Tube Arena Official',
+                      widget.video?.channelName ?? 'Tube Arena Demo',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     Text(
-                      '1.2M subscribers',
+                      'Demo channel',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                     ),
                   ],
