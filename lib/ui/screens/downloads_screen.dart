@@ -132,6 +132,9 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                         case 'cancel':
                           success = await downloads.cancelDownload(item.id);
                           break;
+                        case 'retry':
+                          success = await downloads.retryDownload(item.id);
+                          break;
                         case 'delete':
                           final removed = await downloads.deleteFileFor(item);
                           if (context.mounted) {
@@ -159,6 +162,15 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                       );
                     },
                     itemBuilder: (context) => [
+                      if (item.status == 'failed' || item.status == 'cancelled')
+                        const PopupMenuItem(
+                          value: 'retry',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.refresh),
+                            title: Text('Retry'),
+                          ),
+                        ),
                       if (item.status == 'downloading')
                         const PopupMenuItem(
                           value: 'pause',
