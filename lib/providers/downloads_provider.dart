@@ -198,24 +198,63 @@ class DownloadsProvider extends ChangeNotifier {
   Future<bool> cancelDownload(String id) =>
       _downloadService.cancelDownload(id);
 
-  void removeSelected() {
-    for (final id in List<String>.from(_selectedIds)) {
-      _items.removeWhere((item) => item.id == id);
+  Future<int> removeSelected() async {
+    final ids = List<String>.from(_selectedIds);
+    var removed = 0;
+    for (final id in ids) {
+      final index = _items.indexWhere((item) => item.id == id);
+      if (index < 0) continue;
+      final item = _items[index];
+      if (item.status == 'pending' ||
+          item.status == 'downloading' ||
+          item.status == 'paused') {
+        await _downloadService.cancelDownload(id);
+      }
+      final path = item.savedPath;
+      if (path.isNotEmpty) {
+        final file = File(path);
+        if (await file.exists()) {
+          try {
+            await file.delete();
+          } catch (error) {
+            debugPrint('Could not delete download file: $error');
+          }
+        }
+      }
+      await _downloadService.forgetTask(id);
+      _items.removeWhere((entry) => entry.id == id);
+      removed++;
     }
     _selectedIds.clear();
     notifyListeners();
-    _persist();
+    await _persist();
+    return removed;
   }
 
-  void deleteFileFor(DownloadEntry item) {
-    final file = File(item.savedPath);
-    if (file.existsSync()) {
-      file.deleteSync();
+  Future<bool> deleteFileFor(DownloadEntry item) async {
+    if (item.status == 'pending' ||
+        item.status == 'downloading' ||
+        item.status == 'paused') {
+      await _downloadService.cancelDownload(item.id);
     }
+    var deleted = true;
+    if (item.savedPath.isNotEmpty) {
+      final file = File(item.savedPath);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (error) {
+          debugPrint('Could not delete download file: $error');
+          deleted = false;
+        }
+      }
+    }
+    await _downloadService.forgetTask(item.id);
     _items.removeWhere((entry) => entry.id == item.id);
     _selectedIds.remove(item.id);
     notifyListeners();
-    _persist();
+    await _persist();
+    return deleted;
   }
 
   void _persist() {
