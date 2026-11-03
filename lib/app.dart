@@ -8,6 +8,7 @@ import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/library_screen.dart';
 import 'ui/screens/folder_contents_screen.dart';
 import 'ui/screens/batch_download_screen.dart';
+import 'ui/screens/local_media_player_screen.dart';
 import 'models/video_model.dart';
 
 class TubeArenaApp extends StatelessWidget {
@@ -25,6 +26,12 @@ class TubeArenaApp extends StatelessWidget {
         GoRoute(
           path: '/add-downloads',
           builder: (context, state) => const BatchDownloadScreen(),
+        ),
+        GoRoute(
+          path: '/local-player',
+          builder: (context, state) => LocalMediaPlayerScreen(
+            filePath: state.extra as String,
+          ),
         ),
         GoRoute(
           path: '/watch',
