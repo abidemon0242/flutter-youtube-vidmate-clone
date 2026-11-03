@@ -338,6 +338,12 @@ class BackgroundDownloadService {
     }
   }
 
+  Future<void> forgetTask(String downloadId) async {
+    _activeTasks.remove(downloadId);
+    await _persistMetadata();
+    _notifyListeners();
+  }
+
   Map<String, AppDownloadTask> getActiveTasks() =>
       Map.unmodifiable(_activeTasks);
 
