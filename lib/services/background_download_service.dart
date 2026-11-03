@@ -99,11 +99,11 @@ class BackgroundDownloadService {
   @pragma('vm:entry-point')
   static void downloadCallback(
     String taskId,
-    fd.DownloadTaskStatus status,
+    int status,
     int progress,
   ) {
     final sendPort = IsolateNameServer.lookupPortByName(_portName);
-    sendPort?.send([taskId, status.index, progress]);
+    sendPort?.send([taskId, status, progress]);
   }
 
   Future<void> initialize() async {
