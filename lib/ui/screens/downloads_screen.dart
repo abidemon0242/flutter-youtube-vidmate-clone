@@ -133,10 +133,16 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                           success = await downloads.cancelDownload(item.id);
                           break;
                         case 'delete':
-                          downloads.deleteFileFor(item);
+                          final removed = await downloads.deleteFileFor(item);
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Download removed')),
+                              SnackBar(
+                                content: Text(
+                                  removed
+                                      ? 'Download removed'
+                                      : 'Download removed from the list, but its file could not be deleted',
+                                ),
+                              ),
                             );
                           }
                           return;
@@ -223,12 +229,12 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       ),
       floatingActionButton: downloads.hasSelection
           ? FloatingActionButton.extended(
-              onPressed: () {
-                final deletedCount = downloads.selectedIds.length;
-                downloads.removeSelected();
+              onPressed: () async {
+                final deletedCount = await downloads.removeSelected();
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('$deletedCount download(s) removed from the list'),
+                    content: Text('$deletedCount download(s) removed'),
                     duration: const Duration(seconds: 2),
                   ),
                 );
