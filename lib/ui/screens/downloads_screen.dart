@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -124,12 +125,12 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
         onTap: (index) {
           switch (index) {
             case 0:
-              Navigator.pushNamed(context, '/');
+              context.go('/');
               break;
             case 1:
               break;
             case 2:
-              Navigator.pushNamed(context, '/library');
+              context.go('/library');
               break;
           }
         },
@@ -142,10 +143,11 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       floatingActionButton: downloads.hasSelection
           ? FloatingActionButton.extended(
               onPressed: () {
+                final deletedCount = downloads.selectedIds.length;
                 downloads.removeSelected();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('${_selectedCount} download(s) deleted'),
+                    content: Text('$deletedCount download(s) removed from the list'),
                     duration: const Duration(seconds: 2),
                   ),
                 );
