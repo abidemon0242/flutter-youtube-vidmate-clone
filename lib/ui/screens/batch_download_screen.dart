@@ -1,0 +1,231 @@
+import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/constants/app_colors.dart';
+import '../../providers/downloads_provider.dart';
+import '../../services/background_download_service.dart';
+import '../../services/youtube_extraction_service.dart';
+
+class BatchDownloadScreen extends StatefulWidget {
+  const BatchDownloadScreen({super.key});
+
+  @override
+  State<BatchDownloadScreen> createState() => _BatchDownloadScreenState();
+}
+
+class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
+  final TextEditingController _urlsController = TextEditingController();
+  late final YoutubeExtractionService _extractionService;
+  bool _isProcessing = false;
+  String _status = 'Paste one video link per line.';
+
+  @override
+  void initState() {
+    super.initState();
+    _extractionService = YoutubeExtractionService();
+  }
+
+  @override
+  void dispose() {
+    _urlsController.dispose();
+    _extractionService.dispose();
+    super.dispose();
+  }
+
+  List<String> _readUrls() {
+    final seen = <String>{};
+    return _urlsController.text
+        .split(RegExp(r'\\r?\\n'))
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty && seen.add(value))
+        .toList();
+  }
+
+  VideoQualityOption _chooseQuality(List<VideoQualityOption> options) {
+    final ranked = [...options]
+      ..sort((a, b) {
+        final aHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
+        final bHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+        return aHeight.compareTo(bHeight);
+      });
+
+    final atOrBelow720 = ranked.where((option) {
+      final height = int.tryParse(RegExp(r'(\\d+)p').firstMatch(option.quality)?.group(1) ?? '');
+      return height != null && height <= 720;
+    }).toList();
+
+    return atOrBelow720.isNotEmpty ? atOrBelow720.last : ranked.first;
+  }
+
+  Future<void> _startBatch() async {
+    final urls = _readUrls();
+    if (urls.isEmpty) {
+      setState(() => _status = 'Enter at least one YouTube video URL.');
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+      _status = 'Checking ${urls.length} link(s)…';
+    });
+
+    final downloads = context.read<DownloadsProvider>();
+    final downloadService = BackgroundDownloadService();
+    final documents = await getApplicationDocumentsDirectory();
+    var queued = 0;
+    final failures = <String>[];
+
+    for (var index = 0; index < urls.length; index++) {
+      if (!mounted) return;
+      final url = urls[index];
+      setState(() => _status = 'Checking ${index + 1} of ${urls.length}…');
+
+      try {
+        final metadata = await _extractionService.extractVideoMetadata(url);
+        final options = await _extractionService.getVideoQualities(url);
+        if (options.isEmpty) {
+          failures.add('${metadata['title']}: no compatible video stream');
+          continue;
+        }
+
+        final quality = _chooseQuality(options);
+        final videoId = metadata['videoId'] as String;
+        final title = (metadata['title'] as String?)?.trim().isNotEmpty == true
+            ? (metadata['title'] as String).trim()
+            : videoId;
+        final downloadId = 'youtube-$videoId';
+        final safeTitle = title.replaceAll(RegExp(r'[^\\w\\s-]'), '').trim();
+        final extension = quality.format.toLowerCase().contains('webm') ? 'webm' : 'mp4';
+        final fileName = '${safeTitle.isEmpty ? videoId : safeTitle}.$extension';
+        final savePath = '${documents.path}/TubeArena/Downloads/$fileName';
+
+        final taskId = await downloadService.startDownload(
+          id: downloadId,
+          title: title,
+          videoUrl: quality.videoUrl,
+          audioUrl: quality.audioUrl,
+          quality: quality.quality,
+          format: quality.format,
+          isAudioOnly: false,
+        );
+
+        if (taskId == null) {
+          failures.add('$title: download could not be queued');
+          continue;
+        }
+
+        downloads.addDownload(
+          DownloadEntry(
+            id: downloadId,
+            title: title,
+            url: quality.videoUrl,
+            size: quality.fileSize,
+            format: '${quality.quality} ${quality.format}',
+            progress: 0,
+            savedPath: savePath,
+          ),
+        );
+        queued++;
+      } catch (error) {
+        failures.add('Link ${index + 1}: $error');
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isProcessing = false;
+      _status = failures.isEmpty
+          ? '$queued download(s) queued successfully.'
+          : '$queued queued; ${failures.length} link(s) could not be queued.';
+    });
+
+    if (queued > 0 && failures.isEmpty) {
+      _urlsController.clear();
+    }
+
+    if (failures.isNotEmpty) {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Some links were skipped'),
+          content: SingleChildScrollView(
+            child: Text(failures.join('\\n\\n')),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _readUrls().length;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Batch downloads')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text(
+            'Add video links',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Paste one YouTube URL per line. Tube Arena will check available video streams and choose up to 720p when available.',
+            style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _urlsController,
+            minLines: 5,
+            maxLines: 10,
+            keyboardType: TextInputType.multiline,
+            decoration: const InputDecoration(
+              hintText: 'https://www.youtube.com/watch?v=…',
+              alignLabelWithHint: true,
+              border: OutlineInputBorder(),
+            ),
+            enabled: !_isProcessing,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '$count unique link(s)',
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Text(
+              'Only add videos you own or have permission to download. Some videos may not provide a compatible stream.',
+              style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+            ),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: _isProcessing ? null : _startBatch,
+            icon: _isProcessing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.download_rounded),
+            label: Text(_isProcessing ? 'Checking links…' : 'Check and download'),
+          ),
+          const SizedBox(height: 16),
+          Text(_status, style: const TextStyle(color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
