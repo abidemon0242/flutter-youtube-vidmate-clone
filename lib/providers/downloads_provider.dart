@@ -198,6 +198,9 @@ class DownloadsProvider extends ChangeNotifier {
   Future<bool> cancelDownload(String id) =>
       _downloadService.cancelDownload(id);
 
+  Future<bool> retryDownload(String id) =>
+      _downloadService.retryDownload(id);
+
   Future<int> removeSelected() async {
     final ids = List<String>.from(_selectedIds);
     var removed = 0;
