@@ -265,7 +265,15 @@ class YoutubeExtractionService {
         }
       }
 
-      if (videoId == null || !RegExp(r'^[A-Za-z0-9_-]{11}
+      if (videoId == null || videoId.length != 11 || !RegExp(r'^[A-Za-z0-9_-]{11}').hasMatch(videoId)) {
+        return null;
+      }
+      return videoId;
+    } catch (e) {
+      logger.e('Error extracting video ID: $e');
+      return null;
+    }
+  }
 
   String _formatDuration(Duration duration) {
     final totalSeconds = duration.inSeconds;
