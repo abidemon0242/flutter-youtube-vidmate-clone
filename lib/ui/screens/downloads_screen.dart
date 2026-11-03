@@ -119,16 +119,76 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                       ),
                     ],
                   ),
-                  trailing: PopupMenuButton(
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (action) async {
+                      var success = false;
+                      switch (action) {
+                        case 'pause':
+                          success = await downloads.pauseDownload(item.id);
+                          break;
+                        case 'resume':
+                          success = await downloads.resumeDownload(item.id);
+                          break;
+                        case 'cancel':
+                          success = await downloads.cancelDownload(item.id);
+                          break;
+                        case 'delete':
+                          downloads.deleteFileFor(item);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Download removed')),
+                            );
+                          }
+                          return;
+                      }
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            success
+                                ? 'Download action completed'
+                                : 'Could not perform download action',
+                          ),
+                        ),
+                      );
+                    },
                     itemBuilder: (context) => [
+                      if (item.status == 'downloading' || item.status == 'pending')
+                        const PopupMenuItem(
+                          value: 'pause',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.pause_circle_outline),
+                            title: Text('Pause'),
+                          ),
+                        ),
+                      if (item.status == 'paused')
+                        const PopupMenuItem(
+                          value: 'resume',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.play_circle_outline),
+                            title: Text('Resume'),
+                          ),
+                        ),
+                      if (item.status == 'downloading' ||
+                          item.status == 'pending' ||
+                          item.status == 'paused')
+                        const PopupMenuItem(
+                          value: 'cancel',
+                          child: ListTile(
+                            dense: true,
+                            leading: Icon(Icons.cancel_outlined),
+                            title: Text('Cancel'),
+                          ),
+                        ),
                       const PopupMenuItem(
-                        child: Text('Move'),
-                      ),
-                      const PopupMenuItem(
-                        child: Text('Rename'),
-                      ),
-                      const PopupMenuItem(
-                        child: Text('Delete'),
+                        value: 'delete',
+                        child: ListTile(
+                          dense: true,
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('Remove'),
+                        ),
                       ),
                     ],
                   ),
