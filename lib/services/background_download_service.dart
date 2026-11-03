@@ -60,7 +60,7 @@ class BackgroundDownloadService {
       logger.i('Initializing BackgroundDownloadService...');
       await FlutterDownloader.initialize(
         debug: true,
-        ignoreSsl: true,
+        ignoreSsl: false,
       );
       logger.i('FlutterDownloader initialized successfully');
     } catch (e) {
@@ -91,6 +91,19 @@ class BackgroundDownloadService {
           ? (format.contains('MP3') ? '.mp3' : '.m4a')
           : '.mp4';
 
+      final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
+      final parsedUrl = Uri.tryParse(downloadUrl);
+      if (parsedUrl == null ||
+          !parsedUrl.hasScheme ||
+          !['http', 'https'].contains(parsedUrl.scheme) ||
+          parsedUrl.host.isEmpty) {
+        logger.w('Rejected invalid download URL');
+        return null;
+      }
+
+      final safeTitle = title.replaceAll(RegExp(r'[^\\w\\s-]'), '').trim();
+      final safeFileName = '${safeTitle.isEmpty ? id : safeTitle}$fileExt';
+
       // Create download task
       final downloadTask = DownloadTask(
         id: id,
@@ -102,9 +115,6 @@ class BackgroundDownloadService {
         format: format,
         isAudioOnly: isAudioOnly,
       );
-
-      // Use the first available URL (video or audio)
-      final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
 
       // Start download using FlutterDownloader
       final taskId = await FlutterDownloader.enqueue(
