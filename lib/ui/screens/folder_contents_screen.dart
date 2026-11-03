@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../services/local_file_manager_service.dart';
@@ -63,10 +64,24 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final file = files[index];
+                final lowerName = file.name.toLowerCase();
+                final playable = [
+                  '.mp4', '.m4v', '.mov', '.webm', '.mkv',
+                  '.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac',
+                ].any(lowerName.endsWith);
+                final audio = [
+                  '.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac',
+                ].any(lowerName.endsWith);
                 return ListTile(
-                  leading: const Icon(Icons.video_file_outlined),
+                  leading: Icon(audio ? Icons.audio_file_outlined : Icons.video_file_outlined),
                   title: Text(file.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                   subtitle: Text(file.sizeFormatted),
+                  trailing: playable ? const Icon(Icons.play_circle_outline) : null,
+                  onTap: playable
+                      ? () => context.push('/local-player', extra: file.path)
+                      : () => ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('This file format is not supported by the player.')),
+                          ),
                 );
               },
             ),
