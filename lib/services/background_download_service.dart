@@ -101,7 +101,7 @@ class BackgroundDownloadService {
         return null;
       }
 
-      final safeTitle = title.replaceAll(RegExp(r'[^\\w\\s-]'), '').trim();
+      final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
       final safeFileName = '${safeTitle.isEmpty ? id : safeTitle}$fileExt';
 
       // Create download task
@@ -110,7 +110,7 @@ class BackgroundDownloadService {
         title: title,
         videoUrl: videoUrl,
         audioUrl: audioUrl,
-        savePath: '$downloadPath/${title.replaceAll(RegExp(r'[^\w\s]'), '')}$fileExt',
+        savePath: '$downloadPath/$safeFileName',
         quality: quality,
         format: format,
         isAudioOnly: isAudioOnly,
@@ -120,7 +120,7 @@ class BackgroundDownloadService {
       final taskId = await FlutterDownloader.enqueue(
         url: downloadUrl,
         savedDir: downloadPath,
-        fileName: '${title.replaceAll(RegExp(r'[^\w\s]'), '')}$fileExt',
+        fileName: safeFileName,
         showNotification: true,
         openFileFromNotification: false,
         saveInPublicStorage: false,
