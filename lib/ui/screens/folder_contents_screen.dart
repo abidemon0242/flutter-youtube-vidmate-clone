@@ -174,18 +174,19 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (playable) const Icon(Icons.play_circle_outline),
-                      PopupMenuButton<String>(
-                        onSelected: (action) {
-                          if (action == 'rename') _renameFile(file);
-                          if (action == 'move') _moveFile(file);
-                          if (action == 'delete') _deleteFile(file);
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(value: 'rename', child: Text('Rename')),
-                          PopupMenuItem(value: 'move', child: Text('Move')),
-                          PopupMenuItem(value: 'delete', child: Text('Delete')),
-                        ],
-                      ),
+                      if (widget.folderName != 'Downloads')
+                        PopupMenuButton<String>(
+                          onSelected: (action) {
+                            if (action == 'rename') _renameFile(file);
+                            if (action == 'move') _moveFile(file);
+                            if (action == 'delete') _deleteFile(file);
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: 'rename', child: Text('Rename')),
+                            PopupMenuItem(value: 'move', child: Text('Move')),
+                            PopupMenuItem(value: 'delete', child: Text('Delete')),
+                          ],
+                        ),
                     ],
                   ),
                   onTap: playable
