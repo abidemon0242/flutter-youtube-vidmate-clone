@@ -14,6 +14,7 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   late final LocalFileManagerService fileManager;
   List<String> folders = [];
+  final Map<String, int> folderCounts = {};
   final Set<String> selectedFolders = {};
   bool multiSelectMode = false;
 
@@ -25,17 +26,21 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _loadFolders() async {
+    await fileManager.initialize();
     for (final folder in ['Music', 'Tutorials', 'Movies', 'Shorts']) {
       await fileManager.createFolder(folder);
     }
     final items = await fileManager.getFolders();
+    final counts = <String, int>{};
+    for (final folder in items) {
+      counts[folder.name] = (await fileManager.getFilesInFolder(folder.name)).length;
+    }
     if (!mounted) return;
     setState(() {
       folders = items.map((e) => e.name).toList();
-      if (!folders.contains('Music')) folders.add('Music');
-      if (!folders.contains('Tutorials')) folders.add('Tutorials');
-      if (!folders.contains('Movies')) folders.add('Movies');
-      if (!folders.contains('Shorts')) folders.add('Shorts');
+      folderCounts
+        ..clear()
+        ..addAll(counts);
     });
   }
 
@@ -114,7 +119,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             final selected = selectedFolders.contains(folder);
             return FolderCard(
               folderName: folder,
-              fileCount: 12,
+              fileCount: folderCounts[folder] ?? 0,
               isSelected: selected,
               onTap: () {
                 if (multiSelectMode) {
