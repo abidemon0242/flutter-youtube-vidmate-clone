@@ -133,32 +133,17 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: multiSelectMode
           ? FloatingActionButton.extended(
               onPressed: () {
-                final downloads = context.read<DownloadsProvider>();
-                for (final id in selectedIds) {
-                  downloads.addDownload(
-                    DownloadEntry(
-                      id: id,
-                      title: 'Queued $id',
-                      url: 'https://example.com/video/$id',
-                      size: '42 MB',
-                      format: '1080p',
-                      progress: 0.0,
-                      savedPath: '/storage/emulated/0/Download/tube_arena/$id.mp4',
-                    ),
-                  );
-                }
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${selectedIds.length} video(s) added to batch download'),
+                  const SnackBar(
+                    content: Text(
+                      'Batch downloads are not available yet. These demo videos do not have verified download streams.',
+                    ),
+                    duration: Duration(seconds: 4),
                   ),
                 );
-                setState(() {
-                  selectedIds.clear();
-                  multiSelectMode = false;
-                });
               },
-              label: const Text('Download All'),
-              icon: const Icon(Icons.download_rounded),
+              label: const Text('Batch download unavailable'),
+              icon: const Icon(Icons.info_outline_rounded),
             )
           : null,
     );
