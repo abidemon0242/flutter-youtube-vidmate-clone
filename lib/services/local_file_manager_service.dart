@@ -185,6 +185,113 @@ class LocalFileManagerService {
     }
   }
 
+  bool _isInsideRoot(String filePath) {
+    final absolute = File(filePath).absolute.path;
+    final root = _root.absolute.path;
+    return absolute.startsWith('$root${Platform.pathSeparator}');
+  }
+
+  Future<bool> renameFile(String filePath, String newName) async {
+    await initialize();
+    final name = newName.trim();
+    if (!_isInsideRoot(filePath) ||
+        name.isEmpty ||
+        name == '.' ||
+        name == '..' ||
+        !RegExp(r'^[A-Za-z0-9 _.-]{1,100}
+    await initialize();
+    final name = _validatedFolderName(targetFolder);
+    if (name == null) return false;
+    try {
+      final source = File(filePath);
+      if (!_isInsideRoot(filePath) || !await source.exists()) return false;
+      final target = Directory('${_root.path}/$name');
+      await target.create(recursive: true);
+      final destination = File('${target.path}/${source.uri.pathSegments.last}');
+      if (await destination.exists()) return false;
+      await source.rename(destination.path);
+      return true;
+    } catch (error) {
+      logger.e('Error moving file: $error');
+      return false;
+    }
+  }
+
+  Future<bool> moveFilesInBatch(List<String> filePaths, String targetFolder) async {
+    var allSuccessful = true;
+    for (final filePath in filePaths) {
+      if (!await moveFile(filePath, targetFolder)) allSuccessful = false;
+    }
+    return allSuccessful;
+  }
+
+  Future<bool> deleteFile(String filePath) async {
+    await initialize();
+    try {
+      if (!_isInsideRoot(filePath)) return false;
+      final file = File(filePath);
+      if (!await file.exists()) return false;
+      await file.delete();
+      return true;
+    } catch (error) {
+      logger.e('Error deleting file: $error');
+      return false;
+    }
+  }
+
+  Future<bool> deleteFilesInBatch(List<String> filePaths) async {
+    var allSuccessful = true;
+    for (final filePath in filePaths) {
+      if (!await deleteFile(filePath)) allSuccessful = false;
+    }
+    return allSuccessful;
+  }
+
+  Future<int> getTotalStorageSize() async {
+    await initialize();
+    try {
+      var totalSize = 0;
+      await for (final item in _root.list(recursive: true, followLinks: false)) {
+        if (item is File) totalSize += await item.length();
+      }
+      return totalSize;
+    } catch (error) {
+      logger.e('Error calculating storage size: $error');
+      return 0;
+    }
+  }
+
+  Future<bool> clearAllDownloads() async {
+    await initialize();
+    try {
+      final downloads = Directory('${_root.path}/Downloads');
+      if (!await downloads.exists()) return true;
+      await downloads.delete(recursive: true);
+      await downloads.create(recursive: true);
+      return true;
+    } catch (error) {
+      logger.e('Error clearing downloads: $error');
+      return false;
+    }
+  }
+}
+).hasMatch(name) ||
+        name.contains('..')) {
+      return false;
+    }
+    try {
+      final source = File(filePath);
+      if (!await source.exists()) return false;
+      final destination = File('${source.parent.path}/$name');
+      if (await destination.exists()) return false;
+      await source.rename(destination.path);
+      return true;
+    } catch (error) {
+      logger.e('Error renaming file: $error');
+      return false;
+    }
+  }
+
   Future<bool> moveFile(String filePath, String targetFolder) async {
     await initialize();
     final name = _validatedFolderName(targetFolder);
