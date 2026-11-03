@@ -237,21 +237,87 @@ class YoutubeExtractionService {
         return null;
       }
 
-      if (uri.host.contains('youtu.be')) {
-        return uri.pathSegments.firstOrNull;
+      const allowedHosts = {
+        'youtube.com',
+        'www.youtube.com',
+        'm.youtube.com',
+        'music.youtube.com',
+        'youtu.be',
+        'www.youtu.be',
+        'youtube-nocookie.com',
+        'www.youtube-nocookie.com',
+      };
+      if (!allowedHosts.contains(uri.host.toLowerCase())) {
+        return null;
       }
 
-      final videoId = uri.queryParameters['v'];
-      if (videoId != null && videoId.isNotEmpty) {
-        return videoId;
+      String? videoId;
+      if (uri.host.toLowerCase().endsWith('youtu.be')) {
+        videoId = uri.pathSegments.firstOrNull;
+      } else {
+        videoId = uri.queryParameters['v'];
+        if (videoId == null || videoId.isEmpty) {
+          final segments = uri.pathSegments;
+          if (segments.length >= 2 &&
+              (segments[0] == 'shorts' || segments[0] == 'embed' || segments[0] == 'live')) {
+            videoId = segments[1];
+          }
+        }
       }
 
-      final segments = uri.pathSegments;
-      if (segments.length >= 2 && (segments[0] == 'shorts' || segments[0] == 'embed')) {
-        return segments[1];
-      }
-
+      if (videoId == null || !RegExp(r'^[A-Za-z0-9_-]{11}
+    } catch (e) {
+      logger.e('Error extracting video ID: $e');
       return null;
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    final totalSeconds = duration.inSeconds;
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _formatBytes(int? bytes) {
+    if (bytes == null || bytes <= 0) {
+      return 'Unknown';
+    }
+
+    const suffixes = ['B', 'KB', 'MB', 'GB'];
+    var value = bytes.toDouble();
+    var unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < suffixes.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+
+    final text = value >= 10 || unitIndex == 0
+        ? value.toStringAsFixed(0)
+        : value.toStringAsFixed(1);
+    return '$text ${suffixes[unitIndex]}';
+  }
+
+  String _formatBitrate(int? bitrate) {
+    if (bitrate == null || bitrate <= 0) {
+      return 'Unknown';
+    }
+
+    final kbps = (bitrate / 1000).round();
+    return '$kbps kbps';
+  }
+}
+).hasMatch(videoId)) {
+        return null;
+      }
+      return videoId;
     } catch (e) {
       logger.e('Error extracting video ID: $e');
       return null;
