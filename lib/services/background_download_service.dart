@@ -132,6 +132,10 @@ class BackgroundDownloadService {
       _notifyListeners();
       logger.i('Background download service initialized and restored');
     } catch (error, stackTrace) {
+      IsolateNameServer.removePortNameMapping(_portName);
+      _receivePort?.close();
+      _receivePort = null;
+      _initialized = false;
       logger.e('Error initializing download service', error: error, stackTrace: stackTrace);
     }
   }
@@ -232,6 +236,10 @@ class BackgroundDownloadService {
   }) async {
     try {
       if (!_initialized) await initialize();
+      if (!_initialized) {
+        logger.e('Download service is unavailable; refusing to queue a task');
+        return null;
+      }
 
       final applicationDocDir = await getApplicationDocumentsDirectory();
       final downloadPath = '${applicationDocDir.path}/TubeArena/Downloads';
