@@ -192,7 +192,8 @@ class YoutubeExtractionService {
 
       for (final stream in sortedStreams) {
         final bitrateLabel = _formatBitrate(stream.bitrate);
-        final key = 'MP3-$bitrateLabel';
+        final audioFormat = (stream.container.name ?? 'm4a').toUpperCase();
+        final key = '$audioFormat-$bitrateLabel';
         if (seen.contains(key)) {
           continue;
         }
@@ -200,7 +201,7 @@ class YoutubeExtractionService {
         seen.add(key);
         audioQualities.add(
           AudioQualityOption(
-            format: 'MP3',
+            format: audioFormat,
             bitrate: bitrateLabel,
             fileSize: _formatBytes(stream.size.totalBytes),
             audioUrl: stream.url.toString(),
