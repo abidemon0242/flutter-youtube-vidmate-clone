@@ -8,7 +8,11 @@ class VideoModel {
     required this.thumbnailUrl,
     required this.channelAvatar,
     required this.isVerified,
+    this.playbackUrl = demoPlaybackUrl,
   });
+
+  static const String demoPlaybackUrl =
+      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
 
   final String id;
   final String title;
@@ -18,6 +22,7 @@ class VideoModel {
   final String thumbnailUrl;
   final String channelAvatar;
   final bool isVerified;
+  final String playbackUrl;
 
   static const demo = VideoModel(
     id: 'demo1',
