@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:ui' show IsolateNameServer;
 
 import 'package:flutter_downloader/flutter_downloader.dart' as fd;
 import 'package:logger/logger.dart';
