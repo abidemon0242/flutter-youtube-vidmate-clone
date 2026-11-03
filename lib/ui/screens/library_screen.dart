@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
+import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
-import '../../providers/downloads_provider.dart';
 import '../../services/local_file_manager_service.dart';
-import '../modals/download_quality_modal.dart';
-import '../widgets/batch_download_bar.dart';
 import '../widgets/folder_card.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -29,7 +25,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _loadFolders() async {
+    for (final folder in ['Music', 'Tutorials', 'Movies', 'Shorts']) {
+      await fileManager.createFolder(folder);
+    }
     final items = await fileManager.getFolders();
+    if (!mounted) return;
     setState(() {
       folders = items.map((e) => e.name).toList();
       if (!folders.contains('Music')) folders.add('Music');
@@ -120,7 +120,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 if (multiSelectMode) {
                   _toggleFolderSelection(folder);
                 } else {
-                  Navigator.pushNamed(context, '/library/$folder');
+                  context.go('/library/${Uri.encodeComponent(folder)}');
                 }
               },
               onLongPress: () => _toggleFolderSelection(folder),
@@ -137,10 +137,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
         onTap: (index) {
           switch (index) {
             case 0:
-              Navigator.pushNamed(context, '/');
+              context.go('/');
               break;
             case 1:
-              Navigator.pushNamed(context, '/downloads');
+              context.go('/downloads');
               break;
             case 2:
               break;
