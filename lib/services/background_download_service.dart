@@ -323,6 +323,45 @@ class BackgroundDownloadService {
     }
   }
 
+  Future<bool> retryDownload(String downloadId) async {
+    final task = _activeTasks[downloadId];
+    if (task == null ||
+        (task.status != DownloadStatus.failed &&
+            task.status != DownloadStatus.cancelled)) {
+      return false;
+    }
+    try {
+      final downloadUrl = task.isAudioOnly ? task.audioUrl : task.videoUrl;
+      final uri = Uri.tryParse(downloadUrl);
+      if (uri == null ||
+          !uri.hasScheme ||
+          !['http', 'https'].contains(uri.scheme) ||
+          uri.host.isEmpty) {
+        return false;
+      }
+      final targetFile = File(task.savePath);
+      await targetFile.parent.create(recursive: true);
+      final newTaskId = await fd.FlutterDownloader.enqueue(
+        url: downloadUrl,
+        savedDir: targetFile.parent.path,
+        fileName: targetFile.uri.pathSegments.last,
+        showNotification: true,
+        openFileFromNotification: false,
+        saveInPublicStorage: false,
+      );
+      if (newTaskId == null) return false;
+      task.taskId = newTaskId;
+      task.status = DownloadStatus.pending;
+      task.progress = 0;
+      await _persistMetadata();
+      _notifyListeners();
+      return true;
+    } catch (error) {
+      logger.e('Error retrying download: $error');
+      return false;
+    }
+  }
+
   Future<bool> cancelDownload(String downloadId) async {
     final task = _activeTasks[downloadId];
     if (task?.taskId == null) return false;
