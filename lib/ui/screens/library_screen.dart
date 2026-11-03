@@ -28,12 +28,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _loadFolders() async {
     await fileManager.initialize();
-    for (final folder in ['Music', 'Tutorials', 'Movies', 'Shorts']) {
+    for (final folder in ['Music', 'Tutorials', 'Movies', 'Shorts', 'Downloads']) {
       await fileManager.createFolder(folder);
     }
-    final items = (await fileManager.getFolders())
-        .where((folder) => folder.name != 'Downloads')
-        .toList();
+    final items = await fileManager.getFolders();
     final counts = <String, int>{};
     for (final folder in items) {
       counts[folder.name] = (await fileManager.getFilesInFolder(folder.name)).length;
