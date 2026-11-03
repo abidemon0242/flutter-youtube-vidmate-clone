@@ -153,7 +153,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                       );
                     },
                     itemBuilder: (context) => [
-                      if (item.status == 'downloading' || item.status == 'pending')
+                      if (item.status == 'downloading')
                         const PopupMenuItem(
                           value: 'pause',
                           child: ListTile(
