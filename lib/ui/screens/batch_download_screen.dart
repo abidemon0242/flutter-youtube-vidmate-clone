@@ -194,7 +194,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Paste one YouTube URL per line. Tube Arena will check available video streams and choose up to 720p when available.',
+            'Paste one YouTube URL per line. Tube Arena will select the best available stream that already includes audio. Some videos may only offer lower resolutions.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 16),
