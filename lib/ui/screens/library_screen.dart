@@ -55,6 +55,92 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
   }
 
+  Future<void> _renameFolder(String oldName) async {
+    final controller = TextEditingController(text: oldName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rename folder'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Folder name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (newName == null || newName.isEmpty || newName == oldName || !mounted) return;
+    final renamed = await fileManager.renameFolder(oldName, newName);
+    if (!mounted) return;
+    if (renamed) {
+      await _loadFolders();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not rename folder. Check the name and try again.')),
+      );
+    }
+  }
+
+  Future<void> _deleteFolder(String folderName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete folder?'),
+        content: Text('Delete "$folderName" and all files inside it?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final deleted = await fileManager.deleteFolder(folderName);
+    if (!mounted) return;
+    if (deleted) {
+      selectedFolders.remove(folderName);
+      multiSelectMode = selectedFolders.isNotEmpty;
+      await _loadFolders();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete this folder.')),
+      );
+    }
+  }
+
+  Future<void> _deleteSelectedFolders() async {
+    final selected = List<String>.from(selectedFolders);
+    var deleted = 0;
+    for (final folder in selected) {
+      if (await fileManager.deleteFolder(folder)) deleted++;
+    }
+    if (!mounted) return;
+    setState(() {
+      selectedFolders.clear();
+      multiSelectMode = false;
+    });
+    await _loadFolders();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$deleted folder(s) deleted')),
+    );
+  }
+
   void _createNewFolder() {
     showDialog(
       context: context,
@@ -96,8 +182,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Library'),
+        title: Text(multiSelectMode ? '${selectedFolders.length} selected' : 'My Library'),
         actions: [
-          if (!multiSelectMode)
+          if (multiSelectMode)
+            IconButton(
+              tooltip: 'Delete selected folders',
+              onPressed: _deleteSelectedFolders,
+              icon: const Icon(Icons.delete_outline),
+            )
+          else
             IconButton(
               onPressed: _createNewFolder,
               icon: const Icon(Icons.add_rounded),
@@ -121,6 +214,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
               folderName: folder,
               fileCount: folderCounts[folder] ?? 0,
               isSelected: selected,
+              onRename: () => _renameFolder(folder),
+              onDelete: () => _deleteFolder(folder),
               onTap: () {
                 if (multiSelectMode) {
                   _toggleFolderSelection(folder);
