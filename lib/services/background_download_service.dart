@@ -239,7 +239,15 @@ class BackgroundDownloadService {
 
       final normalizedFormat = format.toLowerCase();
       final fileExt = isAudioOnly
-          ? (normalizedFormat.contains('mp3') ? '.mp3' : '.m4a')
+          ? (normalizedFormat.contains('mp3')
+              ? '.mp3'
+              : normalizedFormat.contains('webm')
+                  ? '.webm'
+                  : normalizedFormat.contains('aac')
+                      ? '.aac'
+                      : normalizedFormat.contains('wav')
+                          ? '.wav'
+                          : '.m4a')
           : (normalizedFormat.contains('webm') ? '.webm' : '.mp4');
 
       final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
