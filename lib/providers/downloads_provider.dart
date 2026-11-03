@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../services/background_download_service.dart';
+import '../services/local_file_manager_service.dart';
 
 class DownloadEntry {
   DownloadEntry({
@@ -89,6 +90,7 @@ class DownloadsProvider extends ChangeNotifier {
   final Set<String> _selectedIds = {};
   final BackgroundDownloadService _downloadService =
       BackgroundDownloadService();
+  final LocalFileManagerService _fileManager = LocalFileManagerService();
 
   late final Future<File> _storageFile = _createStorageFile();
   StreamSubscription<Map<String, AppDownloadTask>>? _serviceSubscription;
@@ -218,10 +220,9 @@ class DownloadsProvider extends ChangeNotifier {
       if (path.isNotEmpty) {
         final file = File(path);
         if (await file.exists()) {
-          try {
-            await file.delete();
-          } catch (error) {
-            debugPrint('Could not delete download file: $error');
+          final deleted = await _fileManager.deleteFile(path);
+          if (!deleted) {
+            debugPrint('Could not safely delete download file: $path');
           }
         }
       }
@@ -246,12 +247,7 @@ class DownloadsProvider extends ChangeNotifier {
     if (item.savedPath.isNotEmpty) {
       final file = File(item.savedPath);
       if (await file.exists()) {
-        try {
-          await file.delete();
-        } catch (error) {
-          debugPrint('Could not delete download file: $error');
-          deleted = false;
-        }
+        deleted = await _fileManager.deleteFile(item.savedPath);
       }
     }
     await _downloadService.forgetTask(item.id);
