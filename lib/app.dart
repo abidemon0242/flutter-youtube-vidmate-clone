@@ -6,6 +6,7 @@ import 'ui/screens/home_screen.dart';
 import 'ui/screens/watch_screen.dart';
 import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/library_screen.dart';
+import 'ui/screens/folder_contents_screen.dart';
 
 class TubeArenaApp extends StatelessWidget {
   const TubeArenaApp({super.key});
@@ -30,6 +31,14 @@ class TubeArenaApp extends StatelessWidget {
         GoRoute(
           path: '/library',
           builder: (context, state) => const LibraryScreen(),
+          routes: [
+            GoRoute(
+              path: ':folder',
+              builder: (context, state) => FolderContentsScreen(
+                folderName: state.pathParameters['folder']!,
+              ),
+            ),
+          ],
         ),
       ],
     );
