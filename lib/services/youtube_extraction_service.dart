@@ -159,8 +159,8 @@ class YoutubeExtractionService {
       }
 
       available.sort((a, b) {
-        final aHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
-        final bHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+        final aHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
+        final bHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
         if (aHeight != bHeight) return bHeight.compareTo(aHeight);
         return b.fps.compareTo(a.fps);
       });
