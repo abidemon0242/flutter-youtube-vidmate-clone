@@ -359,8 +359,10 @@ class BackgroundDownloadService {
         return null;
       }
 
-      final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim().substring(0, title.replaceAll(RegExp(r'[^\w\s-]'), '').trim().length.clamp(0, 80));
-      final safeId = id.replaceAll(RegExp(r'[^\w-]'), '').substring(0, id.replaceAll(RegExp(r'[^\w-]'), '').length.clamp(0, 40));
+      final normalizedTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
+      final safeTitle = normalizedTitle.length > 80 ? normalizedTitle.substring(0, 80) : normalizedTitle;
+      final normalizedId = id.replaceAll(RegExp(r'[^\w-]'), '');
+      final safeId = normalizedId.length > 40 ? normalizedId.substring(0, 40) : normalizedId;
       if (safeId.isEmpty) return null;
       final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
       final safeFileName = '$fileBase$fileExt';
