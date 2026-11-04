@@ -61,6 +61,37 @@ jobs:
           manifest.write_text(text)
           PY
 
+      - name: Set Android minimum SDK for FFmpegKit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          candidates = [
+              (Path("android/app/build.gradle"), [
+                  (r"(?m)^(\\s*)minSdkVersion\\s+flutter\\.minSdkVersion\\s*$", r"\\g<1>minSdkVersion 24"),
+                  (r"(?m)^(\\s*)minSdkVersion\\s*=\\s*flutter\\.minSdkVersion\\s*$", r"\\g<1>minSdkVersion = 24"),
+                  (r"(?m)^(\\s*)minSdk\\s*=\\s*flutter\\.minSdkVersion\\s*$", r"\\g<1>minSdk = 24"),
+              ]),
+              (Path("android/app/build.gradle.kts"), [
+                  (r"(?m)^(\\s*)minSdk\\s*=\\s*flutter\\.minSdkVersion\\s*$", r"\\g<1>minSdk = 24"),
+              ]),
+          ]
+          updated = False
+          for path, patterns in candidates:
+              if not path.exists():
+                  continue
+              content = path.read_text()
+              for pattern, replacement in patterns:
+                  content, count = re.subn(pattern, replacement, content)
+                  updated = updated or count > 0
+              path.write_text(content)
+          if not updated:
+              raise SystemExit("Could not set Android minSdk to 24 in generated Gradle configuration.")
+          PY
+
       - name: Ensure declared asset directories exist
         run: mkdir -p assets/images assets/icons
 
@@ -136,6 +167,37 @@ jobs:
                   1,
               )
           manifest.write_text(text)
+          PY
+
+      - name: Set Android minimum SDK for FFmpegKit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          candidates = [
+              (Path("android/app/build.gradle"), [
+                  (r"(?m)^(\\s*)minSdkVersion\\s+flutter\\.minSdkVersion\\s*$", r"\\g<1>minSdkVersion 24"),
+                  (r"(?m)^(\\s*)minSdkVersion\\s*=\\s*flutter\\.minSdkVersion\\s*$", r"\\g<1>minSdkVersion = 24"),
+                  (r"(?m)^(\\s*)minSdk\\s*=\\s*flutter\\.minSdkVersion\\s*$", r"\\g<1>minSdk = 24"),
+              ]),
+              (Path("android/app/build.gradle.kts"), [
+                  (r"(?m)^(\\s*)minSdk\\s*=\\s*flutter\\.minSdkVersion\\s*$", r"\\g<1>minSdk = 24"),
+              ]),
+          ]
+          updated = False
+          for path, patterns in candidates:
+              if not path.exists():
+                  continue
+              content = path.read_text()
+              for pattern, replacement in patterns:
+                  content, count = re.subn(pattern, replacement, content)
+                  updated = updated or count > 0
+              path.write_text(content)
+          if not updated:
+              raise SystemExit("Could not set Android minSdk to 24 in generated Gradle configuration.")
           PY
 
       - name: Ensure declared asset directories exist
