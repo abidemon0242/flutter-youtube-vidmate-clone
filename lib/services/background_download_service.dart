@@ -296,7 +296,7 @@ class BackgroundDownloadService {
           continue;
         }
 
-        task.progress = pluginTask.progress.toDouble().clamp(0, 100);
+        task.progress = pluginTask.progress.toDouble().clamp(0, 100).toDouble();
         task.status = _mapStatus(pluginTask.status);
       }
       await _persistMetadata();
