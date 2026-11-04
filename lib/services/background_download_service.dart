@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:isolate';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
