@@ -69,11 +69,11 @@ class MediaSessionService {
       logger.i('Initializing MediaSessionService...');
       _audioHandler = await AudioService.init(
         builder: () => TubeArenaAudioHandler(),
-        config: AudioServiceConfig(
+        config: const AudioServiceConfig(
           androidNotificationChannelId: 'com.tubearena.audio',
           androidNotificationChannelName: 'Tube Arena Playback',
           androidNotificationOngoing: true,
-          androidStopForegroundOnPause: false,
+          androidStopForegroundOnPause: true,
         ),
       );
       logger.i('MediaSessionService initialized successfully');
@@ -98,7 +98,15 @@ class MediaSessionService {
     );
   }
 
-  Future<void> playFromLockScreen() async => _audioHandler?.play();
-  Future<void> pauseFromLockScreen() async => _audioHandler?.pause();
-  Future<void> stopPlayback() async => _audioHandler?.stop();
+  Future<void> playFromLockScreen() async {
+    await _audioHandler?.play();
+  }
+
+  Future<void> pauseFromLockScreen() async {
+    await _audioHandler?.pause();
+  }
+
+  Future<void> stopPlayback() async {
+    await _audioHandler?.stop();
+  }
 }
