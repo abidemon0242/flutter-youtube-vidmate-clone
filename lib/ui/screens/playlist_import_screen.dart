@@ -8,7 +8,7 @@ class PlaylistImportScreen extends StatefulWidget {
 }
 class _PlaylistImportScreenState extends State<PlaylistImportScreen>{
   final controller=TextEditingController();bool loading=false;String? error;
-  Future<void> import()async{FocusScope.of(context).unfocus();setState(()=>{loading=true,error=null});
+  Future<void> import()async{FocusScope.of(context).unfocus();setState(() { loading=true; error=null; });
     try{final p=await context.read<PersonalizationService>().importPlaylist(controller.text);if(!mounted)return;ScaffoldMessenger.of(context).showSnackBar(SnackBar(content:Text('Imported '+p.title+' ('+p.videos.length.toString()+' videos)')));controller.clear();}
     on PlaylistImportException catch(e){if(mounted)setState(()=>error=e.message);}catch(_){if(mounted)setState(()=>error='Playlist import failed. Try again.');}finally{if(mounted)setState(()=>loading=false);}
   }
