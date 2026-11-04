@@ -25,7 +25,7 @@ class FolderCard extends StatelessWidget {
       onLongPress: onLongPress,
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryStart.withOpacity(0.2) : AppColors.card,
+          color: isSelected ? AppColors.primaryStart.withValues(alpha: 0.2) : AppColors.card,
           borderRadius: BorderRadius.circular(18),
           border: isSelected
               ? Border.all(color: AppColors.primaryStart, width: 2)
