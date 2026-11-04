@@ -74,7 +74,7 @@ class LocalFileManagerService {
   Future<bool> createFolder(String folderName) async {
     try {
       final safeName = _validatedFolderName(folderName);
-      if (safeName == null) return false;
+      if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
       if (!folder.existsSync()) {
         await folder.create(recursive: true);
@@ -92,7 +92,7 @@ class LocalFileManagerService {
   Future<bool> deleteFolder(String folderName) async {
     try {
       final safeName = _validatedFolderName(folderName);
-      if (safeName == null) return false;
+      if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
       if (folder.existsSync()) {
         await folder.delete(recursive: true);
@@ -111,7 +111,8 @@ class LocalFileManagerService {
     try {
       final safeOldName = _validatedFolderName(oldName);
       final safeNewName = _validatedFolderName(newName);
-      if (safeOldName == null || safeNewName == null || safeOldName == safeNewName) return false;
+      if (safeOldName == null || safeNewName == null || safeOldName == safeNewName ||
+          safeOldName.toLowerCase() == 'downloads' || safeNewName.toLowerCase() == 'downloads') return false;
       final oldFolder = Directory('${_baseDirectory.path}/$safeOldName');
       final newFolder = Directory('${_baseDirectory.path}/$safeNewName');
 
@@ -193,6 +194,10 @@ class LocalFileManagerService {
       if (safeTarget == null) return false;
       final file = File(filePath);
       if (await file.exists()) {
+        final basePath = await _baseDirectory.resolveSymbolicLinks();
+        final sourcePath = await file.resolveSymbolicLinks();
+        final allowedPrefix = '$basePath${Platform.pathSeparator}';
+        if (!sourcePath.startsWith(allowedPrefix)) return false;
         final target = Directory('${_baseDirectory.path}/$safeTarget');
         await target.create(recursive: true);
         final fileName = file.uri.pathSegments.last;
@@ -285,7 +290,9 @@ class LocalFileManagerService {
   /// Clear all downloads
   Future<bool> clearAllDownloads() async {
     try {
-      final items = _baseDirectory.listSync();
+      final downloadsDirectory = Directory('${_baseDirectory.path}/Downloads');
+      if (!await downloadsDirectory.exists()) return true;
+      final items = downloadsDirectory.listSync();
       for (final item in items) {
         if (item is Directory) {
           await item.delete(recursive: true);
