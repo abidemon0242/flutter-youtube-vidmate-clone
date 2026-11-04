@@ -16,6 +16,7 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> {
   late final LocalFileManagerService fileManager;
   List<String> folders = [];
+  final Map<String, int> folderFileCounts = {};
   final Set<String> selectedFolders = {};
 
   @override
@@ -27,8 +28,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   Future<void> _loadFolders() async {
     final items = await fileManager.getFolders();
+    final counts = <String, int>{};
+    for (final folder in items) {
+      counts[folder.name] = (await fileManager.getFilesInFolder(folder.name)).length;
+    }
     if (!mounted) return;
-    setState(() => folders = items.map((item) => item.name).toList());
+    setState(() {
+      folders = items.map((item) => item.name).toList();
+      folderFileCounts
+        ..clear()
+        ..addAll(counts);
+    });
   }
 
   Future<void> _createNewFolder() async {
@@ -72,7 +82,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   final selected = selectedFolders.contains(folder);
                   return FolderCard(
                     folderName: folder,
-                    fileCount: 0,
+                    fileCount: folderFileCounts[folder] ?? 0,
                     isSelected: selected,
                     onTap: () {
                       if (selectedFolders.isNotEmpty) {
