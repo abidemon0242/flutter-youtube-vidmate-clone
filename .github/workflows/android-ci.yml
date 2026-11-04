@@ -131,6 +131,17 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Build optimized split release APKs
+        run: flutter build apk --release --split-per-abi --no-pub
+
+      - name: Upload split release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: tube-arena-release-apks
+          path: build/app/outputs/flutter-apk/*-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
   android-emulator-smoke-test:
     name: Install and launch on Android emulator
     needs: flutter-checks
