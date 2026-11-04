@@ -202,7 +202,7 @@ class BackgroundDownloadService {
     }
 
     final source = File(task.savePath);
-    final temporary = File('${task.savePath}.compat.tmp.mp4');
+    final temporary = File('${task.savePath}.compat.tmp.3gp');
     final backup = File('${task.savePath}.source-backup');
     task.status = DownloadStatus.converting;
     await _persistMetadata();
@@ -428,7 +428,7 @@ class BackgroundDownloadService {
                       : normalizedFormat.contains('wav')
                           ? '.wav'
                           : '.m4a')
-          : (buttonPhoneCompatible ? '.mp4' : (normalizedFormat.contains('webm') ? '.webm' : '.mp4'));
+          : (buttonPhoneCompatible ? '.3gp' : (normalizedFormat.contains('webm') ? '.webm' : '.mp4'));
 
       final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
       final parsedUrl = Uri.tryParse(downloadUrl);
