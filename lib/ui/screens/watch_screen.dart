@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../modals/download_quality_modal.dart';
+import '../../models/video_model.dart';
 
 class WatchScreen extends StatefulWidget {
-  const WatchScreen({super.key});
+  const WatchScreen({super.key, required this.video});
+
+  final VideoModel video;
 
   @override
   State<WatchScreen> createState() => _WatchScreenState();
@@ -13,19 +15,25 @@ class WatchScreen extends StatefulWidget {
 
 class _WatchScreenState extends State<WatchScreen> {
   late final VideoPlayerController _controller;
-  bool isAudioOnly = false;
-  bool isPlaying = false;
+  bool _isPlaying = false;
+  bool _playerReady = false;
+  bool _playerFailed = false;
+  bool _saved = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.networkUrl(
-      Uri.parse(
-        'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
-      ),
-    )..initialize().then((_) {
-      setState(() {});
-    });
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.video.playbackUrl));
+    _initializePlayer();
+  }
+
+  Future<void> _initializePlayer() async {
+    try {
+      await _controller.initialize();
+      if (mounted) setState(() => _playerReady = true);
+    } catch (_) {
+      if (mounted) setState(() => _playerFailed = true);
+    }
   }
 
   @override
@@ -34,201 +42,77 @@ class _WatchScreenState extends State<WatchScreen> {
     super.dispose();
   }
 
-  void _showDownloadPicker() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DownloadQualityModal(
-        videoTitle: 'Sample Video Title',
-        onDownloadAudio: (format, bitrate) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Downloading audio: $format $bitrate')),
-          );
-        },
-        onDownloadVideo: (quality, format) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Downloading video: $quality $format')),
-          );
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final video = widget.video;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Watch'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Watch')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Video Player
             AspectRatio(
-              aspectRatio: 16 / 9,
+              aspectRatio: _playerReady && _controller.value.aspectRatio > 0
+                  ? _controller.value.aspectRatio
+                  : 16 / 9,
               child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  color: Colors.black,
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    if (_controller.value.isInitialized)
-                      VideoPlayer(_controller)
-                    else
-                      const Center(child: CircularProgressIndicator()),
-                    if (!isPlaying)
-                      FloatingActionButton(
-                        onPressed: () {
-                          _controller.play();
-                          setState(() => isPlaying = true);
-                        },
-                        backgroundColor: AppColors.primaryStart,
-                        child: const Icon(Icons.play_arrow),
-                      )
-                    else
-                      FloatingActionButton(
-                        onPressed: () {
-                          _controller.pause();
-                          setState(() => isPlaying = false);
-                        },
-                        backgroundColor: AppColors.primaryStart,
-                        child: const Icon(Icons.pause),
-                      ),
-                  ],
-                ),
+                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)),
+                clipBehavior: Clip.antiAlias,
+                child: _playerFailed
+                    ? const Center(child: Text('Could not load this demo video', style: TextStyle(color: Colors.white)))
+                    : !_playerReady
+                        ? const Center(child: CircularProgressIndicator())
+                        : Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              VideoPlayer(_controller),
+                              IconButton.filled(
+                                onPressed: () async {
+                                  if (_controller.value.isPlaying) {
+                                    await _controller.pause();
+                                  } else {
+                                    await _controller.play();
+                                  }
+                                  if (mounted) setState(() => _isPlaying = _controller.value.isPlaying);
+                                },
+                                iconSize: 42,
+                                icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
+                              ),
+                            ],
+                          ),
               ),
             ),
             const SizedBox(height: 16),
-
-            // Title and Audio-Only Toggle
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Build a YouTube-like media app with beautiful UI',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Tube Arena • 2.4M views • 4 days ago',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => setState(() => isAudioOnly = !isAudioOnly),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      color: isAudioOnly ? AppColors.primaryStart : AppColors.card,
-                    ),
-                    child: Icon(
-                      isAudioOnly ? Icons.volume_up : Icons.videocam,
-                      color: isAudioOnly ? Colors.white : AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            Text(video.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text('${video.channelName} • ${video.views}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             const SizedBox(height: 20),
-
-            // Action Buttons
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _actionPill('Like', Icons.thumb_up_outlined, () {}),
-                  _actionPill('Dislike', Icons.thumb_down_outlined, () {}),
-                  _actionPill('Share', Icons.share_outlined, () {}),
-                  _actionPill('Download', Icons.download_rounded, _showDownloadPicker),
-                  _actionPill('Save', Icons.bookmark_border_rounded, () {}),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Channel Info
-            const Row(
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
               children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: NetworkImage(
-                    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-                  ),
-                ),
-                SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tube Arena Official',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    Text(
-                      '1.2M subscribers',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                    ),
-                  ],
-                ),
-                Spacer(),
-                ElevatedButton(
-                  onPressed: null,
-                  child: Text('Subscribe'),
-                ),
+                ActionChip(label: const Text('Like'), avatar: const Icon(Icons.thumb_up_outlined, size: 18), onPressed: () => _notice('Likes are not connected to an account in this demo.')),
+                ActionChip(label: const Text('Share'), avatar: const Icon(Icons.share_outlined, size: 18), onPressed: () => _notice('Sharing is not configured yet.')),
+                ActionChip(label: const Text('Download'), avatar: const Icon(Icons.download_rounded, size: 18), onPressed: () => _notice('Downloads are not enabled for demo videos yet.')),
+                ActionChip(label: Text(_saved ? 'Saved' : 'Save'), avatar: Icon(_saved ? Icons.bookmark : Icons.bookmark_border, size: 18), onPressed: () => setState(() => _saved = !_saved)),
               ],
             ),
             const SizedBox(height: 24),
-
-            // Description
-            ExpansionTile(
-              title: const Text('Description'),
-              children: const [
-                Text(
-                  'Tube Arena is a cross-platform media app built with Flutter, featuring YouTube-inspired UI, advanced download capabilities with multiple quality options, local library management, and a native ad-blocker.',
-                  style: TextStyle(color: AppColors.textSecondary, height: 1.6),
-                ),
-              ],
-            ),
+            Row(children: [
+              CircleAvatar(backgroundImage: NetworkImage(video.channelAvatar)),
+              const SizedBox(width: 12),
+              Expanded(child: Text(video.channelName, style: const TextStyle(fontWeight: FontWeight.w700))),
+            ]),
+            const SizedBox(height: 20),
+            const Text('This prototype uses mock feed data and a sample video stream.'),
           ],
         ),
       ),
     );
   }
 
-  Widget _actionPill(String label, IconData icon, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: AppColors.card,
-          ),
-          child: Row(
-            children: [
-              Icon(icon, size: 18),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void _notice(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
