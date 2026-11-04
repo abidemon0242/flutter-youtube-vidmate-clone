@@ -67,7 +67,7 @@ class AdBlockerService {
       return true;
     }
 
-    final url = '${uri.path}?'.toLowerCase() + uri.query.toLowerCase();
+    final url = '${host}${uri.path}?${uri.query}'.toLowerCase();
     return _blockedUrlFragments.any(url.contains);
   }
 
