@@ -21,8 +21,7 @@ class FFmpegMergeService {
 
   Future<bool> _run(List<String> arguments) async {
     try {
-      final command = arguments.map(_quote).join(' ');
-      final session = await FFmpegKit.execute(command);
+      final session = await FFmpegKit.executeWithArguments(arguments);
       final returnCode = await session.getReturnCode();
       if (ReturnCode.isSuccess(returnCode)) return true;
       logger.e('FFmpeg failed: ${await session.getFailStackTrace()}');
