@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../data/repositories/mock_youtube_repository.dart';
 import '../../models/video_model.dart';
-import '../../providers/downloads_provider.dart';
 import '../widgets/video_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -18,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final MockYouTubeRepository repository;
   int selectedCategory = 0;
   bool multiSelectMode = false;
+  String searchQuery = '';
   final Set<String> selectedIds = {};
 
   @override
@@ -26,85 +27,110 @@ class _HomeScreenState extends State<HomeScreen> {
     repository = context.read<MockYouTubeRepository>();
   }
 
-  List<VideoModel> get videos => repository.getTrendingVideos();
+  List<VideoModel> get videos {
+    final allVideos = repository.getTrendingVideos();
+    final categories = repository.getCategories();
+    final category = selectedCategory < categories.length
+        ? categories[selectedCategory]
+        : 'All';
+    final categoryVideos = category == 'All'
+        ? allVideos
+        : allVideos.where((video) => video.category == category).toList();
+    final query = searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return categoryVideos;
+    return categoryVideos.where((video) =>
+      video.title.toLowerCase().contains(query) ||
+      video.channelName.toLowerCase().contains(query),
+    ).toList();
+  }
 
   void _toggleSelection(String id) {
     setState(() {
-      if (selectedIds.contains(id)) {
-        selectedIds.remove(id);
-      } else {
-        selectedIds.add(id);
-      }
+      if (!selectedIds.add(id)) selectedIds.remove(id);
       multiSelectMode = selectedIds.isNotEmpty;
     });
+  }
+
+  Future<void> _search() async {
+    final controller = TextEditingController(text: searchQuery);
+    final query = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Search videos'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Title or channel'),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, controller.text), child: const Text('Search')),
+        ],
+      ),
+    );
+    if (query != null && mounted) setState(() => searchQuery = query);
+    controller.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final categories = repository.getCategories();
+    final visibleVideos = videos;
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: Row(
-          children: [
-            const Icon(Icons.menu_rounded, color: AppColors.white),
-            const SizedBox(width: 12),
-            const Text('Tube Arena'),
-          ],
-        ),
+        title: const Row(children: [
+          Icon(Icons.menu_rounded, color: AppColors.white),
+          SizedBox(width: 12),
+          Text('Tube Arena'),
+        ]),
         actions: [
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.search_rounded),
-          ),
+          IconButton(onPressed: _search, tooltip: 'Search', icon: const Icon(Icons.search_rounded)),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            height: 54,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              itemBuilder: (context, index) {
-                final isSelected = index == selectedCategory;
-                return ChoiceChip(
-                  label: Text(categories[index]),
-                  selected: isSelected,
-                  onSelected: (_) => setState(() => selectedCategory = index),
-                );
-              },
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
+      body: Column(children: [
+        SizedBox(
+          height: 54,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            itemBuilder: (context, index) => ChoiceChip(
+              label: Text(categories[index]),
+              selected: index == selectedCategory,
+              onSelected: (_) => setState(() => selectedCategory = index),
             ),
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
           ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-              itemCount: videos.length,
-              itemBuilder: (context, index) {
-                final video = videos[index];
-                final checked = selectedIds.contains(video.id);
-                return VideoCard(
-                  video: video,
-                  multiSelectMode: multiSelectMode,
-                  isSelected: checked,
-                  onLongPress: () => _toggleSelection(video.id),
-                  onCheckboxTap: () => _toggleSelection(video.id),
-                  onTap: () async {
-                    if (multiSelectMode) {
-                      _toggleSelection(video.id);
-                      return;
-                    }
-                    await Navigator.pushNamed(context, '/watch');
+        ),
+        Expanded(
+          child: visibleVideos.isEmpty
+              ? const Center(child: Text('No matching videos'))
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                  itemCount: visibleVideos.length,
+                  itemBuilder: (context, index) {
+                    final video = visibleVideos[index];
+                    return VideoCard(
+                      video: video,
+                      multiSelectMode: multiSelectMode,
+                      isSelected: selectedIds.contains(video.id),
+                      onLongPress: () => _toggleSelection(video.id),
+                      onCheckboxTap: () => _toggleSelection(video.id),
+                      onTap: () {
+                        if (multiSelectMode) {
+                          _toggleSelection(video.id);
+                        } else {
+                          context.push('/watch', extra: video);
+                        }
+                      },
+                    );
                   },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+                ),
+        ),
+      ]),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: AppColors.background,
@@ -112,16 +138,8 @@ class _HomeScreenState extends State<HomeScreen> {
         unselectedItemColor: AppColors.textSecondary,
         currentIndex: 0,
         onTap: (index) {
-          switch (index) {
-            case 0:
-              break;
-            case 1:
-              Navigator.pushNamed(context, '/downloads');
-              break;
-            case 2:
-              Navigator.pushNamed(context, '/library');
-              break;
-          }
+          if (index == 1) context.go('/downloads');
+          if (index == 2) context.go('/library');
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
@@ -131,32 +149,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: multiSelectMode
           ? FloatingActionButton.extended(
-              onPressed: () {
-                final downloads = context.read<DownloadsProvider>();
-                for (final id in selectedIds) {
-                  downloads.addDownload(
-                    DownloadEntry(
-                      id: id,
-                      title: 'Queued $id',
-                      url: 'https://example.com/video/$id',
-                      size: '42 MB',
-                      format: '1080p',
-                      progress: 0.0,
-                      savedPath: '/storage/emulated/0/Download/tube_arena/$id.mp4',
-                    ),
-                  );
-                }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${selectedIds.length} video(s) added to batch download'),
-                  ),
-                );
-                setState(() {
-                  selectedIds.clear();
-                  multiSelectMode = false;
-                });
-              },
-              label: const Text('Download All'),
+              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Batch downloads are not available in this demo yet.')),
+              ),
+              label: Text('Download selected (${selectedIds.length})'),
               icon: const Icon(Icons.download_rounded),
             )
           : null,
