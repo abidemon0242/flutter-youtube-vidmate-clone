@@ -232,9 +232,16 @@ class LocalFileManagerService {
   Future<bool> deleteFile(String filePath) async {
     try {
       final file = File(filePath);
-      if (file.existsSync()) {
+      if (await file.exists()) {
+        final basePath = await _baseDirectory.resolveSymbolicLinks();
+        final filePathResolved = await file.resolveSymbolicLinks();
+        final allowedPrefix = '$basePath${Platform.pathSeparator}';
+        if (!filePathResolved.startsWith(allowedPrefix)) {
+          logger.w('Refusing to delete a file outside the Tube Arena library.');
+          return false;
+        }
         await file.delete();
-        logger.i('File deleted: $filePath');
+        logger.i('File deleted from library: $filePathResolved');
         return true;
       }
       return false;
