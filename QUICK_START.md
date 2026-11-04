@@ -1,45 +1,34 @@
-# Tube Arena - Quick Phone Setup
+# Tube Arena — Quick Start
 
-**FASTEST WAY TO RUN ON YOUR PHONE (from your phone only):**
+Tube Arena is currently an **Android-first Flutter prototype**. A browser/web preview is not a supported run target because the project includes native Android media plugins.
 
-## 3-Minute Setup
+## Get an Android debug build
 
-1. **Open this link on your phone browser:**
-   ```
-   https://github.com/codespaces/new?repo=abidemon0242/flutter-youtube-vidmate-clone
-   ```
+1. Open the repository's **Actions** tab.
+2. Open a completed **Tube Arena Android CI** run.
+3. In the **Flutter analyze, tests and Android build** job, check that analysis, tests and APK build passed.
+4. Download the `tube-arena-debug-apk` artifact if it is available.
+5. Transfer the APK to your Android device and install it.
 
-2. **Click "Create codespace on main"** and wait 3 minutes
+The emulator smoke-test job is a separate check. An APK artifact may exist even if that later smoke test fails; check the individual job results.
 
-3. **Once loaded, click Terminal and paste:**
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/abidemon0242/flutter-youtube-vidmate-clone/main/setup_codespaces.sh | bash
-   ```
+## Build locally
 
-4. **After setup finishes, run:**
-   ```bash
-   flutter run -d chrome
-   ```
+With Flutter and the Android SDK installed:
 
-5. **Click the Ports tab → find port 59403 → copy the public URL**
+```bash
+flutter pub get
+dart format lib test
+flutter analyze
+flutter test
+flutter build apk --debug
+```
 
-6. **Open that URL on your phone and enjoy Tube Arena! 🎉**
+## Current prototype scope
 
----
+- Mock video feed, local search and category filtering
+- Sample network video playback
+- Local folder creation and browsing
+- Downloads list UI and safe file-record deletion
 
-## What's Included
-
-✅ Full YouTube-style UI  
-✅ Video feed & search  
-✅ Watch screen with player  
-ℹ️ Download UI placeholder (real downloads are not enabled yet)  
-✅ Batch selection  
-✅ Local library management  
-✅ Ad-blocker logic  
-✅ Dark modern theme  
-
----
-
-## Still Need Help?
-
-See **PHONE_SETUP_GUIDE.md** for detailed step-by-step instructions.
+Real YouTube downloads, download progress callbacks, network ad interception, and player-connected lock-screen controls are **not yet integrated end-to-end**. See [README.md](README.md) for details.
