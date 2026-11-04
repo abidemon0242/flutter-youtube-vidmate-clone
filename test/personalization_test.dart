@@ -5,7 +5,7 @@ import 'package:tube_arena/services/personalization_service.dart';
 
 void main(){
  late Directory temp;late PersonalizationService profile;
- setUp(()async{temp=await Directory.systemTemp.createTemp('ta-profile-');profile=PersonalizationService(directoryResolver:()async=>temp,apiKey:'');await profile.initialize();});
+ setUp(()async{temp=await Directory.systemTemp.createTemp('ta-profile-');profile=PersonalizationService(directoryResolver:()async=>temp,apiKey:'');await profile.initialize();await profile.setConsent(true);});
  tearDown(()async{profile.dispose();await temp.delete(recursive:true);});
  test('search and likes improve ranking of related content',()async{
   await profile.record(type:'search',query:'Flutter programming');
