@@ -6,6 +6,7 @@ import 'dart:ui' show IsolateNameServer;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_downloader/flutter_downloader.dart' as fd;
+import 'ffmpeg_merge_service.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -23,6 +24,7 @@ class AppDownloadTask {
     this.status = DownloadStatus.pending,
     this.progress = 0,
     this.pausedByWifiPolicy = false,
+    this.buttonPhoneCompatible = false,
   });
 
   final String id;
@@ -37,6 +39,7 @@ class AppDownloadTask {
   DownloadStatus status;
   double progress;
   bool pausedByWifiPolicy;
+  final bool buttonPhoneCompatible;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -51,6 +54,7 @@ class AppDownloadTask {
         'status': status.name,
         'progress': progress,
         'pausedByWifiPolicy': pausedByWifiPolicy,
+        'buttonPhoneCompatible': buttonPhoneCompatible,
       };
 
   factory AppDownloadTask.fromJson(Map<String, dynamic> json) {
@@ -71,6 +75,7 @@ class AppDownloadTask {
       ),
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
       pausedByWifiPolicy: json['pausedByWifiPolicy'] as bool? ?? false,
+      buttonPhoneCompatible: json['buttonPhoneCompatible'] as bool? ?? false,
     );
   }
 }
@@ -78,6 +83,7 @@ class AppDownloadTask {
 enum DownloadStatus {
   pending,
   downloading,
+  converting,
   paused,
   completed,
   failed,
@@ -171,9 +177,73 @@ class BackgroundDownloadService {
 
     task.progress = progress.toDouble();
     if (statusIndex >= 0 && statusIndex < fd.DownloadTaskStatus.values.length) {
-      task.status = _mapStatus(fd.DownloadTaskStatus.values[statusIndex]);
+      final nativeStatus = fd.DownloadTaskStatus.values[statusIndex];
+      if (nativeStatus == fd.DownloadTaskStatus.complete &&
+          task.buttonPhoneCompatible &&
+          !task.isAudioOnly) {
+        if (task.status != DownloadStatus.converting &&
+            task.status != DownloadStatus.completed) {
+          unawaited(_finalizeButtonPhoneDownload(task));
+        }
+      } else {
+        task.status = _mapStatus(nativeStatus);
+      }
     }
     _persistMetadata();
+    _notifyListeners();
+  }
+
+  Future<void> _finalizeButtonPhoneDownload(AppDownloadTask task) async {
+    if (!task.buttonPhoneCompatible || task.isAudioOnly) {
+      task.status = DownloadStatus.completed;
+      await _persistMetadata();
+      _notifyListeners();
+      return;
+    }
+
+    final source = File(task.savePath);
+    final temporary = File('${task.savePath}.compat.tmp.mp4');
+    final backup = File('${task.savePath}.source-backup');
+    task.status = DownloadStatus.converting;
+    await _persistMetadata();
+    _notifyListeners();
+
+    try {
+      if (!await source.exists() || await source.length() == 0) {
+        throw StateError('The downloaded source file is missing or empty.');
+      }
+      if (await temporary.exists()) await temporary.delete();
+      if (await backup.exists()) await backup.delete();
+
+      final converted = await FFmpegMergeService().convertForButtonPhone(
+        inputPath: source.path,
+        outputPath: temporary.path,
+      );
+      if (!converted || !await temporary.exists() || await temporary.length() < 1024) {
+        throw StateError('The feature-phone conversion did not produce a valid MP4.');
+      }
+
+      await source.rename(backup.path);
+      try {
+        await temporary.rename(source.path);
+        await backup.delete();
+      } catch (_) {
+        if (!await source.exists() && await backup.exists()) {
+          await backup.rename(source.path);
+        }
+        rethrow;
+      }
+
+      task.progress = 100;
+      task.status = DownloadStatus.completed;
+      logger.i('Button-phone compatible MP4 ready: ${task.savePath}');
+    } catch (error, stackTrace) {
+      if (await temporary.exists()) await temporary.delete();
+      task.status = DownloadStatus.failed;
+      logger.e('Button-phone conversion failed for ${task.id}', error: error, stackTrace: stackTrace);
+    }
+
+    await _persistMetadata();
     _notifyListeners();
   }
 
@@ -284,7 +354,14 @@ class BackgroundDownloadService {
         final pluginTask = tasksById[pluginTaskId];
         if (pluginTask == null) continue;
         task.progress = pluginTask.progress.toDouble();
-        task.status = _mapStatus(pluginTask.status);
+        if (pluginTask.status == fd.DownloadTaskStatus.complete &&
+            task.buttonPhoneCompatible &&
+            !task.isAudioOnly &&
+            task.status != DownloadStatus.completed) {
+          await _finalizeButtonPhoneDownload(task);
+        } else {
+          task.status = _mapStatus(pluginTask.status);
+        }
       }
       await _persistMetadata();
     } catch (error) {
@@ -315,6 +392,7 @@ class BackgroundDownloadService {
     required String quality,
     required String format,
     required bool isAudioOnly,
+    bool buttonPhoneCompatible = false,
   }) async {
     try {
       if (!_initialized) await initialize();
@@ -347,7 +425,7 @@ class BackgroundDownloadService {
                       : normalizedFormat.contains('wav')
                           ? '.wav'
                           : '.m4a')
-          : (normalizedFormat.contains('webm') ? '.webm' : '.mp4');
+          : (buttonPhoneCompatible ? '.mp4' : (normalizedFormat.contains('webm') ? '.webm' : '.mp4'));
 
       final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
       final parsedUrl = Uri.tryParse(downloadUrl);
@@ -387,6 +465,7 @@ class BackgroundDownloadService {
         quality: quality,
         format: format,
         isAudioOnly: isAudioOnly,
+        buttonPhoneCompatible: buttonPhoneCompatible,
         taskId: taskId,
         status: DownloadStatus.pending,
       );
