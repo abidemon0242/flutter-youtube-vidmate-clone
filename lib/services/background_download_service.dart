@@ -592,16 +592,14 @@ class BackgroundDownloadService {
       for (final id in ids) {
         await fd.FlutterDownloader.pause(taskId: id);
       }
-      {
-        task.status = DownloadStatus.paused;
+      task.status = DownloadStatus.paused;
         if (task.requiresMerge) {
           if (task.videoStatus != DownloadStatus.completed) task.videoStatus = DownloadStatus.paused;
           if (task.audioStatus != DownloadStatus.completed) task.audioStatus = DownloadStatus.paused;
         }
         await _persistMetadata();
         _notifyListeners();
-      }
-      return success;
+      return true;
     } catch (error) {
       logger.e('Error pausing download: $error');
       return false;
