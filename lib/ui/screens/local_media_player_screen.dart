@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:ffmpeg_kit_flutter_new_full/ffprobe_kit.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
 
@@ -21,28 +22,49 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
   bool _ownsAudioPlayer = false;
   bool _isConverting = false;
   late final Future<void> _initialization;
-  late final bool _isAudio;
+  bool _isAudio = false;
 
   @override
   void initState() {
     super.initState();
+    _initialization = _initializeMedia();
+  }
+
+  Future<void> _initializeMedia() async {
     final dot = widget.filePath.lastIndexOf('.');
     final extension = dot < 0 ? '' : widget.filePath.substring(dot).toLowerCase();
-    _isAudio = _audioExtensions.contains(extension);
+
+    // WebM is a container, not an audio-only format. Probe its streams so
+    // downloaded WebM videos are not incorrectly sent to the audio player.
+    _isAudio = _audioExtensions.contains(extension) && extension != '.webm';
+    if (extension == '.webm') {
+      try {
+        final probeSession = await FFprobeKit.getMediaInformation(widget.filePath);
+        final information = await probeSession.getMediaInformation();
+        final streams = information?.getStreams() ?? const [];
+        final hasVideo = streams.any((stream) => stream.getType() == 'video');
+        final hasAudio = streams.any((stream) => stream.getType() == 'audio');
+        _isAudio = hasAudio && !hasVideo;
+      } catch (_) {
+        // If probing fails, prefer the video player for ambiguous WebM files.
+        _isAudio = false;
+      }
+    }
+
     if (_isAudio) {
       final handler = MediaSessionService().audioHandler;
       if (handler != null) {
         _audioPlayer = handler.player;
-        _initialization = handler.setFilePath(widget.filePath, title: _fileName);
+        await handler.setFilePath(widget.filePath, title: _fileName);
       } else {
         _audioPlayer = AudioPlayer();
         _ownsAudioPlayer = true;
-        _initialization = _audioPlayer!.setFilePath(widget.filePath).then((_) {});
+        await _audioPlayer!.setFilePath(widget.filePath);
       }
     } else {
       _videoController = VideoPlayerController.file(File(widget.filePath));
       _videoController!.addListener(_refresh);
-      _initialization = _videoController!.initialize();
+      await _videoController!.initialize();
     }
   }
 
