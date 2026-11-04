@@ -16,6 +16,7 @@ dependencies:
   cupertino_icons: ^1.0.0
   video_player: ^2.14.1
   just_audio: ^0.9.38
+  share_plus: ^10.0.0
   audio_service: ^0.18.12
   path_provider: ^2.1.5
   flutter_downloader: ^1.11.0
