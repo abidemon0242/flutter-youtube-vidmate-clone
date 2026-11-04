@@ -468,9 +468,9 @@ class BackgroundDownloadService {
       final fileExt = isAudioOnly
           ? (normalizedFormat.contains('mp3') ? '.mp3' : normalizedFormat.contains('webm') ? '.webm' : normalizedFormat.contains('aac') ? '.aac' : normalizedFormat.contains('wav') ? '.wav' : '.m4a')
           : (normalizedFormat.contains('webm') ? '.webm' : '.mp4');
-      final normalizedTitle = title.replaceAll(RegExp(r'[^\\w\\s-]'), '').trim();
+      final normalizedTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
       final safeTitle = normalizedTitle.length > 80 ? normalizedTitle.substring(0, 80) : normalizedTitle;
-      final safeId = id.replaceAll(RegExp(r'[^\\w-]'), '');
+      final safeId = id.replaceAll(RegExp(r'[^\w-]'), '');
       if (safeId.isEmpty || safeId.length > 40) return null;
       final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_${safeId}';
       final safeFileName = '$fileBase$fileExt';
@@ -593,12 +593,12 @@ class BackgroundDownloadService {
         await fd.FlutterDownloader.pause(taskId: id);
       }
       task.status = DownloadStatus.paused;
-        if (task.requiresMerge) {
-          if (task.videoStatus != DownloadStatus.completed) task.videoStatus = DownloadStatus.paused;
-          if (task.audioStatus != DownloadStatus.completed) task.audioStatus = DownloadStatus.paused;
-        }
-        await _persistMetadata();
-        _notifyListeners();
+      if (task.requiresMerge) {
+        if (task.videoStatus != DownloadStatus.completed) task.videoStatus = DownloadStatus.paused;
+        if (task.audioStatus != DownloadStatus.completed) task.audioStatus = DownloadStatus.paused;
+      }
+      await _persistMetadata();
+      _notifyListeners();
       return true;
     } catch (error) {
       logger.e('Error pausing download: $error');
