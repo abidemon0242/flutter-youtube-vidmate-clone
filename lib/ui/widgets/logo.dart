@@ -27,7 +27,7 @@ class TubeArenaLogo extends StatelessWidget {
               ),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primaryStart.withOpacity(0.25),
+                  color: AppColors.primaryStart.withValues(alpha: 0.25),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
