@@ -50,7 +50,10 @@ class AdBlockerService {
     final uri = Uri.tryParse(
       trimmed.contains('://') ? trimmed : 'https://$trimmed',
     );
-    if (uri == null || uri.host.isEmpty) return null;
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) return null;
     return uri;
   }
 
