@@ -108,8 +108,8 @@ class AppDownloadTask {
       videoTempPath: json['videoTempPath'] as String?,
       audioTempPath: json['audioTempPath'] as String?,
       requiresMerge: json['requiresMerge'] as bool? ?? false,
-      videoStatus: DownloadStatus.values.where((v) => v.name == json['videoStatus']).firstOrNull,
-      audioStatus: DownloadStatus.values.where((v) => v.name == json['audioStatus']).firstOrNull,
+      videoStatus: json['videoStatus'] is String ? DownloadStatus.values.firstWhere((v) => v.name == json['videoStatus'], orElse: () => DownloadStatus.pending) : null,
+      audioStatus: json['audioStatus'] is String ? DownloadStatus.values.firstWhere((v) => v.name == json['audioStatus'], orElse: () => DownloadStatus.pending) : null,
       videoProgress: (json['videoProgress'] as num?)?.toDouble() ?? 0,
       audioProgress: (json['audioProgress'] as num?)?.toDouble() ?? 0,
       isMerging: json['isMerging'] as bool? ?? false,
@@ -387,22 +387,38 @@ class BackgroundDownloadService {
       };
 
       for (final task in _activeTasks.values) {
-        final isInProgress = task.status == DownloadStatus.pending ||
-            task.status == DownloadStatus.downloading ||
-            task.status == DownloadStatus.paused;
-        if (!isInProgress) continue;
-
-        final pluginTaskId = task.taskId;
-        final pluginTask =
-            pluginTaskId == null ? null : tasksById[pluginTaskId];
-        if (pluginTask == null) {
-          // Native task history can disappear after OS cleanup or app data
-          // restoration. Do not leave an orphaned task showing "downloading".
-          task.status = DownloadStatus.failed;
-          task.pausedByWifiPolicy = false;
+        if (task.requiresMerge) {
+          final video = task.videoTaskId == null ? null : tasksById[task.videoTaskId];
+          final audio = task.audioTaskId == null ? null : tasksById[task.audioTaskId];
+          if (video == null || audio == null) {
+            if (task.status != DownloadStatus.completed) {
+              task.status = DownloadStatus.failed;
+              task.pausedByWifiPolicy = false;
+            }
+            continue;
+          }
+          task.videoStatus = _mapStatus(video.status);
+          task.audioStatus = _mapStatus(audio.status);
+          task.videoProgress = video.progress.toDouble().clamp(0, 100).toDouble();
+          task.audioProgress = audio.progress.toDouble().clamp(0, 100).toDouble();
+          task.progress = ((task.videoProgress + task.audioProgress) / 2).clamp(0, 100).toDouble();
+          task.isMerging = false;
+          _refreshAdaptiveTask(task);
           continue;
         }
 
+        final pluginTaskId = task.taskId;
+        if (pluginTaskId == null) continue;
+        final pluginTask = tasksById[pluginTaskId];
+        if (pluginTask == null) {
+          if (task.status == DownloadStatus.pending ||
+              task.status == DownloadStatus.downloading ||
+              task.status == DownloadStatus.paused) {
+            task.status = DownloadStatus.failed;
+            task.pausedByWifiPolicy = false;
+          }
+          continue;
+        }
         task.progress = pluginTask.progress.toDouble().clamp(0, 100).toDouble();
         task.status = _mapStatus(pluginTask.status);
       }
@@ -438,55 +454,102 @@ class BackgroundDownloadService {
   }) async {
     try {
       if (!_initialized) await initialize();
-      if (!_initialized) {
-        logger.e('Download service is unavailable; refusing to queue a task');
-        return null;
-      }
-      if (_wifiOnly && !await _hasWifiConnection()) {
-        logger.w('Wi-Fi-only mode is enabled; refusing to queue on a non-Wi-Fi connection');
-        return null;
-      }
+      if (!_initialized) return null;
+      if (_wifiOnly && !await _hasWifiConnection()) return null;
       final existing = _activeTasks[id];
-      if (existing != null && existing.status != DownloadStatus.failed && existing.status != DownloadStatus.cancelled) {
-        logger.w('A download with this ID is already active: $id');
-        return null;
-      }
+      if (existing != null &&
+          existing.status != DownloadStatus.failed &&
+          existing.status != DownloadStatus.cancelled) return null;
 
-      final applicationDocDir = await getApplicationDocumentsDirectory();
-      final downloadPath = '${applicationDocDir.path}/TubeArena/Downloads';
+      final documents = await getApplicationDocumentsDirectory();
+      final downloadPath = '${documents.path}/TubeArena/Downloads';
       await Directory(downloadPath).create(recursive: true);
-
       final normalizedFormat = format.toLowerCase();
       final fileExt = isAudioOnly
-          ? (normalizedFormat.contains('mp3')
-              ? '.mp3'
-              : normalizedFormat.contains('webm')
-                  ? '.webm'
-                  : normalizedFormat.contains('aac')
-                      ? '.aac'
-                      : normalizedFormat.contains('wav')
-                          ? '.wav'
-                          : '.m4a')
+          ? (normalizedFormat.contains('mp3') ? '.mp3' : normalizedFormat.contains('webm') ? '.webm' : normalizedFormat.contains('aac') ? '.aac' : normalizedFormat.contains('wav') ? '.wav' : '.m4a')
           : (normalizedFormat.contains('webm') ? '.webm' : '.mp4');
+      final normalizedTitle = title.replaceAll(RegExp(r'[^\\w\\s-]'), '').trim();
+      final safeTitle = normalizedTitle.length > 80 ? normalizedTitle.substring(0, 80) : normalizedTitle;
+      final safeId = id.replaceAll(RegExp(r'[^\\w-]'), '');
+      if (safeId.isEmpty || safeId.length > 40) return null;
+      final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_${safeId}';
+      final safeFileName = '$fileBase$fileExt';
+      final outputPath = '$downloadPath/$safeFileName';
 
-      final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
-      final parsedUrl = Uri.tryParse(downloadUrl);
-      if (parsedUrl == null ||
-          !parsedUrl.hasScheme ||
-          !['http', 'https'].contains(parsedUrl.scheme) ||
-          parsedUrl.host.isEmpty) {
-        logger.w('Rejected invalid download URL');
-        return null;
+      bool validUrl(String value) {
+        final uri = Uri.tryParse(value);
+        return uri != null && uri.hasScheme &&
+            (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty;
       }
 
-      final normalizedTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
-      final safeTitle = normalizedTitle.length > 80 ? normalizedTitle.substring(0, 80) : normalizedTitle;
-      final normalizedId = id.replaceAll(RegExp(r'[^\w-]'), '');
-      final safeId = normalizedId.length > 40 ? normalizedId.substring(0, 40) : normalizedId;
-      if (safeId.isEmpty) return null;
-      final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
-      final safeFileName = '$fileBase$fileExt';
+      if (isAudioOnly) {
+        if (!validUrl(audioUrl)) return null;
+      } else if (!validUrl(videoUrl)) {
+        return null;
+      }
+      final requiresMerge = !isAudioOnly && audioUrl.trim().isNotEmpty;
+      if (requiresMerge && !validUrl(audioUrl)) return null;
 
+      if (requiresMerge) {
+        final videoTempPath = '$downloadPath/$fileBase.video$fileExt';
+        final audioExt = normalizedFormat.contains('webm') ? '.webm' : '.m4a';
+        final audioTempPath = '$downloadPath/$fileBase.audio$audioExt';
+        for (final path in [outputPath, videoTempPath, audioTempPath]) {
+          final file = File(path);
+          if (await file.exists()) await file.delete();
+        }
+
+        final videoTaskId = await fd.FlutterDownloader.enqueue(
+          url: videoUrl,
+          savedDir: downloadPath,
+          fileName: videoTempPath.split(Platform.pathSeparator).last,
+          showNotification: false,
+          openFileFromNotification: false,
+          saveInPublicStorage: false,
+        );
+        if (videoTaskId == null) return null;
+
+        final task = AppDownloadTask(
+          id: id,
+          title: title,
+          videoUrl: videoUrl,
+          audioUrl: audioUrl,
+          savePath: outputPath,
+          quality: quality,
+          format: format,
+          isAudioOnly: false,
+          taskId: videoTaskId,
+          videoTaskId: videoTaskId,
+          videoTempPath: videoTempPath,
+          audioTempPath: audioTempPath,
+          requiresMerge: true,
+          videoStatus: DownloadStatus.pending,
+        );
+        _activeTasks[id] = task;
+        await _persistMetadata();
+
+        final audioTaskId = await fd.FlutterDownloader.enqueue(
+          url: audioUrl,
+          savedDir: downloadPath,
+          fileName: audioTempPath.split(Platform.pathSeparator).last,
+          showNotification: false,
+          openFileFromNotification: false,
+          saveInPublicStorage: false,
+        );
+        if (audioTaskId == null) {
+          await fd.FlutterDownloader.cancel(taskId: videoTaskId);
+          _activeTasks.remove(id);
+          await _persistMetadata();
+          return null;
+        }
+        task.audioTaskId = audioTaskId;
+        task.audioStatus = DownloadStatus.pending;
+        await _persistMetadata();
+        _notifyListeners();
+        return videoTaskId;
+      }
+
+      final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
       final taskId = await fd.FlutterDownloader.enqueue(
         url: downloadUrl,
         savedDir: downloadPath,
@@ -495,22 +558,19 @@ class BackgroundDownloadService {
         openFileFromNotification: false,
         saveInPublicStorage: false,
       );
-
       if (taskId == null) return null;
-
-      final task = AppDownloadTask(
+      _activeTasks[id] = AppDownloadTask(
         id: id,
         title: title,
         videoUrl: videoUrl,
         audioUrl: audioUrl,
-        savePath: '$downloadPath/$safeFileName',
+        savePath: outputPath,
         quality: quality,
         format: format,
         isAudioOnly: isAudioOnly,
         taskId: taskId,
         status: DownloadStatus.pending,
       );
-      _activeTasks[id] = task;
       await _persistMetadata();
       _notifyListeners();
       logger.i('Download queued: $title ($taskId)');
@@ -523,13 +583,27 @@ class BackgroundDownloadService {
 
   Future<bool> pauseDownload(String downloadId) async {
     final task = _activeTasks[downloadId];
-    if (task?.taskId == null) return false;
+    if (task == null) return false;
     try {
-      await fd.FlutterDownloader.pause(taskId: task!.taskId!);
-      task.status = DownloadStatus.paused;
-      await _persistMetadata();
-      _notifyListeners();
-      return true;
+      final ids = task.requiresMerge
+          ? [task.videoTaskId, task.audioTaskId].whereType<String>().toList()
+          : [task.taskId].whereType<String>().toList();
+      if (ids.isEmpty) return false;
+      var success = true;
+      for (final id in ids) {
+        final paused = await fd.FlutterDownloader.pause(taskId: id);
+        if (paused == null) success = false;
+      }
+      if (success) {
+        task.status = DownloadStatus.paused;
+        if (task.requiresMerge) {
+          if (task.videoStatus != DownloadStatus.completed) task.videoStatus = DownloadStatus.paused;
+          if (task.audioStatus != DownloadStatus.completed) task.audioStatus = DownloadStatus.paused;
+        }
+        await _persistMetadata();
+        _notifyListeners();
+      }
+      return success;
     } catch (error) {
       logger.e('Error pausing download: $error');
       return false;
@@ -539,11 +613,30 @@ class BackgroundDownloadService {
   Future<bool> resumeDownload(String downloadId) async {
     if (_wifiOnly && !await _hasWifiConnection()) return false;
     final task = _activeTasks[downloadId];
-    if (task?.taskId == null) return false;
+    if (task == null) return false;
     try {
-      final newTaskId = await fd.FlutterDownloader.resume(taskId: task!.taskId!);
-      if (newTaskId == null) return false;
-      task.taskId = newTaskId;
+      if (!task.requiresMerge) {
+        if (task.taskId == null) return false;
+        final id = await fd.FlutterDownloader.resume(taskId: task.taskId!);
+        if (id == null) return false;
+        task.taskId = id;
+      } else {
+        if (task.videoStatus != DownloadStatus.completed) {
+          if (task.videoTaskId == null) return false;
+          final id = await fd.FlutterDownloader.resume(taskId: task.videoTaskId!);
+          if (id == null) return false;
+          task.videoTaskId = id;
+          task.taskId = id;
+          task.videoStatus = DownloadStatus.pending;
+        }
+        if (task.audioStatus != DownloadStatus.completed) {
+          if (task.audioTaskId == null) return false;
+          final id = await fd.FlutterDownloader.resume(taskId: task.audioTaskId!);
+          if (id == null) return false;
+          task.audioTaskId = id;
+          task.audioStatus = DownloadStatus.pending;
+        }
+      }
       task.status = DownloadStatus.pending;
       await _persistMetadata();
       _notifyListeners();
@@ -558,39 +651,70 @@ class BackgroundDownloadService {
     if (_wifiOnly && !await _hasWifiConnection()) return false;
     final task = _activeTasks[downloadId];
     if (task == null ||
-        (task.status != DownloadStatus.failed &&
-            task.status != DownloadStatus.cancelled)) {
-      return false;
-    }
+        (task.status != DownloadStatus.failed && task.status != DownloadStatus.cancelled)) return false;
     try {
-      final downloadUrl = task.isAudioOnly ? task.audioUrl : task.videoUrl;
-      final uri = Uri.tryParse(downloadUrl);
-      if (uri == null ||
-          !uri.hasScheme ||
-          !['http', 'https'].contains(uri.scheme) ||
-          uri.host.isEmpty) {
-        return false;
-      }
       final documents = await getApplicationDocumentsDirectory();
-      final downloadsDirectory = Directory('${documents.path}/TubeArena/Downloads');
-      await downloadsDirectory.create(recursive: true);
-      final targetFile = File(task.savePath);
-      final expectedPrefix = '${downloadsDirectory.absolute.path}${Platform.pathSeparator}';
-      if (!targetFile.absolute.path.startsWith(expectedPrefix)) return false;
-      await targetFile.parent.create(recursive: true);
-      if (await targetFile.exists()) {
-        await targetFile.delete();
+      final root = Directory('${documents.path}/TubeArena/Downloads');
+      await root.create(recursive: true);
+      final target = File(task.savePath);
+      final prefix = '${root.absolute.path}${Platform.pathSeparator}';
+      if (!target.absolute.path.startsWith(prefix)) return false;
+      await target.parent.create(recursive: true);
+      if (await target.exists()) await target.delete();
+
+      if (task.requiresMerge) {
+        if (task.videoTempPath == null || task.audioTempPath == null ||
+            !Uri.tryParse(task.videoUrl)!.hasScheme ||
+            !Uri.tryParse(task.audioUrl)!.hasScheme) return false;
+        for (final path in [task.videoTempPath!, task.audioTempPath!]) {
+          final file = File(path);
+          if (await file.exists()) await file.delete();
+        }
+        final videoId = await fd.FlutterDownloader.enqueue(
+          url: task.videoUrl,
+          savedDir: root.path,
+          fileName: File(task.videoTempPath!).uri.pathSegments.last,
+          showNotification: false,
+          openFileFromNotification: false,
+          saveInPublicStorage: false,
+        );
+        if (videoId == null) return false;
+        task.videoTaskId = videoId;
+        task.taskId = videoId;
+        task.videoStatus = DownloadStatus.pending;
+        task.videoProgress = 0;
+        final audioId = await fd.FlutterDownloader.enqueue(
+          url: task.audioUrl,
+          savedDir: root.path,
+          fileName: File(task.audioTempPath!).uri.pathSegments.last,
+          showNotification: false,
+          openFileFromNotification: false,
+          saveInPublicStorage: false,
+        );
+        if (audioId == null) {
+          await fd.FlutterDownloader.cancel(taskId: videoId);
+          task.status = DownloadStatus.failed;
+          await _persistMetadata();
+          return false;
+        }
+        task.audioTaskId = audioId;
+        task.audioStatus = DownloadStatus.pending;
+        task.audioProgress = 0;
+      } else {
+        final url = task.isAudioOnly ? task.audioUrl : task.videoUrl;
+        final uri = Uri.tryParse(url);
+        if (uri == null || !uri.hasScheme || !['http', 'https'].contains(uri.scheme) || uri.host.isEmpty) return false;
+        final id = await fd.FlutterDownloader.enqueue(
+          url: url,
+          savedDir: root.path,
+          fileName: target.uri.pathSegments.last,
+          showNotification: true,
+          openFileFromNotification: false,
+          saveInPublicStorage: false,
+        );
+        if (id == null) return false;
+        task.taskId = id;
       }
-      final newTaskId = await fd.FlutterDownloader.enqueue(
-        url: downloadUrl,
-        savedDir: targetFile.parent.path,
-        fileName: targetFile.uri.pathSegments.last,
-        showNotification: true,
-        openFileFromNotification: false,
-        saveInPublicStorage: false,
-      );
-      if (newTaskId == null) return false;
-      task.taskId = newTaskId;
       task.status = DownloadStatus.pending;
       task.progress = 0;
       await _persistMetadata();
@@ -604,13 +728,26 @@ class BackgroundDownloadService {
 
   Future<bool> cancelDownload(String downloadId) async {
     final task = _activeTasks[downloadId];
-    if (task?.taskId == null) return false;
+    if (task == null) return false;
     try {
-      await fd.FlutterDownloader.cancel(taskId: task!.taskId!);
-      task.status = DownloadStatus.cancelled;
-      await _persistMetadata();
-      _notifyListeners();
-      return true;
+      final ids = task.requiresMerge
+          ? [task.videoTaskId, task.audioTaskId].whereType<String>().toList()
+          : [task.taskId].whereType<String>().toList();
+      if (ids.isEmpty) return false;
+      var success = true;
+      for (final id in ids) {
+        try {
+          await fd.FlutterDownloader.cancel(taskId: id);
+        } catch (_) {
+          success = false;
+        }
+      }
+      if (success) {
+        task.status = DownloadStatus.cancelled;
+        await _persistMetadata();
+        _notifyListeners();
+      }
+      return success;
     } catch (error) {
       logger.e('Error cancelling download: $error');
       return false;
