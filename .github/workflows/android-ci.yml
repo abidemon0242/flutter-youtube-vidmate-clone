@@ -1,0 +1,121 @@
+name: Tube Arena Android CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flutter-checks:
+    name: Flutter analyze, tests and Android build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate missing Android project scaffolding
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tube-arena-native"
+          cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/TubeArenaManifest.xml"
+          flutter create --platforms=android --org com.tubearena --project-name app "$RUNNER_TEMP/tube-arena-native"
+          rm -rf android
+          cp -R "$RUNNER_TEMP/tube-arena-native/android" android
+          cp "$RUNNER_TEMP/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
+          sed -i 's/ package="com.tubearena.app"//' android/app/src/main/AndroidManifest.xml
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Format Dart source
+        run: dart format lib test
+
+      - name: Analyze Dart source
+        run: flutter analyze --no-pub
+
+      - name: Run Flutter tests
+        run: flutter test --no-pub --reporter expanded
+
+      - name: Build debug APK
+        run: flutter build apk --debug --no-pub
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: tube-arena-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+  android-emulator-smoke-test:
+    name: Install and launch on Android emulator
+    needs: flutter-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate missing Android project scaffolding
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tube-arena-native"
+          cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/TubeArenaManifest.xml"
+          flutter create --platforms=android --org com.tubearena --project-name app "$RUNNER_TEMP/tube-arena-native"
+          rm -rf android
+          cp -R "$RUNNER_TEMP/tube-arena-native/android" android
+          cp "$RUNNER_TEMP/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
+          sed -i 's/ package="com.tubearena.app"//' android/app/src/main/AndroidManifest.xml
+
+      - name: Build debug APK for emulator
+        run: |
+          flutter pub get
+          flutter build apk --debug
+
+      - name: Boot emulator, install and launch app
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-window -no-audio -no-boot-anim
+          disable-animations: true
+          script: |
+            adb install build/app/outputs/flutter-apk/app-debug.apk
+            adb shell am start -n com.tubearena.app/.MainActivity
+            sleep 15
+            adb shell pidof com.tubearena.app
+            adb logcat -d -t 1500 | grep -E "FATAL EXCEPTION|AndroidRuntime" && exit 1 || true
