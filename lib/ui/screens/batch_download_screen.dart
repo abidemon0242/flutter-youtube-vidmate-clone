@@ -258,10 +258,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           DropdownButtonFormField<String>(
             initialValue: _preferredQuality,
             decoration: const InputDecoration(
-              labelText: 'Preferred maximum quality',
+              labelText: 'Maximum available quality (audio included)',
               border: OutlineInputBorder(),
             ),
-            items: const ['360p', '480p', '720p', '1080p']
+            items: const ['144p', '240p', '360p']
                 .map((quality) => DropdownMenuItem(
                       value: quality,
                       child: Text(quality),
