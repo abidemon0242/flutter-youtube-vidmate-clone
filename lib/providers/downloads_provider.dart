@@ -70,7 +70,7 @@ class DownloadEntry {
         url: json['url'] as String? ?? '',
         size: json['size'] as String? ?? 'Unknown',
         format: json['format'] as String? ?? '',
-        progress: ((json['progress'] as num?)?.toDouble() ?? 0).clamp(0, 100),
+        progress: ((json['progress'] as num?)?.toDouble() ?? 0).clamp(0, 100).toDouble(),
         savedPath: json['savedPath'] as String? ?? '',
         isAudioOnly: json['isAudioOnly'] as bool? ?? false,
         status: json['status'] as String? ?? 'pending',
@@ -146,7 +146,7 @@ class DownloadsProvider extends ChangeNotifier {
         url: task.isAudioOnly ? task.audioUrl : task.videoUrl,
         size: current?.size ?? 'Unknown',
         format: '${task.quality} ${task.format}'.trim(),
-        progress: task.progress.clamp(0, 100),
+        progress: task.progress.clamp(0, 100).toDouble(),
         savedPath: task.savePath,
         isAudioOnly: task.isAudioOnly,
         status: task.status.name,
@@ -206,9 +206,10 @@ class DownloadsProvider extends ChangeNotifier {
 
   Future<bool> deleteFileFor(DownloadEntry item) async {
     try {
-      if (item.status == 'pending' ||
-          item.status == 'downloading' ||
-          item.status == 'paused') {
+      if ((item.status == 'pending' ||
+              item.status == 'downloading' ||
+              item.status == 'paused') &&
+          _downloadService.getActiveTasks().containsKey(item.id)) {
         if (!await _downloadService.cancelDownload(item.id)) return false;
       }
       final path = item.savedPath.trim();
