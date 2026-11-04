@@ -19,7 +19,10 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => DownloadsProvider()..initialize()),
-        Provider(create: (_) => MockYouTubeRepository()),
+        Provider(
+          create: (_) => MockYouTubeRepository(),
+          dispose: (_, repository) => repository.dispose(),
+        ),
         Provider(create: (_) => AdBlockerService()),
         Provider(create: (_) => BackgroundDownloadService()),
         Provider(create: (_) => LocalFileManagerService()),
