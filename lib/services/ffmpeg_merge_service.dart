@@ -17,7 +17,6 @@ class FFmpegMergeService {
 
   FFmpegMergeService._internal();
 
-  String _quote(String value) => "'${value.replaceAll("'", "'\\''")}'";
 
   Future<bool> _run(List<String> arguments) async {
     try {
