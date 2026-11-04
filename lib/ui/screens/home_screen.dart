@@ -145,7 +145,12 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, index) => ChoiceChip(
               label: Text(categories[index]),
               selected: index == selectedCategory,
-              onSelected: (_) => setState(() => selectedCategory = index),
+              onSelected: (_) => setState(() {
+                selectedCategory = index;
+                searchQuery = '';
+                _searchResults = [];
+                _searchError = null;
+              }),
             ),
             separatorBuilder: (_, __) => const SizedBox(width: 8),
           ),
