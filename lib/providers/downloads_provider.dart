@@ -145,7 +145,7 @@ class DownloadsProvider extends ChangeNotifier {
         title: task.title,
         url: task.isAudioOnly ? task.audioUrl : task.videoUrl,
         size: current?.size ?? 'Unknown',
-        format: '${task.quality} ${task.format}'.trim(),
+        format: '${task.quality} ${task.outputFormat.isEmpty ? task.format : task.outputFormat}'.trim(),
         progress: task.progress.clamp(0, 100).toDouble(),
         savedPath: task.savePath,
         isAudioOnly: task.isAudioOnly,
