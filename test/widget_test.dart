@@ -49,9 +49,24 @@ void main() {
       provider.dispose();
     });
 
+    test('refuses to delete files outside the managed downloads folder', () async {
+      final directory = await Directory.systemTemp.createTemp('tube-arena-test-');
+      final file = File('${directory.path}/unmanaged.mp4');
+      await file.writeAsString('keep');
+      final provider = DownloadsProvider()
+        ..addDownload(DownloadEntry(id: 'external', title: 'External', url: 'https://example.com/a.mp4', size: '4 B', format: 'mp4', progress: 100, savedPath: file.path));
+      expect(await provider.deleteFileFor(provider.items.single), isFalse);
+      expect(await file.exists(), isTrue);
+      expect(provider.items, hasLength(1));
+      provider.dispose();
+      await directory.delete(recursive: true);
+    });
+
     test('deletes selected file before removing its record', () async {
       final directory = await Directory.systemTemp.createTemp('tube-arena-test-');
-      final file = File('${directory.path}/sample.mp4');
+      final downloadsDirectory = Directory('${directory.path}/TubeArena/Downloads');
+      await downloadsDirectory.create(recursive: true);
+      final file = File('${downloadsDirectory.path}/sample.mp4');
       await file.writeAsString('sample');
       final provider = DownloadsProvider()
         ..addDownload(
