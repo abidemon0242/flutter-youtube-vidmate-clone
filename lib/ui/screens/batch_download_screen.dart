@@ -19,6 +19,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   late final YoutubeExtractionService _extractionService;
   bool _isProcessing = false;
   String _preferredQuality = '360p';
+  String _preferredFormat = 'MP4';
+  List<VideoQualityOption> _previewOptions = const [];
+  bool _isPreviewLoading = false;
   bool _audioOnly = false;
   bool _wifiOnly = false;
   String _status = 'Paste one video link per line.';
@@ -47,7 +50,11 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   }
 
   VideoQualityOption _chooseQuality(List<VideoQualityOption> options) {
-    final ranked = [...options]
+    final matchingFormat = options.where((option) => option.format.toUpperCase() == _preferredFormat).toList();
+    if (matchingFormat.isEmpty) {
+      throw Exception('No $_preferredFormat stream is available for the selected video.');
+    }
+    final ranked = [...matchingFormat]
       ..sort((a, b) {
         final aHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
         final bHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
@@ -61,6 +68,42 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     }).toList();
 
     return atOrBelowTarget.isNotEmpty ? atOrBelowTarget.last : ranked.first;
+  }
+
+  Future<void> _previewQualities() async {
+    final urls = _readUrls();
+    if (urls.isEmpty) {
+      setState(() => _status = 'Add a video URL first to check available formats and sizes.');
+      return;
+    }
+    setState(() {
+      _isPreviewLoading = true;
+      _previewOptions = const [];
+      _status = 'Checking available resolutions and file sizes…';
+    });
+    try {
+      final options = await _extractionService.getVideoQualities(urls.first);
+      if (!mounted) return;
+      final matching = options
+          .where((option) => option.format.toUpperCase() == _preferredFormat)
+          .toList();
+      setState(() {
+        _previewOptions = matching;
+        _isPreviewLoading = false;
+        if (matching.isEmpty) {
+          _status = 'This video does not provide a $_preferredFormat stream.';
+        } else {
+          final selected = _chooseQuality(matching);
+          _status = 'Available selection: ${selected.quality} ${selected.format} • ${selected.fileSize}';
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isPreviewLoading = false;
+        _status = 'Could not check video formats: $error';
+      });
+    }
   }
 
   Future<void> _startBatch() async {
@@ -256,21 +299,40 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Paste one YouTube URL per line. Choose a compatible video stream or save the original audio stream. Only use media you are authorized to download.',
+            'Paste one YouTube URL per line. Choose MP4 or WebM and a maximum resolution from 4K to 144p. Check the first video to see its actual available stream and estimated file size.  Only use media you are authorized to download.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            initialValue: _preferredQuality,
+            initialValue: _preferredFormat,
             decoration: const InputDecoration(
-              labelText: 'Maximum available quality (audio included)',
+              labelText: 'Video format',
               border: OutlineInputBorder(),
             ),
-            items: const ['144p', '240p', '360p']
-                .map((quality) => DropdownMenuItem(
-                      value: quality,
-                      child: Text(quality),
-                    ))
+            items: const ['MP4', 'WEBM']
+                .map((format) => DropdownMenuItem(value: format, child: Text(format)))
+                .toList(),
+            onChanged: _isProcessing || _audioOnly
+                ? null
+                : (value) {
+                    if (value != null) {
+                      setState(() {
+                        _preferredFormat = value;
+                        _previewOptions = const [];
+                      });
+                    }
+                  },
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _preferredQuality,
+            decoration: const InputDecoration(
+              labelText: 'Maximum resolution',
+              helperText: '4K down to 144p. The actual available stream may be lower.',
+              border: OutlineInputBorder(),
+            ),
+            items: const ['2160p', '1440p', '1080p', '720p', '480p', '360p', '240p', '144p']
+                .map((quality) => DropdownMenuItem(value: quality, child: Text(quality)))
                 .toList(),
             onChanged: _isProcessing || _audioOnly
                 ? null
@@ -278,6 +340,38 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                     if (value != null) setState(() => _preferredQuality = value);
                   },
           ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _isProcessing || _isPreviewLoading || _audioOnly ? null : _previewQualities,
+            icon: _isPreviewLoading
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.data_usage),
+            label: Text(_isPreviewLoading ? 'Checking sizes…' : 'Check available sizes'),
+          ),
+          if (_previewOptions.isNotEmpty) ...[
+            Builder(builder: (context) {
+              final selected = _chooseQuality(_previewOptions);
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Selected: ${selected.quality} • ${selected.format}',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text('Estimated download size: ${selected.fileSize}',
+                        style: const TextStyle(color: AppColors.textSecondary)),
+                    Text('Frame rate: ${selected.fps} FPS',
+                        style: const TextStyle(color: AppColors.textSecondary)),
+                  ],
+                ),
+              );
+            }),
+          ],
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _audioOnly,
