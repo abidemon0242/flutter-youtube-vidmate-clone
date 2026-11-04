@@ -111,11 +111,11 @@ class YoutubeExtractionService {
 
         available.add(VideoQualityOption(
           quality: quality,
-          format: (stream.container.name ?? 'mp4').toUpperCase(),
+          format: stream.container.name.toUpperCase(),
           fileSize: _formatBytes(stream.size.totalBytes),
           videoUrl: stream.url.toString(),
           audioUrl: audioFallbackUrl,
-          fps: stream.framerate.framesPerSecond,
+          fps: stream.framerate.framesPerSecond.toInt(),
           bitrate: _formatBitrate(stream.bitrate),
         ));
       }
@@ -147,7 +147,7 @@ class YoutubeExtractionService {
 
       for (final stream in sortedStreams) {
         final bitrateLabel = _formatBitrate(stream.bitrate);
-        final format = (stream.container.name ?? 'audio').toUpperCase();
+        final format = stream.container.name.toUpperCase();
         if (!seen.add('$format-$bitrateLabel')) continue;
 
         options.add(AudioQualityOption(
