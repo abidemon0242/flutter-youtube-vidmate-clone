@@ -108,7 +108,7 @@ jobs:
         run: flutter pub get
 
       - name: Format Dart source
-        run: dart format lib test
+        run: dart format --output=none --set-exit-if-changed lib test
 
       - name: Analyze Dart source
         run: flutter analyze --no-pub
