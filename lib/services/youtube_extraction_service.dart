@@ -168,36 +168,25 @@ class YoutubeExtractionService {
   }
 
   String? _extractVideoId(String url) {
-    try {
-      if (url.isEmpty) return null;
-      final trimmed = url.trim();
-      if (trimmed.length == 11 &&
-          RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(trimmed)) {
-        return trimmed;
+    final trimmed = url.trim();
+    if (RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(trimmed)) return trimmed;
+    final normalized = trimmed.startsWith('http') ? trimmed : 'https://$trimmed';
+    final uri = Uri.tryParse(normalized);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https') || uri.userInfo.isNotEmpty) return null;
+    final host = uri.host.toLowerCase();
+    const hosts = {'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be', 'www.youtu.be'};
+    if (!hosts.contains(host)) return null;
+    String? candidate;
+    if (host == 'youtu.be' || host == 'www.youtu.be') {
+      candidate = uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
+    } else {
+      candidate = uri.queryParameters['v'];
+      if (candidate == null || candidate.isEmpty) {
+        final segments = uri.pathSegments;
+        if (segments.length >= 2 && {'shorts', 'embed', 'live'}.contains(segments[0])) candidate = segments[1];
       }
-
-      final normalized =
-          trimmed.startsWith('http') ? trimmed : 'https://$trimmed';
-      final uri = Uri.tryParse(normalized);
-      if (uri == null) return null;
-
-      if (uri.host.contains('youtu.be')) {
-        return uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
-      }
-
-      final videoId = uri.queryParameters['v'];
-      if (videoId != null && videoId.isNotEmpty) return videoId;
-
-      final segments = uri.pathSegments;
-      if (segments.length >= 2 &&
-          (segments[0] == 'shorts' || segments[0] == 'embed')) {
-        return segments[1];
-      }
-      return null;
-    } catch (e) {
-      logger.e('Error extracting video ID: $e');
-      return null;
     }
+    return candidate != null && RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(candidate) ? candidate : null;
   }
 
   String _formatDuration(Duration duration) {
