@@ -1,28 +1,36 @@
 # Tube Arena
 
-Tube Arena is an Android-first Flutter prototype for a YouTube-inspired media browser and local media library.
+Tube Arena is an Android-first Flutter media browser and private offline media library prototype.
 
-## Working prototype features
+## Implemented app features
 
-- Mock video feed with category filtering and local search
-- Sample network video playback
-- Local folder creation and browsing inside the app's private storage
-- Download-list state management and safe file deletion when a saved path is supplied
-- Basic navigation between Home, Watch, Downloads, and Library
+- Live YouTube video search; selected YouTube results open through the official YouTube app or browser
+- Demo feed and sample in-app network playback
+- Category filtering and local feed search
+- Batch URL input for media the user owns or is authorized to save
+- Download queue with persistent history, background task callbacks, progress, pause, resume, cancel, retry, and file deletion
+- Wi-Fi-only preference with network-aware pausing while the app is active
+- Private local media library with folder creation, browsing, file rename, move, and safe deletion
+- Local video and audio playback
+- Local audio-to-MP3 conversion
+- Local video/audio merge workflow using FFmpeg
+- Android media notification / lock-screen controls for local audio playback
+- Safe ad/tracker URL classification
 
-## Service foundations (not yet connected end-to-end)
+## Known limitations
 
-The repository also contains service-level foundations for YouTube metadata/stream extraction, background downloads, FFmpeg processing, media-session controls, and ad/tracker URL classification. These are not currently wired into the visible Watch/Download flow as a complete downloader.
+- The home recommendations/feed are still demo data; live YouTube search is available separately.
+- YouTube search results open in the official YouTube app/browser rather than playing inside Tube Arena.
+- YouTube stream extraction can fail when the source changes or does not expose a compatible stream. Only download content you own or have permission to save.
+- Adaptive video-only and audio-only streams are not yet automatically combined by the download queue. The queue currently saves the selected video stream; use the local merge workflow when you have both source files.
+- Audio-only downloads preserve the available source format. MP3 conversion is a separate local action after the file is downloaded.
+- Wi-Fi-only pausing depends on Android delivering connectivity changes; it cannot guarantee a mobile-data block while the app is suspended.
+- Ad/tracker classification is implemented, but it is not wired into YouTube's own player network traffic and does not remove YouTube ads.
+- Media-session controls are connected to local audio playback; video-player lock-screen controls are not implemented.
+- Emulator launch and real-device behavior still need verification.
 
-In particular:
-- The home feed uses mock data, not live YouTube search or recommendations.
-- The Watch screen uses a sample video URL.
-- The Download action is explicitly disabled in the prototype; it does not yet start a real download from the UI.
-- The ad-blocking class classifies URLs but does not intercept player or WebView network traffic.
-- Media-session controls are not yet connected to the video player.
+## Android build and verification
 
-## Android build notes
+The Android CI workflow formats Dart files, runs static analysis and tests, builds a debug APK, creates per-ABI release APKs, and attempts an emulator install/launch smoke test.
 
-The Android CI workflow generates the missing Gradle scaffolding, applies the required Android SDK levels, runs Dart analysis and tests, builds a debug APK, and attempts an emulator launch smoke test.
-
-The checked-in Android directory is intentionally minimal; use the CI-generated Android project as the current build verification path.
+A successful build does not prove every network or device-specific feature works. Check each CI job and test the APK on a real Android device before treating the app as release-ready.
