@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
@@ -19,6 +21,17 @@ class _WatchScreenState extends State<WatchScreen> {
   bool _playerReady = false;
   bool _playerFailed = false;
   bool _saved = false;
+
+  Future<void> _share() async {
+    await Share.share('${widget.video.title} — ${widget.video.channelName}');
+  }
+
+  void _openDownloads() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('This feed uses demonstration videos. Paste a media link you own or are authorized to save.')),
+    );
+    context.push('/add-downloads');
+  }
 
   @override
   void initState() {
@@ -67,6 +80,18 @@ class _WatchScreenState extends State<WatchScreen> {
                             alignment: Alignment.center,
                             children: [
                               VideoPlayer(_controller),
+                              Align(
+                                alignment: Alignment.bottomCenter,
+                                child: VideoProgressIndicator(
+                                  _controller,
+                                  allowScrubbing: true,
+                                  colors: const VideoProgressColors(
+                                    playedColor: AppColors.primaryStart,
+                                    bufferedColor: Colors.white54,
+                                    backgroundColor: Colors.white24,
+                                  ),
+                                ),
+                              ),
                               IconButton.filled(
                                 onPressed: () async {
                                   if (_controller.value.isPlaying) {
@@ -93,8 +118,8 @@ class _WatchScreenState extends State<WatchScreen> {
               runSpacing: 8,
               children: [
                 ActionChip(label: const Text('Like'), avatar: const Icon(Icons.thumb_up_outlined, size: 18), onPressed: () => _notice('Likes are not connected to an account in this demo.')),
-                ActionChip(label: const Text('Share'), avatar: const Icon(Icons.share_outlined, size: 18), onPressed: () => _notice('Sharing is not configured yet.')),
-                ActionChip(label: const Text('Download'), avatar: const Icon(Icons.download_rounded, size: 18), onPressed: () => _notice('Downloads are not enabled for demo videos yet.')),
+                ActionChip(label: const Text('Share'), avatar: const Icon(Icons.share_outlined, size: 18), onPressed: _share),
+                ActionChip(label: const Text('Add download'), avatar: const Icon(Icons.download_rounded, size: 18), onPressed: _openDownloads),
                 ActionChip(label: Text(_saved ? 'Saved' : 'Save'), avatar: Icon(_saved ? Icons.bookmark : Icons.bookmark_border, size: 18), onPressed: () => setState(() => _saved = !_saved)),
               ],
             ),
