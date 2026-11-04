@@ -589,12 +589,10 @@ class BackgroundDownloadService {
           ? [task.videoTaskId, task.audioTaskId].whereType<String>().toList()
           : [task.taskId].whereType<String>().toList();
       if (ids.isEmpty) return false;
-      var success = true;
       for (final id in ids) {
-        final paused = await fd.FlutterDownloader.pause(taskId: id);
-        if (paused == null) success = false;
+        await fd.FlutterDownloader.pause(taskId: id);
       }
-      if (success) {
+      {
         task.status = DownloadStatus.paused;
         if (task.requiresMerge) {
           if (task.videoStatus != DownloadStatus.completed) task.videoStatus = DownloadStatus.paused;
