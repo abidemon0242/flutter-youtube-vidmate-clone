@@ -57,7 +57,7 @@ class VideoCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.75),
+                      color: Colors.black.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -80,7 +80,7 @@ class VideoCard extends StatelessWidget {
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primaryStart : Colors.black.withOpacity(0.6),
+                          color: isSelected ? AppColors.primaryStart : Colors.black.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: Colors.white, width: 2),
                         ),
