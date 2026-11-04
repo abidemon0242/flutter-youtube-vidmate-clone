@@ -105,11 +105,14 @@ class YoutubeExtractionService {
 
       for (final stream in videoStreams) {
         final quality = stream.qualityLabel.trim();
-        if (quality.isEmpty || !seen.add(quality)) continue;
+        final format = stream.container.name.toUpperCase();
+        // Keep MP4 and WebM entries for the same resolution distinct.
+        // Deduplicating by resolution alone could hide a valid format option.
+        if (quality.isEmpty || !seen.add('$format-$quality')) continue;
 
         available.add(VideoQualityOption(
           quality: quality,
-          format: stream.container.name.toUpperCase(),
+          format: format,
           fileSize: _formatBytes(stream.size.totalBytes),
           videoUrl: stream.url.toString(),
           audioUrl: '',
