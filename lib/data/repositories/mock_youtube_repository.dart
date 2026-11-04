@@ -5,6 +5,8 @@ import '../../models/video_model.dart';
 class MockYouTubeRepository {
   final YoutubeExplode _youtube = YoutubeExplode();
 
+  void dispose() => _youtube.close();
+
   Future<List<VideoModel>> searchVideos(String query) async {
     final normalized = query.trim();
     if (normalized.isEmpty) return const [];
