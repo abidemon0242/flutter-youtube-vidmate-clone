@@ -139,11 +139,12 @@ class LocalFileManagerService {
   /// Get all folders
   Future<List<LocalFile>> getFolders() async {
     try {
-      final items = _baseDirectory.listSync();
+      final items = _baseDirectory.listSync(followLinks: false);
       final folders = <LocalFile>[];
       for (final item in items.whereType<Directory>()) {
+        if (item.path.split(Platform.pathSeparator).last.toLowerCase() == 'downloads') continue;
         if (!await _isManagedDirectory(item)) continue;
-            final stat = item.statSync();
+        final stat = item.statSync();
         folders.add(LocalFile(
           path: item.path,
           name: item.path.split(Platform.pathSeparator).last,
@@ -171,7 +172,7 @@ class LocalFileManagerService {
         return [];
       }
 
-      final items = folder.listSync();
+      final items = folder.listSync(followLinks: false);
       final files = items
           .where((item) => item is File)
           .map((item) {
@@ -301,11 +302,11 @@ class LocalFileManagerService {
       final downloadsDirectory = Directory('${_baseDirectory.path}/Downloads');
       if (!await downloadsDirectory.exists()) return true;
       if (!await _isManagedDirectory(downloadsDirectory)) return false;
-      final items = downloadsDirectory.listSync();
+      final items = downloadsDirectory.listSync(followLinks: false);
       for (final item in items) {
         if (item is Directory) {
           await item.delete(recursive: true);
-        } else if (item is File) {
+        } else if (item is File || item is Link) {
           await item.delete();
         }
       }
