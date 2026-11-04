@@ -177,7 +177,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         final safeId = downloadId.replaceAll(RegExp(r'[^\w-]'), '');
         final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
         final extension = _buttonPhoneCompatible
-            ? 'mp4'
+            ? '3gp'
             : (quality.format.toLowerCase().contains('webm') ? 'webm' : 'mp4');
         final fileName = '$fileBase.$extension';
         final savePath = '${documentsPath}/TubeArena/Downloads/$fileName';
@@ -188,7 +188,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           videoUrl: quality.videoUrl,
           audioUrl: quality.audioUrl,
           quality: quality.quality,
-          format: _buttonPhoneCompatible ? 'MP4 H.264/AAC' : quality.format,
+          format: _buttonPhoneCompatible ? '3GP H.263/AMR-NB' : quality.format,
           isAudioOnly: false,
           buttonPhoneCompatible: _buttonPhoneCompatible,
         );
@@ -203,7 +203,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             url: quality.videoUrl,
             size: quality.fileSize,
             format: _buttonPhoneCompatible
-                ? 'Button-phone MP4 • H.264/AAC • 240p'
+                ? 'Button-phone 3GP • H.263/AMR-NB • QCIF'
                 : '${quality.quality} ${quality.format}',
             progress: 0,
             savedPath: savePath,
@@ -287,7 +287,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             value: _buttonPhoneCompatible,
             title: const Text('Button Phone Compatible'),
             subtitle: const Text(
-              'Re-encode to MP4, H.264 Baseline, AAC, 320×240 and 15 fps after downloading. Uses extra time, storage and battery; playback still depends on the phone.',
+              'Convert to 3GP with H.263 video (176×144) and AMR-NB audio after downloading. Uses extra time, storage and battery; playback still depends on the phone.',
             ),
             onChanged: _isProcessing || _audioOnly
                 ? null
