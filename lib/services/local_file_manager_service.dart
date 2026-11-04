@@ -281,7 +281,15 @@ class LocalFileManagerService {
   /// Get total storage size of all downloaded files
   Future<int> getTotalStorageSize() async {
     try {
-      final items = _baseDirectory.listSync(recursive: true, followLinks: false);
+      final downloadsDirectory = Directory('${_baseDirectory.path}/Downloads');
+      if (!await downloadsDirectory.exists() ||
+          !await _isManagedDirectory(downloadsDirectory)) {
+        return 0;
+      }
+      final items = downloadsDirectory.listSync(
+        recursive: true,
+        followLinks: false,
+      );
       int totalSize = 0;
       for (final item in items) {
         if (item is File) {
