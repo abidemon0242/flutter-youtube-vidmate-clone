@@ -49,10 +49,15 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         .toList();
   }
 
+  String get _sourceFormat => _preferredFormat == '3GP' ? 'MP4' : _preferredFormat;
+
   VideoQualityOption _chooseQuality(List<VideoQualityOption> options) {
-    final matchingFormat = options
-        .where((option) => option.format.toUpperCase() == _preferredFormat)
-        .toList();
+    final matchingFormat = options.where((option) {
+      final matchesSource = option.format.toUpperCase() == _sourceFormat;
+      // Button-phone output needs a muxable MP4 source, not a video-only
+      // fallback, so the 3GP conversion always receives both streams.
+      return matchesSource && (_preferredFormat != '3GP' || option.audioUrl.isNotEmpty);
+    }).toList();
     if (matchingFormat.isEmpty) {
       throw Exception('No $_preferredFormat stream is available for the selected video.');
     }
@@ -107,9 +112,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     try {
       final options = await _extractionService.getVideoQualities(urls.first);
       if (!mounted) return;
-      final matching = _sortedPreviewOptions(options
-          .where((option) => option.format.toUpperCase() == _preferredFormat)
-          .toList());
+      final matching = _sortedPreviewOptions(options.where((option) {
+        final matchesSource = option.format.toUpperCase() == _sourceFormat;
+        return matchesSource && (_preferredFormat != '3GP' || option.audioUrl.isNotEmpty);
+      }).toList());
       setState(() {
         _previewOptions = matching;
         _isPreviewLoading = false;
@@ -245,7 +251,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         }
         final safeId = downloadId.replaceAll(RegExp(r'[^\w-]'), '');
         final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
-        final extension = quality.format.toLowerCase().contains('webm') ? 'webm' : 'mp4';
+        final extension = _preferredFormat.toLowerCase();
         final fileName = '$fileBase.$extension';
         final savePath = '${documentsPath}/TubeArena/Downloads/$fileName';
 
@@ -256,6 +262,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           audioUrl: quality.audioUrl,
           quality: quality.quality,
           format: quality.format,
+          outputFormat: _preferredFormat,
           isAudioOnly: false,
         );
         if (taskId == null) {
@@ -268,7 +275,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             title: title,
             url: quality.videoUrl,
             size: quality.fileSize,
-            format: '${quality.quality} ${quality.format}',
+            format: '${quality.quality} $_preferredFormat',
             progress: 0,
             savedPath: savePath,
           ),
@@ -324,17 +331,17 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Paste one YouTube URL per line. Choose MP4 or WebM, then check the first video. The resolution list shows only streams actually available for that video, with each estimated file size.  Only use media you are authorized to download.',
+            'Paste one YouTube URL per line. Choose MP4, WebM, or 3GP (button-phone preset), then check the first video. The resolution list shows only compatible source streams and estimated sizes. 3GP converts to low-resolution H.263 video with AMR-NB audio for older phones. Only use media you are authorized to download.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _preferredFormat,
             decoration: const InputDecoration(
-              labelText: 'Video format',
+              labelText: 'Save video as',
               border: OutlineInputBorder(),
             ),
-            items: const ['MP4', 'WEBM']
+            items: const ['MP4', 'WEBM', '3GP']
                 .map((format) => DropdownMenuItem(value: format, child: Text(format)))
                 .toList(),
             onChanged: _isProcessing || _audioOnly
@@ -396,7 +403,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Selected: ${selected.quality} • ${selected.format}',
+                    Text('Selected: ${selected.quality} • $_preferredFormat',
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
                     Text('Estimated download size: ${selected.fileSize}',
@@ -412,7 +419,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             contentPadding: EdgeInsets.zero,
             value: _audioOnly,
             title: const Text('Audio only'),
-            subtitle: const Text('Save the original audio format; this does not convert to MP3.'),
+            subtitle: const Text('Save the original audio format; this does not convert to MP3 or another audio format.'),
             onChanged: _isProcessing ? null : (value) => setState(() => _audioOnly = value),
           ),
           SwitchListTile(
