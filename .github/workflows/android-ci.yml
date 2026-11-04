@@ -43,6 +43,9 @@ jobs:
           cp "$RUNNER_TEMP/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
           sed -i 's/ package="com.tubearena.app"//' android/app/src/main/AndroidManifest.xml
 
+      - name: Ensure declared asset directories exist
+        run: mkdir -p assets/images assets/icons
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -98,6 +101,9 @@ jobs:
           cp -R "$RUNNER_TEMP/tube-arena-native/android" android
           cp "$RUNNER_TEMP/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
           sed -i 's/ package="com.tubearena.app"//' android/app/src/main/AndroidManifest.xml
+
+      - name: Ensure declared asset directories exist
+        run: mkdir -p assets/images assets/icons
 
       - name: Build debug APK for emulator
         run: |
