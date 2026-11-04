@@ -18,7 +18,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   final TextEditingController _urlsController = TextEditingController();
   late final YoutubeExtractionService _extractionService;
   bool _isProcessing = false;
-  String _preferredQuality = '720p';
+  String _preferredQuality = '240p';
   bool _audioOnly = false;
   bool _buttonPhoneCompatible = false;
   bool _wifiOnly = false;
@@ -188,7 +188,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           videoUrl: quality.videoUrl,
           audioUrl: quality.audioUrl,
           quality: quality.quality,
-          format: quality.format,
+          format: _buttonPhoneCompatible ? 'MP4 H.264/AAC' : quality.format,
           isAudioOnly: false,
           buttonPhoneCompatible: _buttonPhoneCompatible,
         );
