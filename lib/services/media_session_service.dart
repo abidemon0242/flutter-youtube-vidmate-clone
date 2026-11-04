@@ -1,70 +1,111 @@
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:logger/logger.dart';
 
 class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
-  final logger = Logger();
-
   TubeArenaAudioHandler() {
-    queue.add([]);
+    _player.playbackEventStream.listen(
+      (_) => _broadcastPlaybackState(),
+      onError: (Object error, StackTrace stackTrace) {
+        _logger.e('Audio playback stream error', error: error, stackTrace: stackTrace);
+      },
+    );
+    _player.playerStateStream.listen((_) => _broadcastPlaybackState());
+    _player.durationStream.listen((duration) {
+      final current = mediaItem.value;
+      if (current != null && duration != null) {
+        mediaItem.add(current.copyWith(duration: duration));
+      }
+    });
+  }
+
+  final AudioPlayer _player = AudioPlayer();
+  final Logger _logger = Logger();
+
+  AudioPlayer get player => _player;
+
+  Future<void> setFilePath(String path, {String? title, String? artist}) async {
+    final fileTitle = title ?? path.split('/').last;
+    final duration = await _player.setFilePath(path);
+    mediaItem.add(MediaItem(
+      id: path,
+      title: fileTitle,
+      artist: artist ?? 'Tube Arena Library',
+      duration: duration,
+    ));
+    _broadcastPlaybackState();
+  }
+
+  void _broadcastPlaybackState() {
+    final state = _player.playerState;
+    final processingState = switch (state.processingState) {
+      ProcessingState.idle => AudioProcessingState.idle,
+      ProcessingState.loading => AudioProcessingState.loading,
+      ProcessingState.buffering => AudioProcessingState.buffering,
+      ProcessingState.ready => AudioProcessingState.ready,
+      ProcessingState.completed => AudioProcessingState.completed,
+    };
+    playbackState.add(PlaybackState(
+      controls: [
+        MediaControl.skipToPrevious,
+        state.playing ? MediaControl.pause : MediaControl.play,
+        MediaControl.stop,
+        MediaControl.skipToNext,
+      ],
+      systemActions: const {MediaAction.seek},
+      androidCompactActionIndices: const [0, 1, 2],
+      processingState: processingState,
+      playing: state.playing,
+      updatePosition: _player.position,
+      bufferedPosition: _player.bufferedPosition,
+      speed: _player.speed,
+      queueIndex: 0,
+    ));
   }
 
   @override
   Future<void> play() async {
-    logger.i('Audio playback started');
-    playbackState.add(playbackState.value.copyWith(
-      playing: true,
-      processingState: AudioProcessingState.ready,
-      updatePosition: Duration.zero,
-    ));
+    unawaited(_player.play());
   }
 
   @override
-  Future<void> pause() async {
-    logger.i('Audio playback paused');
-    playbackState.add(playbackState.value.copyWith(playing: false));
-  }
+  Future<void> pause() => _player.pause();
 
   @override
   Future<void> stop() async {
-    logger.i('Audio playback stopped');
-    playbackState.add(playbackState.value.copyWith(
-      playing: false,
-      processingState: AudioProcessingState.idle,
-    ));
+    await _player.stop();
+    await super.stop();
+    _broadcastPlaybackState();
   }
 
   @override
-  Future<void> seek(Duration position) async {
-    logger.i('Seek to position: $position');
-    playbackState.add(playbackState.value.copyWith(updatePosition: position));
+  Future<void> seek(Duration position) => _player.seek(position);
+
+  @override
+  Future<void> skipToNext() async {
+    // A single local file is loaded at a time; there is no next queue item.
   }
 
-  void updateMediaMetadata({
-    required String title,
-    required String artist,
-    required String? artUri,
-    required Duration duration,
-  }) {
-    mediaItem.add(MediaItem(
-      id: title,
-      album: artist,
-      title: title,
-      artist: artist,
-      duration: duration,
-      artUri: artUri != null ? Uri.parse(artUri) : null,
-    ));
+  @override
+  Future<void> skipToPrevious() async {
+    await _player.seek(Duration.zero);
   }
 }
 
 class MediaSessionService {
   static final MediaSessionService _instance = MediaSessionService._internal();
-  final logger = Logger();
+  final Logger logger = Logger();
   TubeArenaAudioHandler? _audioHandler;
+  Future<void>? _initialization;
 
   factory MediaSessionService() => _instance;
   MediaSessionService._internal();
 
-  Future<void> initialize() async {
+  Future<void> initialize() => _initialization ??= _initialize();
+
+  Future<void> _initialize() async {
     try {
       logger.i('Initializing MediaSessionService...');
       _audioHandler = await AudioService.init(
@@ -72,41 +113,26 @@ class MediaSessionService {
         config: const AudioServiceConfig(
           androidNotificationChannelId: 'com.tubearena.audio',
           androidNotificationChannelName: 'Tube Arena Playback',
-          androidNotificationOngoing: true,
+          androidNotificationOngoing: false,
           androidStopForegroundOnPause: true,
         ),
       );
       logger.i('MediaSessionService initialized successfully');
-    } catch (e) {
-      logger.e('Error initializing media session: $e');
+    } catch (error, stackTrace) {
+      _initialization = null;
+      logger.e('Error initializing media session', error: error, stackTrace: stackTrace);
     }
   }
 
   TubeArenaAudioHandler? get audioHandler => _audioHandler;
 
-  void updateLockScreenInfo({
-    required String title,
-    required String channelName,
-    required String? thumbnailUrl,
-    required Duration duration,
-  }) {
-    _audioHandler?.updateMediaMetadata(
-      title: title,
-      artist: channelName,
-      artUri: thumbnailUrl,
-      duration: duration,
-    );
+  Future<void> setLocalAudioFile(String path, {String? title}) async {
+    final handler = _audioHandler;
+    if (handler == null) throw StateError('Media session is not initialized.');
+    await handler.setFilePath(path, title: title);
   }
 
-  Future<void> playFromLockScreen() async {
-    await _audioHandler?.play();
-  }
-
-  Future<void> pauseFromLockScreen() async {
-    await _audioHandler?.pause();
-  }
-
-  Future<void> stopPlayback() async {
-    await _audioHandler?.stop();
-  }
+  Future<void> playFromLockScreen() async => _audioHandler?.play();
+  Future<void> pauseFromLockScreen() async => _audioHandler?.pause();
+  Future<void> stopPlayback() async => _audioHandler?.stop();
 }
