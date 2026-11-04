@@ -63,15 +63,15 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     // For other links in a batch, use the highest real stream no higher than
     // the selected resolution. Never silently exceed the user's limit.
     final targetHeight =
-        int.tryParse(RegExp(r'(\\d+)p').firstMatch(_preferredQuality)?.group(1) ?? '') ?? 1080;
+        int.tryParse(RegExp(r'(\d+)p').firstMatch(_preferredQuality)?.group(1) ?? '') ?? 1080;
     final atOrBelowTarget = matchingFormat.where((option) {
       final height =
-          int.tryParse(RegExp(r'(\\d+)p').firstMatch(option.quality)?.group(1) ?? '');
+          int.tryParse(RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ?? '');
       return height != null && height <= targetHeight;
     }).toList()
       ..sort((a, b) {
-        final aHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
-        final bHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+        final aHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
+        final bHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
         if (aHeight != bHeight) return bHeight.compareTo(aHeight);
         return b.fps.compareTo(a.fps);
       });
@@ -85,8 +85,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   List<VideoQualityOption> _sortedPreviewOptions(List<VideoQualityOption> options) {
     final sorted = [...options];
     sorted.sort((a, b) {
-      final aHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
-      final bHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+      final aHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
+      final bHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
       if (aHeight != bHeight) return bHeight.compareTo(aHeight);
       return b.fps.compareTo(a.fps);
     });
