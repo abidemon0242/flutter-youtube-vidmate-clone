@@ -1,4 +1,4 @@
-import '../models/video_model.dart';
+import '../../models/video_model.dart';
 
 class MockYouTubeRepository {
   List<VideoModel> getTrendingVideos() => const [
