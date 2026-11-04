@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../providers/downloads_provider.dart';
 
 class BatchDownloadBar extends StatelessWidget {
   const BatchDownloadBar({
