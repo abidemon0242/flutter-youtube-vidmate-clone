@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui' show IsolateNameServer;
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_downloader/flutter_downloader.dart' as fd;
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
@@ -169,7 +170,7 @@ class BackgroundDownloadService {
     return DownloadStatus.pending;
   }
 
-  Future<void> _restoreMetadata() async {
+  Future<void> _restorePreferences() async {\n    final path = _preferencesPath;\n    if (path == null) return;\n    try {\n      final file = File(path);\n      if (await file.exists()) {\n        final decoded = jsonDecode(await file.readAsString());\n        if (decoded is Map<String, dynamic>) {\n          _wifiOnly = decoded['wifiOnly'] as bool? ?? false;\n        }\n      }\n    } catch (error) {\n      logger.w('Could not restore download preferences: $error');\n    }\n  }\n\n  Future<void> _persistPreferences() async {\n    final path = _preferencesPath;\n    if (path == null) return;\n    try {\n      await File(path).writeAsString(jsonEncode({'wifiOnly': _wifiOnly}), flush: true);\n    } catch (error) {\n      logger.w('Could not save download preferences: $error');\n    }\n  }\n\n  Future<void> setWifiOnly(bool enabled) async {\n    _wifiOnly = enabled;\n    await _persistPreferences();\n    final current = await _connectivity.checkConnectivity();\n    await _applyNetworkPolicy(current);\n    _notifyListeners();\n  }\n\n  Future<bool> _hasWifiConnection() async {\n    final results = await _connectivity.checkConnectivity();\n    return results.contains(ConnectivityResult.wifi) ||\n        results.contains(ConnectivityResult.ethernet);\n  }\n\n  Future<void> _applyNetworkPolicy(List<ConnectivityResult> results) async {\n    if (!_initialized) return;\n    final wifiAvailable = results.contains(ConnectivityResult.wifi) ||\n        results.contains(ConnectivityResult.ethernet);\n    if (_wifiOnly && !wifiAvailable) {\n      for (final task in _activeTasks.values.toList()) {\n        if (task.status == DownloadStatus.downloading ||\n            task.status == DownloadStatus.pending) {\n          final paused = await pauseDownload(task.id);\n          if (paused) task.pausedByWifiPolicy = true;\n        }\n      }\n    } else {\n      for (final task in _activeTasks.values.toList()) {\n        if (task.pausedByWifiPolicy) {\n          task.pausedByWifiPolicy = false;\n          await resumeDownload(task.id);\n        }\n      }\n    }\n    await _persistMetadata();\n  }\n\n  Future<void> _restoreMetadata() async {
     final path = _metadataPath;
     if (path == null) return;
     final file = File(path);
