@@ -1,6 +1,41 @@
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+
 import '../../models/video_model.dart';
 
 class MockYouTubeRepository {
+  final YoutubeExplode _youtube = YoutubeExplode();
+
+  Future<List<VideoModel>> searchVideos(String query) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) return const [];
+    final results = await _youtube.search.getVideos(normalized);
+    return results.map((video) {
+      final duration = video.duration;
+      final durationLabel = duration == null
+          ? (video.isLive ? 'LIVE' : '—')
+          : _formatDuration(duration);
+      return VideoModel(
+        id: video.id.value,
+        title: video.title,
+        channelName: video.author,
+        views: '${video.engagement.viewCount} views',
+        duration: durationLabel,
+        thumbnailUrl: video.thumbnails.highResUrl,
+        channelAvatar: video.thumbnails.highResUrl,
+        isVerified: false,
+        category: 'Search',
+        playbackUrl: video.url,
+      );
+    }).toList(growable: false);
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return hours > 0 ? '${hours.toString().padLeft(2, '0')}:$minutes:$seconds' : '$minutes:$seconds';
+  }
+
   List<VideoModel> getTrendingVideos() => const [
         VideoModel(
           id: 'v1',
