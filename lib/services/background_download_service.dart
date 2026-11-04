@@ -276,6 +276,10 @@ class BackgroundDownloadService {
       final ffmpeg = FFmpegMergeService();
       final needs3gp = task.outputFormat.toUpperCase() == '3GP';
       final mergePath = needs3gp ? '${task.savePath}.source.mp4' : task.savePath;
+      if (needs3gp) {
+        final staleIntermediate = File(mergePath);
+        if (await staleIntermediate.exists()) await staleIntermediate.delete();
+      }
       final muxed = await ffmpeg.mergeVideoAndAudio(
         videoPath: task.videoTempPath!,
         audioPath: task.audioTempPath!,
