@@ -409,6 +409,7 @@ class BackgroundDownloadService {
   }
 
   Future<bool> resumeDownload(String downloadId) async {
+    if (_wifiOnly && !await _hasWifiConnection()) return false;
     final task = _activeTasks[downloadId];
     if (task?.taskId == null) return false;
     try {
@@ -426,6 +427,7 @@ class BackgroundDownloadService {
   }
 
   Future<bool> retryDownload(String downloadId) async {
+    if (_wifiOnly && !await _hasWifiConnection()) return false;
     final task = _activeTasks[downloadId];
     if (task == null ||
         (task.status != DownloadStatus.failed &&
