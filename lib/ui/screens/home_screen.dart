@@ -81,12 +81,21 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Row(children: [
-          Icon(Icons.menu_rounded, color: AppColors.white),
-          SizedBox(width: 12),
-          Text('Tube Arena'),
-        ]),
+        title: const Text('Tube Arena'),
         actions: [
+          PopupMenuButton<String>(
+            tooltip: 'More options',
+            onSelected: (value) {
+              if (value == 'add') context.push('/add-downloads');
+              if (value == 'downloads') context.go('/downloads');
+              if (value == 'library') context.go('/library');
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'add', child: ListTile(leading: Icon(Icons.add_link), title: Text('Add video links'))),
+              PopupMenuItem(value: 'downloads', child: ListTile(leading: Icon(Icons.download), title: Text('Downloads'))),
+              PopupMenuItem(value: 'library', child: ListTile(leading: Icon(Icons.library_books), title: Text('Library'))),
+            ],
+          ),
           IconButton(onPressed: _search, tooltip: 'Search', icon: const Icon(Icons.search_rounded)),
         ],
       ),
@@ -149,11 +158,14 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: multiSelectMode
           ? FloatingActionButton.extended(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Batch downloads are not available in this demo yet.')),
-              ),
-              label: Text('Download selected (${selectedIds.length})'),
-              icon: const Icon(Icons.download_rounded),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('The home feed contains demo cards. Paste authorized media links to create real downloads.')),
+                );
+                context.push('/add-downloads');
+              },
+              label: const Text('Add download links'),
+              icon: const Icon(Icons.add_link),
             )
           : null,
     );
