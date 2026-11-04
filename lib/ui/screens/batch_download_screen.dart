@@ -50,27 +50,24 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   }
 
   VideoQualityOption _chooseQuality(List<VideoQualityOption> options) {
-    final matchingFormat = options.where((option) => option.format.toUpperCase() == _preferredFormat).toList();
-    if (matchingFormat.isEmpty) {
-      throw Exception('No $_preferredFormat stream is available for the selected video.');
+    final matching = options.where((option) =>
+        option.format.toUpperCase() == _preferredFormat &&
+        option.quality == _preferredQuality);
+    if (matching.isEmpty) {
+      throw Exception('$_preferredQuality $_preferredFormat is not available for this video.');
     }
-    final ranked = [...matchingFormat]
-      ..sort((a, b) {
-        final aHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
-        final bHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
-        return aHeight.compareTo(bHeight);
-      });
+    return matching.first;
+  }
 
-    final targetHeight = int.tryParse(_preferredQuality.replaceAll('p', '')) ?? 720;
-    final atOrBelowTarget = ranked.where((option) {
-      final height = int.tryParse(RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ?? '');
-      return height != null && height <= targetHeight;
-    }).toList();
-
-    if (atOrBelowTarget.isEmpty) {
-      throw Exception('No $_preferredFormat stream is available at or below $_preferredQuality.');
-    }
-    return atOrBelowTarget.last;
+  List<VideoQualityOption> _sortedPreviewOptions(List<VideoQualityOption> options) {
+    final sorted = [...options];
+    sorted.sort((a, b) {
+      final aHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
+      final bHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+      if (aHeight != bHeight) return bHeight.compareTo(aHeight);
+      return b.fps.compareTo(a.fps);
+    });
+    return sorted;
   }
 
   Future<void> _previewQualities() async {
@@ -87,16 +84,18 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     try {
       final options = await _extractionService.getVideoQualities(urls.first);
       if (!mounted) return;
-      final matching = options
+      final matching = _sortedPreviewOptions(options
           .where((option) => option.format.toUpperCase() == _preferredFormat)
-          .toList();
+          .toList());
       setState(() {
         _previewOptions = matching;
         _isPreviewLoading = false;
         if (matching.isEmpty) {
           _status = 'This video does not provide a $_preferredFormat stream.';
         } else {
-          final selected = _chooseQuality(matching);
+          // Start with the highest resolution actually returned for this video.
+          _preferredQuality = matching.first.quality;
+          final selected = matching.first;
           _status = 'Available selection: ${selected.quality} ${selected.format} • ${selected.fileSize}';
         }
       });
@@ -302,7 +301,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Paste one YouTube URL per line. Choose MP4 or WebM and a maximum resolution from 4K to 144p. Check the first video to see its actual available stream and estimated file size.  Only use media you are authorized to download.',
+            'Paste one YouTube URL per line. Choose MP4 or WebM, then check the first video. The resolution list shows only streams actually available for that video, with each estimated file size.  Only use media you are authorized to download.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 16),
@@ -328,19 +327,30 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: _preferredQuality,
+            initialValue: _previewOptions.any((option) => option.quality == _preferredQuality)
+                ? _preferredQuality
+                : null,
             decoration: const InputDecoration(
-              labelText: 'Maximum resolution',
-              helperText: '4K down to 144p. The actual available stream may be lower.',
+              labelText: 'Available resolution',
+              helperText: 'Check available sizes first. Only resolutions found for this video are listed.',
               border: OutlineInputBorder(),
             ),
-            items: const ['2160p', '1440p', '1080p', '720p', '480p', '360p', '240p', '144p']
-                .map((quality) => DropdownMenuItem(value: quality, child: Text(quality)))
+            items: _previewOptions
+                .map((option) => DropdownMenuItem(
+                      value: option.quality,
+                      child: Text('${option.quality} • ${option.fileSize} • ${option.fps} FPS'),
+                    ))
                 .toList(),
-            onChanged: _isProcessing || _audioOnly
+            onChanged: _isProcessing || _audioOnly || _previewOptions.isEmpty
                 ? null
                 : (value) {
-                    if (value != null) setState(() => _preferredQuality = value);
+                    if (value != null) {
+                      setState(() {
+                        _preferredQuality = value;
+                        final selected = _previewOptions.firstWhere((option) => option.quality == value);
+                        _status = 'Selected: ${selected.quality} ${selected.format} • ${selected.fileSize}';
+                      });
+                    }
                   },
           ),
           const SizedBox(height: 8),
