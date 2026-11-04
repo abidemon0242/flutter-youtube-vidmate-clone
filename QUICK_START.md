@@ -32,7 +32,7 @@
 ✅ Full YouTube-style UI  
 ✅ Video feed & search  
 ✅ Watch screen with player  
-✅ Download quality picker  
+ℹ️ Download UI placeholder (real downloads are not enabled yet)  
 ✅ Batch selection  
 ✅ Local library management  
 ✅ Ad-blocker logic  
