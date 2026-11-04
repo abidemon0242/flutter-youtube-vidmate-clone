@@ -256,7 +256,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _preferredQuality,
+            initialValue: _preferredQuality,
             decoration: const InputDecoration(
               labelText: 'Preferred maximum quality',
               border: OutlineInputBorder(),
