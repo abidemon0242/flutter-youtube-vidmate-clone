@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
@@ -41,6 +42,11 @@ class _WatchScreenState extends State<WatchScreen> {
   }
 
   Future<void> _initializePlayer() async {
+    final uri = Uri.tryParse(widget.video.playbackUrl);
+    if (uri != null && {'youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'www.youtu.be'}.contains(uri.host.toLowerCase())) {
+      if (mounted) setState(() => _playerFailed = true);
+      return;
+    }
     try {
       await _controller.initialize();
       if (mounted) setState(() => _playerReady = true);
@@ -73,7 +79,18 @@ class _WatchScreenState extends State<WatchScreen> {
                 decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)),
                 clipBehavior: Clip.antiAlias,
                 child: _playerFailed
-                    ? const Center(child: Text('Could not load this demo video', style: TextStyle(color: Colors.white)))
+                    ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        const Text('This video is hosted on YouTube.', style: TextStyle(color: Colors.white)),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: () async {
+                            final uri = Uri.tryParse(video.playbackUrl);
+                            if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          },
+                          icon: const Icon(Icons.open_in_new),
+                          label: const Text('Open on YouTube'),
+                        ),
+                      ]))
                     : !_playerReady
                         ? const Center(child: CircularProgressIndicator())
                         : Stack(
@@ -130,7 +147,7 @@ class _WatchScreenState extends State<WatchScreen> {
               Expanded(child: Text(video.channelName, style: const TextStyle(fontWeight: FontWeight.w700))),
             ]),
             const SizedBox(height: 20),
-            const Text('This prototype uses mock feed data and a sample video stream.'),
+            const Text('Demo videos play inside Tube Arena. YouTube search results open in the official YouTube app or browser.'),
           ],
         ),
       ),
