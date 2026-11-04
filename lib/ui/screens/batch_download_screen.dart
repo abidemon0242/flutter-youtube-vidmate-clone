@@ -406,7 +406,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                     Text('Selected: ${selected.quality} • $_preferredFormat',
                         style: const TextStyle(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 4),
-                    Text('Estimated download size: ${selected.fileSize}',
+                    Text(_preferredFormat == '3GP'
+                        ? 'Source stream size: ${selected.fileSize} • converted 3GP size will differ'
+                        : 'Estimated download size: ${selected.fileSize}',
                         style: const TextStyle(color: AppColors.textSecondary)),
                     Text('Frame rate: ${selected.fps} FPS',
                         style: const TextStyle(color: AppColors.textSecondary)),
