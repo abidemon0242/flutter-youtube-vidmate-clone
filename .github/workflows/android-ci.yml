@@ -146,7 +146,7 @@ jobs:
     name: Install and launch on Android emulator
     needs: flutter-checks
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -241,14 +241,21 @@ jobs:
           flutter pub get
           flutter build apk --debug
 
+      - name: Start Android Debug Bridge
+        run: |
+          adb start-server
+          adb version
+          adb devices
+
       - name: Boot emulator, install and launch app
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 30
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-audio -no-boot-anim
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
+          emulator-boot-timeout: 1200
           disable-animations: true
           script: |
             set -euo pipefail
