@@ -43,7 +43,6 @@ enum DownloadStatus {
 class BackgroundDownloadService {
   static final BackgroundDownloadService _instance = BackgroundDownloadService._internal();
   final logger = Logger();
-  final dio = Dio();
 
   final Map<String, DownloadTask> _activeTasks = {};
   final _statusStreamController = StreamController<Map<String, DownloadTask>>.broadcast();
@@ -60,8 +59,8 @@ class BackgroundDownloadService {
     try {
       logger.i('Initializing BackgroundDownloadService...');
       await FlutterDownloader.initialize(
-        debug: true,
-        ignoreSsl: true,
+        debug: false,
+        ignoreSsl: false,
       );
       logger.i('FlutterDownloader initialized successfully');
     } catch (e) {
@@ -82,35 +81,49 @@ class BackgroundDownloadService {
     try {
       final applicationDocDir = await getApplicationDocumentsDirectory();
       final downloadPath = '${applicationDocDir.path}/TubeArena/Downloads';
+      await Directory(downloadPath).create(recursive: true);
 
       logger.i('Starting download: $title');
       logger.i('Download path: $downloadPath');
 
-      // Determine file extension
+      // Use a filesystem-safe, task-specific name to avoid path injection and collisions.
       final fileExt = isAudioOnly
-          ? (format.contains('MP3') ? '.mp3' : '.m4a')
+          ? (format.toUpperCase().contains('MP3') ? '.mp3' : '.m4a')
           : '.mp4';
+      final safeTitle = title
+          .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
+          .replaceAll(RegExp(r'^_+|_+$'), '');
+      final safeId = id.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+      if (safeId.isEmpty) {
+        logger.e('Download ID is invalid.');
+        return null;
+      }
+      final fileName = '${safeTitle.isEmpty ? 'download' : safeTitle}_$safeId$fileExt';
+      final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
+      final uri = Uri.tryParse(downloadUrl);
+      if (uri == null ||
+          (uri.scheme != 'https' && uri.scheme != 'http') ||
+          uri.host.isEmpty) {
+        logger.e('Download URL must be a valid HTTP(S) URL.');
+        return null;
+      }
 
-      // Create download task
       final downloadTask = DownloadTask(
         id: id,
         title: title,
         videoUrl: videoUrl,
         audioUrl: audioUrl,
-        savePath: '$downloadPath/${title.replaceAll(RegExp(r'[^\w\s]'), '')}$fileExt',
+        savePath: '$downloadPath/$fileName',
         quality: quality,
         format: format,
         isAudioOnly: isAudioOnly,
       );
 
-      // Use the first available URL (video or audio)
-      final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
-
       // Start download using FlutterDownloader
       final taskId = await FlutterDownloader.enqueue(
         url: downloadUrl,
         savedDir: downloadPath,
-        fileName: '${title.replaceAll(RegExp(r'[^\w\s]'), '')}$fileExt',
+        fileName: fileName,
         showNotification: true,
         openFileFromNotification: false,
         saveInPublicStorage: false,
@@ -190,8 +203,8 @@ class BackgroundDownloadService {
   void updateProgress(String downloadId, double progress) {
     final task = _activeTasks[downloadId];
     if (task != null) {
-      task.progress = progress;
-      if (progress >= 100) {
+      task.progress = progress.clamp(0, 100).toDouble();
+      if (task.progress >= 100) {
         task.status = DownloadStatus.completed;
       }
       _notifyListeners();
