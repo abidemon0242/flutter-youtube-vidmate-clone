@@ -20,7 +20,7 @@ dependencies:
   chewie: ^1.2.7
   just_audio: ^0.9.38
   audio_service: ^0.18.12
-  path_provider: ^2.6.0
+  path_provider: ^2.1.5
   permission_handler: ^11.0.0
   flutter_downloader: ^1.11.0
   ffmpeg_kit_flutter: ^5.1.0
