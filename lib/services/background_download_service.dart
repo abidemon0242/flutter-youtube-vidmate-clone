@@ -209,6 +209,9 @@ class BackgroundDownloadService {
     _notifyListeners();
 
     try {
+      if (!await source.exists() && await backup.exists()) {
+        await backup.rename(source.path);
+      }
       if (!await source.exists() || await source.length() == 0) {
         throw StateError('The downloaded source file is missing or empty.');
       }
