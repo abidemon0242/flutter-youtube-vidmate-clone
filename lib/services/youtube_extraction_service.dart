@@ -95,12 +95,10 @@ class YoutubeExtractionService {
 
       logger.i('Fetching video qualities for: $videoId');
       final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
-      final audioFallbackUrl = manifest.audioOnly.isNotEmpty
-          ? manifest.audioOnly.withHighestBitrate().url.toString()
-          : '';
-
-      // The package exposes muxed and video-only streams together as manifest.video.
-      final videoStreams = manifest.video.toList()
+      // Use muxed streams only in the one-file download queue. Adaptive video-only
+      // streams require a second audio task and FFmpeg orchestration; queueing them
+      // alone would produce a silent video, so they are intentionally not offered.
+      final videoStreams = manifest.muxed.toList()
         ..sort((a, b) => b.bitrate.compareTo(a.bitrate));
       final available = <VideoQualityOption>[];
       final seen = <String>{};
@@ -114,7 +112,7 @@ class YoutubeExtractionService {
           format: stream.container.name.toUpperCase(),
           fileSize: _formatBytes(stream.size.totalBytes),
           videoUrl: stream.url.toString(),
-          audioUrl: audioFallbackUrl,
+          audioUrl: '',
           fps: stream.framerate.framesPerSecond.toInt(),
           bitrate: _formatBitrate(stream.bitrate),
         ));
