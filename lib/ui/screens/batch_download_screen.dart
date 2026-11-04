@@ -20,12 +20,14 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   bool _isProcessing = false;
   String _preferredQuality = '720p';
   bool _audioOnly = false;
+  bool _wifiOnly = false;
   String _status = 'Paste one video link per line.';
 
   @override
   void initState() {
     super.initState();
     _extractionService = YoutubeExtractionService();
+    _wifiOnly = BackgroundDownloadService().wifiOnly;
   }
 
   @override
@@ -277,6 +279,18 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             title: const Text('Audio only'),
             subtitle: const Text('Save the original audio format; this does not convert to MP3.'),
             onChanged: _isProcessing ? null : (value) => setState(() => _audioOnly = value),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _wifiOnly,
+            title: const Text('Wi-Fi only downloads'),
+            subtitle: const Text('Pause or block downloads on mobile data while Tube Arena is active. Android may not report network changes while the app is in the background.'),
+            onChanged: _isProcessing
+                ? null
+                : (value) async {
+                    setState(() => _wifiOnly = value);
+                    await BackgroundDownloadService().setWifiOnly(value);
+                  },
           ),
           const SizedBox(height: 8),
           TextField(
