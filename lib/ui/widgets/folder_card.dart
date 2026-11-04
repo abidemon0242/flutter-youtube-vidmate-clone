@@ -9,6 +9,8 @@ class FolderCard extends StatelessWidget {
     required this.fileCount,
     required this.onTap,
     required this.onLongPress,
+    required this.onRename,
+    required this.onDelete,
     this.isSelected = false,
   });
 
@@ -16,6 +18,8 @@ class FolderCard extends StatelessWidget {
   final int fileCount;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
   final bool isSelected;
 
   @override
@@ -57,19 +61,27 @@ class FolderCard extends StatelessWidget {
                 ),
               ],
             ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: PopupMenuButton<String>(
+                tooltip: 'Folder actions',
+                onSelected: (action) {
+                  if (action == 'rename') onRename();
+                  if (action == 'delete') onDelete();
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'rename', child: Text('Rename')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                ],
+                icon: const Icon(Icons.more_vert, size: 20),
+              ),
+            ),
             if (isSelected)
               Positioned(
                 top: 8,
-                right: 8,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryStart,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.check, size: 14, color: Colors.white),
-                ),
+                left: 8,
+                child: Icon(Icons.check_circle, color: AppColors.primaryStart),
               ),
           ],
         ),
