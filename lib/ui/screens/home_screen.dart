@@ -19,6 +19,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int selectedCategory = 0;
   bool multiSelectMode = false;
   String searchQuery = '';
+  List<VideoModel> _searchResults = [];
+  bool _isSearching = false;
+  String? _searchError;
   final Set<String> selectedIds = {};
 
   @override
@@ -28,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<VideoModel> get videos {
+    if (searchQuery.trim().isNotEmpty) return _searchResults;
     final allVideos = repository.getTrendingVideos();
     final categories = repository.getCategories();
     final category = selectedCategory < categories.length
@@ -56,11 +60,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final query = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Search videos'),
+        title: const Text('Search YouTube'),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'Title or channel'),
+          decoration: const InputDecoration(hintText: 'Search videos'),
           onSubmitted: (value) => Navigator.pop(dialogContext, value),
         ),
         actions: [
@@ -69,8 +73,38 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
-    if (query != null && mounted) setState(() => searchQuery = query);
     controller.dispose();
+    if (query == null || !mounted) return;
+    if (query.trim().isEmpty) {
+      _clearSearch();
+      return;
+    }
+    setState(() {
+      searchQuery = query.trim();
+      selectedCategory = 0;
+      _isSearching = true;
+      _searchError = null;
+      _searchResults = [];
+    });
+    try {
+      final results = await repository.searchVideos(searchQuery);
+      if (!mounted) return;
+      setState(() => _searchResults = results);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _searchError = 'Search is temporarily unavailable. Check your connection and try again.');
+    } finally {
+      if (mounted) setState(() => _isSearching = false);
+    }
+  }
+
+  void _clearSearch() {
+    setState(() {
+      searchQuery = '';
+      _searchResults = [];
+      _searchError = null;
+      _isSearching = false;
+    });
   }
 
   @override
@@ -83,6 +117,8 @@ class _HomeScreenState extends State<HomeScreen> {
         automaticallyImplyLeading: false,
         title: const Text('Tube Arena'),
         actions: [
+          if (searchQuery.isNotEmpty)
+            IconButton(onPressed: _clearSearch, tooltip: 'Clear search', icon: const Icon(Icons.close)),
           PopupMenuButton<String>(
             tooltip: 'More options',
             onSelected: (value) {
@@ -115,9 +151,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         Expanded(
-          child: visibleVideos.isEmpty
-              ? const Center(child: Text('No matching videos'))
-              : ListView.builder(
+          child: _isSearching
+              ? const Center(child: CircularProgressIndicator())
+              : _searchError != null
+                  ? Center(child: Text(_searchError!, textAlign: TextAlign.center))
+                  : visibleVideos.isEmpty
+                      ? Center(child: Text(searchQuery.isEmpty ? 'No videos available' : 'No search results found'))
+                      : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
                   itemCount: visibleVideos.length,
                   itemBuilder: (context, index) {
