@@ -204,7 +204,7 @@ class LocalFileManagerService {
           safeName == '..' ||
           safeName.contains('/') ||
           safeName.contains('\\') ||
-          safeName.contains(RegExp(r'[\\x00-\\x1F]'))) {
+          safeName.contains(RegExp(r'[\x00-\x1F]'))) {
         return false;
       }
       final file = File(filePath);
