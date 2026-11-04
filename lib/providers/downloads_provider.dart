@@ -2,11 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../services/background_download_service.dart';
-import '../services/local_file_manager_service.dart';
 
 class DownloadEntry {
   DownloadEntry({
@@ -41,19 +40,17 @@ class DownloadEntry {
     String? savedPath,
     bool? isAudioOnly,
     String? status,
-  }) {
-    return DownloadEntry(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      url: url ?? this.url,
-      size: size ?? this.size,
-      format: format ?? this.format,
-      progress: progress ?? this.progress,
-      savedPath: savedPath ?? this.savedPath,
-      isAudioOnly: isAudioOnly ?? this.isAudioOnly,
-      status: status ?? this.status,
-    );
-  }
+  }) => DownloadEntry(
+        id: id ?? this.id,
+        title: title ?? this.title,
+        url: url ?? this.url,
+        size: size ?? this.size,
+        format: format ?? this.format,
+        progress: progress ?? this.progress,
+        savedPath: savedPath ?? this.savedPath,
+        isAudioOnly: isAudioOnly ?? this.isAudioOnly,
+        status: status ?? this.status,
+      );
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -73,7 +70,7 @@ class DownloadEntry {
         url: json['url'] as String? ?? '',
         size: json['size'] as String? ?? 'Unknown',
         format: json['format'] as String? ?? '',
-        progress: (json['progress'] as num?)?.toDouble() ?? 0,
+        progress: ((json['progress'] as num?)?.toDouble() ?? 0).clamp(0, 100),
         savedPath: json['savedPath'] as String? ?? '',
         isAudioOnly: json['isAudioOnly'] as bool? ?? false,
         status: json['status'] as String? ?? 'pending',
@@ -81,32 +78,37 @@ class DownloadEntry {
 }
 
 class DownloadsProvider extends ChangeNotifier {
-  DownloadsProvider() {
-    _serviceSubscription =
-        _downloadService.statusStream.listen(_syncFromService);
+  DownloadsProvider({Future<Directory> Function()? downloadsDirectoryResolver})
+      : _downloadsDirectoryResolver =
+            downloadsDirectoryResolver ?? _defaultDownloadsDirectory {
+    _serviceSubscription = _downloadService.statusStream.listen(_syncFromService);
   }
 
+  final Future<Directory> Function() _downloadsDirectoryResolver;
   final List<DownloadEntry> _items = [];
   final Set<String> _selectedIds = {};
-  final BackgroundDownloadService _downloadService =
-      BackgroundDownloadService();
-  final LocalFileManagerService _fileManager = LocalFileManagerService();
+  final BackgroundDownloadService _downloadService = BackgroundDownloadService();
 
-  late final Future<File> _storageFile = _createStorageFile();
   StreamSubscription<Map<String, AppDownloadTask>>? _serviceSubscription;
-  bool _initialized = false;
+  late final Future<File> _storageFile = _createStorageFile();
   Future<void> _saveQueue = Future<void>.value();
+  bool _initialized = false;
 
-  List<DownloadEntry> get items => List.unmodifiable(_items);
-  List<String> get selectedIds => List.unmodifiable(_selectedIds.toList());
-  bool get hasSelection => _selectedIds.isNotEmpty;
+  static Future<Directory> _defaultDownloadsDirectory() async {
+    final documents = await getApplicationDocumentsDirectory();
+    return Directory('${documents.path}/TubeArena/Downloads');
+  }
 
   Future<File> _createStorageFile() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final folder = Directory('${directory.path}/TubeArena');
-    await folder.create(recursive: true);
-    return File('${folder.path}/downloads.json');
+    final documents = await getApplicationDocumentsDirectory();
+    final directory = Directory('${documents.path}/TubeArena');
+    await directory.create(recursive: true);
+    return File('${directory.path}/downloads.json');
   }
+
+  List<DownloadEntry> get items => List.unmodifiable(_items);
+  List<String> get selectedIds => List.unmodifiable(_selectedIds);
+  bool get hasSelection => _selectedIds.isNotEmpty;
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -115,19 +117,18 @@ class DownloadsProvider extends ChangeNotifier {
       if (await file.exists()) {
         final decoded = jsonDecode(await file.readAsString());
         if (decoded is List) {
-          for (final item in decoded) {
-            if (item is Map<String, dynamic>) {
-              final entry = DownloadEntry.fromJson(item);
-              _items.removeWhere((existing) => existing.id == entry.id);
+          for (final value in decoded) {
+            if (value is Map<String, dynamic>) {
+              final entry = DownloadEntry.fromJson(value);
+              _items.removeWhere((item) => item.id == entry.id);
               _items.add(entry);
             }
           }
         }
       }
     } catch (error) {
-      debugPrint('Could not restore download list: $error');
+      debugPrint('Could not restore download history: $error');
     }
-
     _initialized = true;
     _syncFromService(_downloadService.getActiveTasks());
     notifyListeners();
@@ -136,30 +137,31 @@ class DownloadsProvider extends ChangeNotifier {
   void _syncFromService(Map<String, AppDownloadTask> tasks) {
     if (!_initialized) return;
     var changed = false;
-
     for (final task in tasks.values) {
-      final index = _items.indexWhere((entry) => entry.id == task.id);
-      final existing = index >= 0 ? _items[index] : null;
+      final index = _items.indexWhere((item) => item.id == task.id);
+      final current = index < 0 ? null : _items[index];
       final updated = DownloadEntry(
         id: task.id,
         title: task.title,
         url: task.isAudioOnly ? task.audioUrl : task.videoUrl,
-        size: existing?.size ?? 'Unknown',
+        size: current?.size ?? 'Unknown',
         format: '${task.quality} ${task.format}'.trim(),
-        progress: task.progress,
+        progress: task.progress.clamp(0, 100),
         savedPath: task.savePath,
         isAudioOnly: task.isAudioOnly,
         status: task.status.name,
       );
-
-      if (index >= 0) {
+      if (current == null) {
+        _items.insert(0, updated);
+      } else if (current.progress != updated.progress ||
+          current.status != updated.status ||
+          current.savedPath != updated.savedPath) {
         _items[index] = updated;
       } else {
-        _items.insert(0, updated);
+        continue;
       }
       changed = true;
     }
-
     if (changed) {
       notifyListeners();
       _persist();
@@ -167,94 +169,82 @@ class DownloadsProvider extends ChangeNotifier {
   }
 
   void addDownload(DownloadEntry item) {
-    final index = _items.indexWhere((entry) => entry.id == item.id);
-    if (index >= 0) {
-      _items[index] = item;
-    } else {
+    final index = _items.indexWhere((existing) => existing.id == item.id);
+    if (index < 0) {
       _items.insert(0, item);
+    } else {
+      _items[index] = item;
     }
     notifyListeners();
     _persist();
   }
 
   void toggleSelection(String id) {
-    if (_selectedIds.contains(id)) {
-      _selectedIds.remove(id);
-    } else {
-      _selectedIds.add(id);
-    }
+    if (!_items.any((item) => item.id == id)) return;
+    if (!_selectedIds.add(id)) _selectedIds.remove(id);
     notifyListeners();
   }
 
   void clearSelection() {
+    if (_selectedIds.isEmpty) return;
     _selectedIds.clear();
     notifyListeners();
   }
 
-  Future<bool> pauseDownload(String id) =>
-      _downloadService.pauseDownload(id);
+  /// Removes history records only. Use deleteSelectedFiles to delete media too.
+  void removeSelected() {
+    _items.removeWhere((item) => _selectedIds.contains(item.id));
+    _selectedIds.clear();
+    notifyListeners();
+    _persist();
+  }
 
-  Future<bool> resumeDownload(String id) =>
-      _downloadService.resumeDownload(id);
+  Future<bool> pauseDownload(String id) => _downloadService.pauseDownload(id);
+  Future<bool> resumeDownload(String id) => _downloadService.resumeDownload(id);
+  Future<bool> cancelDownload(String id) => _downloadService.cancelDownload(id);
+  Future<bool> retryDownload(String id) => _downloadService.retryDownload(id);
 
-  Future<bool> cancelDownload(String id) =>
-      _downloadService.cancelDownload(id);
-
-  Future<bool> retryDownload(String id) =>
-      _downloadService.retryDownload(id);
-
-  Future<int> removeSelected() async {
-    final ids = List<String>.from(_selectedIds);
-    var removed = 0;
-    for (final id in ids) {
-      final index = _items.indexWhere((item) => item.id == id);
-      if (index < 0) continue;
-      final item = _items[index];
+  Future<bool> deleteFileFor(DownloadEntry item) async {
+    try {
       if (item.status == 'pending' ||
           item.status == 'downloading' ||
           item.status == 'paused') {
-        final cancelled = await _downloadService.cancelDownload(id);
-        if (!cancelled) continue;
+        if (!await _downloadService.cancelDownload(item.id)) return false;
       }
-      final path = item.savedPath;
-      if (path.isNotEmpty) {
-        final file = File(path);
-        if (await file.exists()) {
-          final deleted = await _fileManager.deleteFile(path);
-          if (!deleted) {
-            debugPrint('Could not safely delete download file: $path');
-          }
-        }
+      final path = item.savedPath.trim();
+      if (path.isEmpty) return false;
+      final file = File(path);
+      if (await file.exists()) {
+        final root = await _downloadsDirectoryResolver();
+        await root.create(recursive: true);
+        final expectedRoot = await root.resolveSymbolicLinks();
+        final resolvedFile = await file.resolveSymbolicLinks();
+        final prefix = '$expectedRoot${Platform.pathSeparator}';
+        if (!resolvedFile.startsWith(prefix)) return false;
+        await file.delete();
       }
-      await _downloadService.forgetTask(id);
-      _items.removeWhere((entry) => entry.id == id);
-      removed++;
+      await _downloadService.forgetTask(item.id);
+      _items.removeWhere((entry) => entry.id == item.id);
+      _selectedIds.remove(item.id);
+      notifyListeners();
+      await _persist();
+      return true;
+    } catch (error) {
+      debugPrint('Could not safely delete download: $error');
+      return false;
     }
-    _selectedIds.clear();
-    notifyListeners();
-    await _persist();
-    return removed;
   }
 
-  Future<bool> deleteFileFor(DownloadEntry item) async {
-    if (item.status == 'pending' ||
-        item.status == 'downloading' ||
-        item.status == 'paused') {
-      final cancelled = await _downloadService.cancelDownload(item.id);
-      if (!cancelled) return false;
+  Future<int> deleteSelectedFiles() async {
+    final selected = _items
+        .where((item) => _selectedIds.contains(item.id))
+        .toList(growable: false);
+    var deleted = 0;
+    for (final item in selected) {
+      if (await deleteFileFor(item)) deleted++;
     }
-    var deleted = true;
-    if (item.savedPath.isNotEmpty) {
-      final file = File(item.savedPath);
-      if (await file.exists()) {
-        deleted = await _fileManager.deleteFile(item.savedPath);
-      }
-    }
-    await _downloadService.forgetTask(item.id);
-    _items.removeWhere((entry) => entry.id == item.id);
-    _selectedIds.remove(item.id);
+    _selectedIds.removeWhere((id) => !_items.any((item) => item.id == id));
     notifyListeners();
-    await _persist();
     return deleted;
   }
 
@@ -267,7 +257,7 @@ class DownloadsProvider extends ChangeNotifier {
           flush: true,
         );
       } catch (error) {
-        debugPrint('Could not save download list: $error');
+        debugPrint('Could not persist download history: $error');
       }
     });
     return _saveQueue;
