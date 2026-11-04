@@ -17,7 +17,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   late final LocalFileManagerService fileManager;
   List<String> folders = [];
   final Map<String, int> folderFileCounts = {};
-  final Set<String> selectedFolders = {};
 
   @override
   void initState() {
@@ -64,6 +63,72 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await _loadFolders();
   }
 
+  Future<void> _renameFolder(String oldName) async {
+    final controller = TextEditingController(text: oldName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Rename folder'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'New folder name'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (newName == null || newName.isEmpty || newName == oldName || !mounted) {
+      return;
+    }
+    final renamed = await fileManager.renameFolder(oldName, newName);
+    if (!mounted) return;
+    if (!renamed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not rename this folder.')),
+      );
+    }
+    await _loadFolders();
+  }
+
+  Future<void> _deleteFolder(String folderName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete folder?'),
+        content: Text('Delete "$folderName" and all files inside it?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final deleted = await fileManager.deleteFolder(folderName);
+    if (!mounted) return;
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete this folder.')),
+      );
+    }
+    await _loadFolders();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,19 +144,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.15),
                 itemBuilder: (context, index) {
                   final folder = folders[index];
-                  final selected = selectedFolders.contains(folder);
                   return FolderCard(
                     folderName: folder,
                     fileCount: folderFileCounts[folder] ?? 0,
-                    isSelected: selected,
-                    onTap: () {
-                      if (selectedFolders.isNotEmpty) {
-                        setState(() => selected ? selectedFolders.remove(folder) : selectedFolders.add(folder));
-                      } else {
-                        context.push('/library/${Uri.encodeComponent(folder)}');
-                      }
-                    },
-                    onLongPress: () => setState(() => selected ? selectedFolders.remove(folder) : selectedFolders.add(folder)),
+                    onTap: () => context.push('/library/${Uri.encodeComponent(folder)}'),
+                    onLongPress: () {},
+                    onRename: () => _renameFolder(folder),
+                    onDelete: () => _deleteFolder(folder),
                   );
                 },
               ),
