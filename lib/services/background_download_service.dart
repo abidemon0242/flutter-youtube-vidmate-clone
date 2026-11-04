@@ -79,6 +79,8 @@ class BackgroundDownloadService {
     required bool isAudioOnly,
   }) async {
     try {
+      final existingTask = _activeTasks[id];
+      if (existingTask != null) return existingTask.taskId;
       final applicationDocDir = await getApplicationDocumentsDirectory();
       final downloadPath = '${applicationDocDir.path}/TubeArena/Downloads';
       await Directory(downloadPath).create(recursive: true);
@@ -90,9 +92,147 @@ class BackgroundDownloadService {
       final fileExt = isAudioOnly
           ? (format.toUpperCase().contains('MP3') ? '.mp3' : '.m4a')
           : '.mp4';
-      final safeTitle = title
+      final sanitizedTitle = title
           .replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_')
-          .replaceAll(RegExp(r'^_+|_+$'), '');
+          .replaceAll(RegExp(r'^_+|_+
+      final safeId = id.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
+      if (safeId.isEmpty) {
+        logger.e('Download ID is invalid.');
+        return null;
+      }
+      final fileName = '${safeTitle.isEmpty ? 'download' : safeTitle}_$safeId$fileExt';
+      final downloadUrl = isAudioOnly ? audioUrl : videoUrl;
+      final uri = Uri.tryParse(downloadUrl);
+      if (uri == null ||
+          (uri.scheme != 'https' && uri.scheme != 'http') ||
+          uri.host.isEmpty) {
+        logger.e('Download URL must be a valid HTTP(S) URL.');
+        return null;
+      }
+
+      final downloadTask = DownloadTask(
+        id: id,
+        title: title,
+        videoUrl: videoUrl,
+        audioUrl: audioUrl,
+        savePath: '$downloadPath/$fileName',
+        quality: quality,
+        format: format,
+        isAudioOnly: isAudioOnly,
+      );
+
+      // Start download using FlutterDownloader
+      final taskId = await FlutterDownloader.enqueue(
+        url: downloadUrl,
+        savedDir: downloadPath,
+        fileName: fileName,
+        showNotification: true,
+        openFileFromNotification: false,
+        saveInPublicStorage: false,
+      );
+
+      if (taskId != null) {
+        downloadTask.taskId = taskId;
+        downloadTask.status = DownloadStatus.downloading;
+        _activeTasks[id] = downloadTask;
+        _notifyListeners();
+
+        logger.i('Download started with task ID: $taskId');
+        return taskId;
+      }
+    } catch (e) {
+      logger.e('Error starting download: $e');
+    }
+    return null;
+  }
+
+  /// Pause an active download
+  Future<bool> pauseDownload(String downloadId) async {
+    try {
+      final task = _activeTasks[downloadId];
+      if (task?.taskId != null) {
+        await FlutterDownloader.pause(taskId: task!.taskId!);
+        task.status = DownloadStatus.paused;
+        _notifyListeners();
+        logger.i('Download paused: $downloadId');
+        return true;
+      }
+    } catch (e) {
+      logger.e('Error pausing download: $e');
+    }
+    return false;
+  }
+
+  /// Resume a paused download
+  Future<bool> resumeDownload(String downloadId) async {
+    try {
+      final task = _activeTasks[downloadId];
+      if (task?.taskId != null) {
+        final newTaskId = await FlutterDownloader.resume(taskId: task!.taskId!);
+        if (newTaskId != null) {
+          task.taskId = newTaskId;
+          task.status = DownloadStatus.downloading;
+          _notifyListeners();
+          logger.i('Download resumed: $downloadId');
+          return true;
+        }
+      }
+    } catch (e) {
+      logger.e('Error resuming download: $e');
+    }
+    return false;
+  }
+
+  /// Cancel a download
+  Future<bool> cancelDownload(String downloadId) async {
+    try {
+      final task = _activeTasks[downloadId];
+      if (task?.taskId != null) {
+        await FlutterDownloader.cancel(taskId: task!.taskId!);
+        task.status = DownloadStatus.cancelled;
+        _activeTasks.remove(downloadId);
+        _notifyListeners();
+        logger.i('Download cancelled: $downloadId');
+        return true;
+      }
+    } catch (e) {
+      logger.e('Error cancelling download: $e');
+    }
+    return false;
+  }
+
+  /// Update download progress
+  void updateProgress(String downloadId, double progress) {
+    final task = _activeTasks[downloadId];
+    if (task != null) {
+      task.progress = progress.clamp(0, 100).toDouble();
+      if (task.progress >= 100) {
+        task.status = DownloadStatus.completed;
+      }
+      _notifyListeners();
+    }
+  }
+
+  /// Get all active downloads
+  Map<String, DownloadTask> getActiveTasks() => Map.unmodifiable(_activeTasks);
+
+  /// Stream of download status updates
+  Stream<Map<String, DownloadTask>> get statusStream => _statusStreamController.stream;
+
+  /// Notify listeners of status changes
+  void _notifyListeners() {
+    _statusStreamController.add(Map.unmodifiable(_activeTasks));
+  }
+
+  /// Dispose resources
+  void dispose() {
+    _statusStreamController.close();
+  }
+}
+), '');
+      final safeTitle = sanitizedTitle.length > 80
+          ? sanitizedTitle.substring(0, 80)
+          : sanitizedTitle;
       final safeId = id.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
       if (safeId.isEmpty) {
         logger.e('Download ID is invalid.');
