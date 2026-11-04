@@ -46,15 +46,11 @@ class LocalFileManagerService {
   Future<void> initialize() async {
     try {
       logger.i('Initializing LocalFileManagerService...');
-      _baseDirectory = (await getApplicationDocumentsDirectory());
-      final tubeArenaDir = Directory('${_baseDirectory.path}/TubeArena');
-
-      if (!tubeArenaDir.existsSync()) {
-        await tubeArenaDir.create(recursive: true);
-        logger.i('Created Tube Arena base directory');
-      }
-
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final tubeArenaDir = Directory('${documentsDirectory.path}/TubeArena');
+      await tubeArenaDir.create(recursive: true);
       _baseDirectory = tubeArenaDir;
+      logger.i('Tube Arena base directory is ready');
       logger.i('File manager initialized at: ${_baseDirectory.path}');
     } catch (e) {
       logger.e('Error initializing file manager: $e');
@@ -119,7 +115,7 @@ class LocalFileManagerService {
       final oldFolder = Directory('${_baseDirectory.path}/$safeOldName');
       final newFolder = Directory('${_baseDirectory.path}/$safeNewName');
 
-      if (oldFolder.existsSync()) {
+      if (oldFolder.existsSync() && !newFolder.existsSync()) {
         await oldFolder.rename(newFolder.path);
         logger.i('Folder renamed: $oldName -> $newName');
         return true;
@@ -201,6 +197,7 @@ class LocalFileManagerService {
         await target.create(recursive: true);
         final fileName = file.uri.pathSegments.last;
         final newPath = '${target.path}/$fileName';
+        if (await File(newPath).exists()) return false;
         await file.rename(newPath);
         logger.i('File moved: $filePath -> $newPath');
         return true;
