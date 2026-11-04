@@ -433,7 +433,11 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             minLines: 5,
             maxLines: 10,
             keyboardType: TextInputType.multiline,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => setState(() {
+              // A preview belongs to the first URL only; invalidate it when
+              // the pasted video list changes so stale sizes cannot be selected.
+              _previewOptions = const [];
+            }),
             decoration: const InputDecoration(
               hintText: 'https://www.youtube.com/watch?v=…',
               alignLabelWithHint: true,
