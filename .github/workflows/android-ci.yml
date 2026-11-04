@@ -250,7 +250,9 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
           emulator-boot-timeout: 1200
-          disable-animations: true
+          # The runner's animation toggle invokes adb settings calls that
+          # intermittently fail with a broken pipe on this hosted emulator.
+          disable-animations: false
           script: |
             set -euo pipefail
             adb install build/app/outputs/flutter-apk/app-debug.apk
