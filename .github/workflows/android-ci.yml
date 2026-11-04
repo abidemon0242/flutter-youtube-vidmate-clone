@@ -41,7 +41,25 @@ jobs:
           rm -rf android
           cp -R "$RUNNER_TEMP/tube-arena-native/android" android
           cp "$RUNNER_TEMP/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
-          sed -i 's/ package="com.tubearena.app"//' android/app/src/main/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+          text = text.replace(' package="com.tubearena.app"', '')
+          if 'android:name="io.flutter.embedding.android.NormalTheme"' not in text:
+              text = text.replace(
+                  '        <intent-filter>',
+                  '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\\n        <intent-filter>',
+                  1,
+              )
+          if 'android:name="flutterEmbedding"' not in text:
+              text = text.replace(
+                  '    </application>',
+                  '        <meta-data android:name="flutterEmbedding" android:value="2" />\\n    </application>',
+                  1,
+              )
+          manifest.write_text(text)
+          PY
 
       - name: Ensure declared asset directories exist
         run: mkdir -p assets/images assets/icons
@@ -100,7 +118,25 @@ jobs:
           rm -rf android
           cp -R "$RUNNER_TEMP/tube-arena-native/android" android
           cp "$RUNNER_TEMP/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
-          sed -i 's/ package="com.tubearena.app"//' android/app/src/main/AndroidManifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          text = manifest.read_text()
+          text = text.replace(' package="com.tubearena.app"', '')
+          if 'android:name="io.flutter.embedding.android.NormalTheme"' not in text:
+              text = text.replace(
+                  '        <intent-filter>',
+                  '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\\n        <intent-filter>',
+                  1,
+              )
+          if 'android:name="flutterEmbedding"' not in text:
+              text = text.replace(
+                  '    </application>',
+                  '        <meta-data android:name="flutterEmbedding" android:value="2" />\\n    </application>',
+                  1,
+              )
+          manifest.write_text(text)
+          PY
 
       - name: Ensure declared asset directories exist
         run: mkdir -p assets/images assets/icons
