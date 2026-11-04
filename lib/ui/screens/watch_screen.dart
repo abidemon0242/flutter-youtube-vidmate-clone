@@ -1,160 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
+import '../../services/personalization_service.dart';
 
-class WatchScreen extends StatefulWidget {
-  const WatchScreen({super.key, required this.video});
-
-  final VideoModel video;
-
-  @override
-  State<WatchScreen> createState() => _WatchScreenState();
-}
-
-class _WatchScreenState extends State<WatchScreen> {
-  late final VideoPlayerController _controller;
-  bool _isPlaying = false;
-  bool _playerReady = false;
-  bool _playerFailed = false;
-  bool _saved = false;
-
-  Future<void> _share() async {
-    await Share.share('${widget.video.title} — ${widget.video.channelName}');
-  }
-
-  void _openDownloads() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('This feed uses demonstration videos. Paste a media link you own or are authorized to save.')),
-    );
-    context.push('/add-downloads');
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.video.playbackUrl));
-    _initializePlayer();
-  }
-
-  Future<void> _initializePlayer() async {
-    final uri = Uri.tryParse(widget.video.playbackUrl);
-    if (uri != null && {'youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'www.youtu.be'}.contains(uri.host.toLowerCase())) {
-      if (mounted) setState(() => _playerFailed = true);
-      return;
-    }
-    try {
-      await _controller.initialize();
-      if (mounted) setState(() => _playerReady = true);
-    } catch (_) {
-      if (mounted) setState(() => _playerFailed = true);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final video = widget.video;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Watch')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: _playerReady && _controller.value.aspectRatio > 0
-                  ? _controller.value.aspectRatio
-                  : 16 / 9,
-              child: Container(
-                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(20)),
-                clipBehavior: Clip.antiAlias,
-                child: _playerFailed
-                    ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        const Text('This video is hosted on YouTube.', style: TextStyle(color: Colors.white)),
-                        const SizedBox(height: 12),
-                        FilledButton.icon(
-                          onPressed: () async {
-                            final uri = Uri.tryParse(video.playbackUrl);
-                            if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
-                          },
-                          icon: const Icon(Icons.open_in_new),
-                          label: const Text('Open on YouTube'),
-                        ),
-                      ]))
-                    : !_playerReady
-                        ? const Center(child: CircularProgressIndicator())
-                        : Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              VideoPlayer(_controller),
-                              Align(
-                                alignment: Alignment.bottomCenter,
-                                child: VideoProgressIndicator(
-                                  _controller,
-                                  allowScrubbing: true,
-                                  colors: const VideoProgressColors(
-                                    playedColor: AppColors.primaryStart,
-                                    bufferedColor: Colors.white54,
-                                    backgroundColor: Colors.white24,
-                                  ),
-                                ),
-                              ),
-                              IconButton.filled(
-                                onPressed: () async {
-                                  if (_controller.value.isPlaying) {
-                                    await _controller.pause();
-                                  } else {
-                                    await _controller.play();
-                                  }
-                                  if (mounted) setState(() => _isPlaying = _controller.value.isPlaying);
-                                },
-                                iconSize: 42,
-                                icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                              ),
-                            ],
-                          ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(video.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text('${video.channelName} • ${video.views}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              children: [
-                ActionChip(label: const Text('Like'), avatar: const Icon(Icons.thumb_up_outlined, size: 18), onPressed: () => _notice('Likes are not connected to an account in this demo.')),
-                ActionChip(label: const Text('Share'), avatar: const Icon(Icons.share_outlined, size: 18), onPressed: _share),
-                ActionChip(label: const Text('Add download'), avatar: const Icon(Icons.download_rounded, size: 18), onPressed: _openDownloads),
-                ActionChip(label: Text(_saved ? 'Saved' : 'Save'), avatar: Icon(_saved ? Icons.bookmark : Icons.bookmark_border, size: 18), onPressed: () => setState(() => _saved = !_saved)),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Row(children: [
-              CircleAvatar(backgroundImage: NetworkImage(video.channelAvatar)),
-              const SizedBox(width: 12),
-              Expanded(child: Text(video.channelName, style: const TextStyle(fontWeight: FontWeight.w700))),
-            ]),
-            const SizedBox(height: 20),
-            const Text('Demo videos play inside Tube Arena. YouTube search results open in the official YouTube app or browser.'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _notice(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
+class WatchScreen extends StatefulWidget{const WatchScreen({super.key,required this.video});final VideoModel video;@override State<WatchScreen> createState()=>_WatchScreenState();}
+class _WatchScreenState extends State<WatchScreen>{
+  late final VideoPlayerController controller;late final PersonalizationService profile;
+  bool playing=false,ready=false,failed=false,saved=false,liked=false;Duration last=Duration.zero;int watched=0;
+  Future<void> record(String type,{int seconds=0})=>profile.record(type:type,video:widget.video,seconds:seconds);
+  @override void initState(){super.initState();profile=context.read<PersonalizationService>();record('open');controller=VideoPlayerController.networkUrl(Uri.parse(widget.video.playbackUrl));controller.addListener(track);initialize();}
+  void track(){if(!controller.value.isInitialized||!controller.value.isPlaying)return;final pos=controller.value.position,delta=pos-last;if(delta.inSeconds>0&&delta.inSeconds<=5)watched+=delta.inSeconds;last=pos;}
+  Future<void> initialize()async{final u=Uri.tryParse(widget.video.playbackUrl);if(u!=null&&{'youtube.com','www.youtube.com','m.youtube.com','youtu.be','www.youtu.be'}.contains(u.host.toLowerCase())){if(mounted)setState(()=>failed=true);return;}try{await controller.initialize();if(mounted)setState(()=>ready=true);}catch(_){if(mounted)setState(()=>failed=true);}}
+  @override void dispose(){controller.removeListener(track);if(watched>0)record('watch',seconds:watched);controller.dispose();super.dispose();}
+  @override Widget build(BuildContext context){final v=widget.video;return Scaffold(appBar:AppBar(title:const Text('Watch')),body:SingleChildScrollView(padding:const EdgeInsets.all(16),child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    AspectRatio(aspectRatio:ready&&controller.value.aspectRatio>0?controller.value.aspectRatio:16/9,child:Container(color:Colors.black,child:failed?Center(child:Column(mainAxisSize:MainAxisSize.min,children:[const Text('This video is hosted on YouTube.',style:TextStyle(color:Colors.white)),FilledButton.icon(onPressed:()async{final u=Uri.tryParse(v.playbackUrl);if(u!=null)await launchUrl(u,mode:LaunchMode.externalApplication);},icon:const Icon(Icons.open_in_new),label:const Text('Open on YouTube'))])):!ready?const Center(child:CircularProgressIndicator()):Stack(alignment:Alignment.center,children:[VideoPlayer(controller),Align(alignment:Alignment.bottomCenter,child:VideoProgressIndicator(controller,allowScrubbing:true,colors:const VideoProgressColors(playedColor:AppColors.primaryStart,bufferedColor:Colors.white54,backgroundColor:Colors.white24))),IconButton.filled(onPressed:()async{if(controller.value.isPlaying){await controller.pause();}else{await controller.play();}if(mounted)setState(()=>playing=controller.value.isPlaying);},icon:Icon(playing?Icons.pause:Icons.play_arrow))]))),
+    const SizedBox(height:16),Text(v.title,style:const TextStyle(fontSize:18,fontWeight:FontWeight.w700)),Text(v.channelName+' • '+v.views),
+    const SizedBox(height:16),Wrap(spacing:8,children:[
+      ActionChip(label:Text(liked?'Liked':'Like'),onPressed:()async{setState(()=>liked=!liked);await record(liked?'like':'dislike');}),
+      ActionChip(label:const Text('Share'),onPressed:()=>Share.share(v.title+' — '+v.channelName)),
+      ActionChip(label:const Text('Add download'),onPressed:(){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Only download media you own or are authorized to save.')));context.push('/add-downloads');}),
+      ActionChip(label:Text(saved?'Saved':'Save'),onPressed:()async{setState(()=>saved=!saved);await record(saved?'save':'unsave');}),
+      ActionChip(label:const Text('Not interested'),onPressed:()=>record('skip')),
+    ]),
+    const SizedBox(height:20),const Text('YouTube videos open in the official YouTube app or browser. Watch duration is tracked only for videos played inside Tube Arena.'),
+  ])));}
 }

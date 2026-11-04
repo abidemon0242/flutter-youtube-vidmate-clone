@@ -1,0 +1,22 @@
+import 'dart:io';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:tube_arena/models/video_model.dart';
+import 'package:tube_arena/services/personalization_service.dart';
+
+void main(){
+ late Directory temp;late PersonalizationService profile;
+ setUp(()async{temp=await Directory.systemTemp.createTemp('ta-profile-');profile=PersonalizationService(directoryResolver:()async=>temp,apiKey:'');await profile.initialize();});
+ tearDown(()async{profile.dispose();await temp.delete(recursive:true);});
+ test('search and likes improve ranking of related content',()async{
+  await profile.record(type:'search',query:'Flutter programming');
+  const liked=VideoModel(id:'liked',title:'Flutter programming basics',channelName:'Dev',views:'1',duration:'1',thumbnailUrl:'',channelAvatar:'',isVerified:false,category:'Tutorials');
+  const related=VideoModel(id:'related',title:'Advanced Flutter programming',channelName:'Developer',views:'1',duration:'1',thumbnailUrl:'',channelAvatar:'',isVerified:false,category:'Tutorials');
+  const other=VideoModel(id:'other',title:'Cooking dinner',channelName:'Kitchen',views:'1',duration:'1',thumbnailUrl:'',channelAvatar:'',isVerified:false,category:'Food');
+  await profile.record(type:'like',video:liked);
+  expect(profile.rankVideos([other,related]).first.id,'related');
+  expect(profile.interestProfile['flutter'],greaterThan(0));
+ });
+ test('rejects non-YouTube playlist URLs',(){expect(()=>profile.importPlaylist('https://example.com/?list=PL1234567890'),throwsA(isA<PlaylistImportException>()));});
+ test('reports missing API key for valid playlist URL',(){expect(()=>profile.importPlaylist('https://youtube.com/playlist?list=PL1234567890'),throwsA(isA<PlaylistImportException>()));});
+ test('persists and restores activity',()async{await profile.record(type:'search',query:'cybersecurity basics');profile.dispose();profile=PersonalizationService(directoryResolver:()async=>temp,apiKey:'');await profile.initialize();expect(profile.activityCount,1);expect(profile.interestProfile['cybersecurity'],greaterThan(0));});
+}
