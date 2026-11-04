@@ -22,6 +22,7 @@ class AppDownloadTask {
     this.taskId,
     this.status = DownloadStatus.pending,
     this.progress = 0,
+    this.pausedByWifiPolicy = false,
   });
 
   final String id;
@@ -35,6 +36,7 @@ class AppDownloadTask {
   String? taskId;
   DownloadStatus status;
   double progress;
+  bool pausedByWifiPolicy;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -48,6 +50,7 @@ class AppDownloadTask {
         'taskId': taskId,
         'status': status.name,
         'progress': progress,
+        'pausedByWifiPolicy': pausedByWifiPolicy,
       };
 
   factory AppDownloadTask.fromJson(Map<String, dynamic> json) {
@@ -67,6 +70,7 @@ class AppDownloadTask {
         orElse: () => DownloadStatus.pending,
       ),
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
+      pausedByWifiPolicy: json['pausedByWifiPolicy'] as bool? ?? false,
     );
   }
 }
@@ -91,8 +95,14 @@ class BackgroundDownloadService {
       StreamController<Map<String, AppDownloadTask>>.broadcast();
 
   ReceivePort? _receivePort;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  final Connectivity _connectivity = Connectivity();
   bool _initialized = false;
+  bool _wifiOnly = false;
   String? _metadataPath;
+  String? _preferencesPath;
+
+  bool get wifiOnly => _wifiOnly;
 
   factory BackgroundDownloadService() => _instance;
 
@@ -114,6 +124,7 @@ class BackgroundDownloadService {
     try {
       final documents = await getApplicationDocumentsDirectory();
       _metadataPath = '${documents.path}/TubeArena/download_tasks.json';
+      _preferencesPath = '${documents.path}/TubeArena/download_preferences.json';
       await Directory('${documents.path}/TubeArena').create(recursive: true);
 
       await fd.FlutterDownloader.initialize(
@@ -127,15 +138,20 @@ class BackgroundDownloadService {
       _receivePort!.listen(_handleCallback);
       await fd.FlutterDownloader.registerCallback(downloadCallback);
 
+      await _restorePreferences();
       await _restoreMetadata();
       await _restorePluginTasks();
       _initialized = true;
+      _connectivitySubscription = _connectivity.onConnectivityChanged.listen(_applyNetworkPolicy);
+      await _applyNetworkPolicy(await _connectivity.checkConnectivity());
       _notifyListeners();
       logger.i('Background download service initialized and restored');
     } catch (error, stackTrace) {
       IsolateNameServer.removePortNameMapping(_portName);
       _receivePort?.close();
       _receivePort = null;
+      await _connectivitySubscription?.cancel();
+      _connectivitySubscription = null;
       _initialized = false;
       logger.e('Error initializing download service', error: error, stackTrace: stackTrace);
     }
@@ -170,7 +186,72 @@ class BackgroundDownloadService {
     return DownloadStatus.pending;
   }
 
-  Future<void> _restorePreferences() async {\n    final path = _preferencesPath;\n    if (path == null) return;\n    try {\n      final file = File(path);\n      if (await file.exists()) {\n        final decoded = jsonDecode(await file.readAsString());\n        if (decoded is Map<String, dynamic>) {\n          _wifiOnly = decoded['wifiOnly'] as bool? ?? false;\n        }\n      }\n    } catch (error) {\n      logger.w('Could not restore download preferences: $error');\n    }\n  }\n\n  Future<void> _persistPreferences() async {\n    final path = _preferencesPath;\n    if (path == null) return;\n    try {\n      await File(path).writeAsString(jsonEncode({'wifiOnly': _wifiOnly}), flush: true);\n    } catch (error) {\n      logger.w('Could not save download preferences: $error');\n    }\n  }\n\n  Future<void> setWifiOnly(bool enabled) async {\n    _wifiOnly = enabled;\n    await _persistPreferences();\n    final current = await _connectivity.checkConnectivity();\n    await _applyNetworkPolicy(current);\n    _notifyListeners();\n  }\n\n  Future<bool> _hasWifiConnection() async {\n    final results = await _connectivity.checkConnectivity();\n    return results.contains(ConnectivityResult.wifi) ||\n        results.contains(ConnectivityResult.ethernet);\n  }\n\n  Future<void> _applyNetworkPolicy(List<ConnectivityResult> results) async {\n    if (!_initialized) return;\n    final wifiAvailable = results.contains(ConnectivityResult.wifi) ||\n        results.contains(ConnectivityResult.ethernet);\n    if (_wifiOnly && !wifiAvailable) {\n      for (final task in _activeTasks.values.toList()) {\n        if (task.status == DownloadStatus.downloading ||\n            task.status == DownloadStatus.pending) {\n          final paused = await pauseDownload(task.id);\n          if (paused) task.pausedByWifiPolicy = true;\n        }\n      }\n    } else {\n      for (final task in _activeTasks.values.toList()) {\n        if (task.pausedByWifiPolicy) {\n          task.pausedByWifiPolicy = false;\n          await resumeDownload(task.id);\n        }\n      }\n    }\n    await _persistMetadata();\n  }\n\n  Future<void> _restoreMetadata() async {
+  Future<void> _restorePreferences() async {
+    final path = _preferencesPath;
+    if (path == null) return;
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        final decoded = jsonDecode(await file.readAsString());
+        if (decoded is Map<String, dynamic>) {
+          _wifiOnly = decoded['wifiOnly'] as bool? ?? false;
+        }
+      }
+    } catch (error) {
+      logger.w('Could not restore download preferences: $error');
+    }
+  }
+
+  Future<void> _persistPreferences() async {
+    final path = _preferencesPath;
+    if (path == null) return;
+    try {
+      await File(path).writeAsString(
+        jsonEncode({'wifiOnly': _wifiOnly}),
+        flush: true,
+      );
+    } catch (error) {
+      logger.w('Could not save download preferences: $error');
+    }
+  }
+
+  Future<void> setWifiOnly(bool enabled) async {
+    _wifiOnly = enabled;
+    await _persistPreferences();
+    await _applyNetworkPolicy(await _connectivity.checkConnectivity());
+    _notifyListeners();
+  }
+
+  Future<bool> _hasWifiConnection() async {
+    final results = await _connectivity.checkConnectivity();
+    return results.contains(ConnectivityResult.wifi) ||
+        results.contains(ConnectivityResult.ethernet);
+  }
+
+  Future<void> _applyNetworkPolicy(List<ConnectivityResult> results) async {
+    if (!_initialized) return;
+    final wifiAvailable = results.contains(ConnectivityResult.wifi) ||
+        results.contains(ConnectivityResult.ethernet);
+    if (_wifiOnly && !wifiAvailable) {
+      for (final task in _activeTasks.values.toList()) {
+        if (task.status == DownloadStatus.downloading ||
+            task.status == DownloadStatus.pending) {
+          final paused = await pauseDownload(task.id);
+          if (paused) task.pausedByWifiPolicy = true;
+        }
+      }
+    } else {
+      for (final task in _activeTasks.values.toList()) {
+        if (task.pausedByWifiPolicy) {
+          task.pausedByWifiPolicy = false;
+          await resumeDownload(task.id);
+        }
+      }
+    }
+    await _persistMetadata();
+  }
+
+  Future<void> _restoreMetadata() async {
     final path = _metadataPath;
     if (path == null) return;
     final file = File(path);
@@ -239,6 +320,10 @@ class BackgroundDownloadService {
       if (!_initialized) await initialize();
       if (!_initialized) {
         logger.e('Download service is unavailable; refusing to queue a task');
+        return null;
+      }
+      if (_wifiOnly && !await _hasWifiConnection()) {
+        logger.w('Wi-Fi-only mode is enabled; refusing to queue on a non-Wi-Fi connection');
         return null;
       }
 
