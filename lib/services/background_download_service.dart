@@ -243,8 +243,8 @@ class BackgroundDownloadService {
     } else {
       for (final task in _activeTasks.values.toList()) {
         if (task.pausedByWifiPolicy) {
-          task.pausedByWifiPolicy = false;
-          await resumeDownload(task.id);
+          final resumed = await resumeDownload(task.id);
+          if (resumed) task.pausedByWifiPolicy = false;
         }
       }
     }
@@ -326,6 +326,11 @@ class BackgroundDownloadService {
         logger.w('Wi-Fi-only mode is enabled; refusing to queue on a non-Wi-Fi connection');
         return null;
       }
+      final existing = _activeTasks[id];
+      if (existing != null && existing.status != DownloadStatus.failed && existing.status != DownloadStatus.cancelled) {
+        logger.w('A download with this ID is already active: $id');
+        return null;
+      }
 
       final applicationDocDir = await getApplicationDocumentsDirectory();
       final downloadPath = '${applicationDocDir.path}/TubeArena/Downloads';
@@ -354,8 +359,9 @@ class BackgroundDownloadService {
         return null;
       }
 
-      final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
-      final safeId = id.replaceAll(RegExp(r'[^\w-]'), '');
+      final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim().substring(0, title.replaceAll(RegExp(r'[^\w\s-]'), '').trim().length.clamp(0, 80));
+      final safeId = id.replaceAll(RegExp(r'[^\w-]'), '').substring(0, id.replaceAll(RegExp(r'[^\w-]'), '').length.clamp(0, 40));
+      if (safeId.isEmpty) return null;
       final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
       final safeFileName = '$fileBase$fileExt';
 
