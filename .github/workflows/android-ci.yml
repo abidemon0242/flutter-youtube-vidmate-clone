@@ -49,13 +49,13 @@ jobs:
           if 'android:name="io.flutter.embedding.android.NormalTheme"' not in text:
               text = text.replace(
                   '        <intent-filter>',
-                  '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\\n        <intent-filter>',
+                  '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\n        <intent-filter>',
                   1,
               )
           if 'android:name="flutterEmbedding"' not in text:
               text = text.replace(
                   '    </application>',
-                  '        <meta-data android:name="flutterEmbedding" android:value="2" />\\n    </application>',
+                  '        <meta-data android:name="flutterEmbedding" android:value="2" />\n    </application>',
                   1,
               )
           manifest.write_text(text)
@@ -126,13 +126,13 @@ jobs:
           if 'android:name="io.flutter.embedding.android.NormalTheme"' not in text:
               text = text.replace(
                   '        <intent-filter>',
-                  '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\\n        <intent-filter>',
+                  '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\n        <intent-filter>',
                   1,
               )
           if 'android:name="flutterEmbedding"' not in text:
               text = text.replace(
                   '    </application>',
-                  '        <meta-data android:name="flutterEmbedding" android:value="2" />\\n    </application>',
+                  '        <meta-data android:name="flutterEmbedding" android:value="2" />\n    </application>',
                   1,
               )
           manifest.write_text(text)
@@ -156,8 +156,14 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim
           disable-animations: true
           script: |
+            set -euo pipefail
             adb install build/app/outputs/flutter-apk/app-debug.apk
+            adb logcat -c
             adb shell am start -n com.tubearena.app/.MainActivity
             sleep 15
-            adb shell pidof com.tubearena.app
-            adb logcat -d -t 1500 | grep -E "FATAL EXCEPTION|AndroidRuntime" && exit 1 || true
+            app_pid="$(adb shell pidof com.tubearena.app || true)"
+            test -n "$app_pid"
+            if adb logcat -d -t 1500 | grep -E "FATAL EXCEPTION|AndroidRuntime"; then
+              echo "Android runtime crash detected."
+              exit 1
+            fi
