@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 
 class DownloadEntry {
   DownloadEntry({
@@ -47,6 +48,17 @@ class DownloadEntry {
 }
 
 class DownloadsProvider extends ChangeNotifier {
+  DownloadsProvider({Future<Directory> Function()? downloadsDirectoryResolver})
+      : _downloadsDirectoryResolver = downloadsDirectoryResolver ??
+            _defaultDownloadsDirectory;
+
+  final Future<Directory> Function() _downloadsDirectoryResolver;
+
+  static Future<Directory> _defaultDownloadsDirectory() async {
+    final documents = await getApplicationDocumentsDirectory();
+    return Directory('${documents.path}/TubeArena/Downloads');
+  }
+
   final List<DownloadEntry> _items = [];
   final Set<String> _selectedIds = {};
 
