@@ -39,8 +39,12 @@ class DownloadsScreen extends StatelessWidget {
                     trailing: PopupMenuButton<String>(
                       onSelected: (action) {
                         if (action == 'delete') {
-                          downloads.deleteFileFor(item);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download removed.')));
+                          downloads.deleteFileFor(item).then((deleted) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(deleted ? 'Download deleted.' : 'Could not delete this file.')),
+                            );
+                          });
                         }
                       },
                       itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete'))],
@@ -68,9 +72,12 @@ class DownloadsScreen extends StatelessWidget {
       floatingActionButton: downloads.hasSelection
           ? FloatingActionButton.extended(
               onPressed: () {
-                final count = downloads.selectedIds.length;
-                downloads.removeSelected();
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$count download(s) removed')));
+                downloads.deleteSelectedFiles().then((count) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$count download(s) deleted')),
+                  );
+                });
               },
               backgroundColor: AppColors.danger,
               label: const Text('Delete Selected'),
