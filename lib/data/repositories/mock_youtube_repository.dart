@@ -10,7 +10,7 @@ class MockYouTubeRepository {
   Future<List<VideoModel>> searchVideos(String query) async {
     final normalized = query.trim();
     if (normalized.isEmpty) return const [];
-    final results = await _youtube.search.getVideos(normalized);
+    final results = await _youtube.search.search(normalized);
     return results.map((video) {
       final duration = video.duration;
       final durationLabel = duration == null
