@@ -81,6 +81,25 @@ class FFmpegMergeService {
     ]);
   }
 
+  /// Converts an MP4 source into a conservative 3GP profile for older
+  /// feature phones: CIF-or-smaller H.263 video at 15 fps and AMR-NB mono audio.
+  /// The configured FFmpeg build must include libopencore-amrnb.
+  Future<bool> convertTo3gp({
+    required String inputPath,
+    required String outputPath,
+  }) async {
+    if (_samePath(inputPath, outputPath) ||
+        !await File(inputPath).exists() ||
+        !await _prepareOutput(outputPath)) return false;
+    return _run([
+      '-n', '-i', inputPath,
+      '-vf', 'scale=352:288:force_original_aspect_ratio=decrease,pad=352:288:(ow-iw)/2:(oh-ih)/2',
+      '-r', '15', '-c:v', 'h263', '-b:v', '256k',
+      '-c:a', 'libopencore_amrnb', '-ar', '8000', '-ac', '1', '-b:a', '12.2k',
+      '-f', '3gp', outputPath,
+    ]);
+  }
+
   Future<bool> extractAudio({
     required String videoPath,
     required String audioOutputPath,
