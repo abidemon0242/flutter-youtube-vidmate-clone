@@ -61,10 +61,25 @@ class LocalFileManagerService {
     }
   }
 
+  String? _validatedFolderName(String name) {
+    final value = name.trim();
+    if (value.isEmpty ||
+        value == '.' ||
+        value == '..' ||
+        value.contains('/') ||
+        value.contains('\\') ||
+        value.contains(RegExp(r'[\x00-\x1F]'))) {
+      return null;
+    }
+    return value;
+  }
+
   /// Create a custom folder
   Future<bool> createFolder(String folderName) async {
     try {
-      final folder = Directory('${_baseDirectory.path}/$folderName');
+      final safeName = _validatedFolderName(folderName);
+      if (safeName == null) return false;
+      final folder = Directory('${_baseDirectory.path}/$safeName');
       if (!folder.existsSync()) {
         await folder.create(recursive: true);
         logger.i('Folder created: $folderName');
@@ -80,7 +95,9 @@ class LocalFileManagerService {
   /// Delete a folder
   Future<bool> deleteFolder(String folderName) async {
     try {
-      final folder = Directory('${_baseDirectory.path}/$folderName');
+      final safeName = _validatedFolderName(folderName);
+      if (safeName == null) return false;
+      final folder = Directory('${_baseDirectory.path}/$safeName');
       if (folder.existsSync()) {
         await folder.delete(recursive: true);
         logger.i('Folder deleted: $folderName');
@@ -96,8 +113,11 @@ class LocalFileManagerService {
   /// Rename a folder
   Future<bool> renameFolder(String oldName, String newName) async {
     try {
-      final oldFolder = Directory('${_baseDirectory.path}/$oldName');
-      final newFolder = Directory('${_baseDirectory.path}/$newName');
+      final safeOldName = _validatedFolderName(oldName);
+      final safeNewName = _validatedFolderName(newName);
+      if (safeOldName == null || safeNewName == null || safeOldName == safeNewName) return false;
+      final oldFolder = Directory('${_baseDirectory.path}/$safeOldName');
+      final newFolder = Directory('${_baseDirectory.path}/$safeNewName');
 
       if (oldFolder.existsSync()) {
         await oldFolder.rename(newFolder.path);
@@ -140,7 +160,9 @@ class LocalFileManagerService {
   /// Get files in a folder
   Future<List<LocalFile>> getFilesInFolder(String folderName) async {
     try {
-      final folder = Directory('${_baseDirectory.path}/$folderName');
+      final safeName = _validatedFolderName(folderName);
+      if (safeName == null) return [];
+      final folder = Directory('${_baseDirectory.path}/$safeName');
       if (!folder.existsSync()) {
         return [];
       }
@@ -171,10 +193,14 @@ class LocalFileManagerService {
   /// Move file to different folder
   Future<bool> moveFile(String filePath, String targetFolder) async {
     try {
+      final safeTarget = _validatedFolderName(targetFolder);
+      if (safeTarget == null) return false;
       final file = File(filePath);
-      if (file.existsSync()) {
-        final fileName = filePath.split('/').last;
-        final newPath = '${_baseDirectory.path}/$targetFolder/$fileName';
+      if (await file.exists()) {
+        final target = Directory('${_baseDirectory.path}/$safeTarget');
+        await target.create(recursive: true);
+        final fileName = file.uri.pathSegments.last;
+        final newPath = '${target.path}/$fileName';
         await file.rename(newPath);
         logger.i('File moved: $filePath -> $newPath');
         return true;
