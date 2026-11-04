@@ -18,7 +18,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => DownloadsProvider()),
+        ChangeNotifierProvider(create: (_) => DownloadsProvider()..initialize()),
         Provider(create: (_) => MockYouTubeRepository()),
         Provider(create: (_) => AdBlockerService()),
         Provider(create: (_) => BackgroundDownloadService()),
