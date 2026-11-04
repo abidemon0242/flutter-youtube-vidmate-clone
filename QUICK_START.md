@@ -1,34 +1,24 @@
 # Tube Arena — Quick Start
 
-Tube Arena is an Android-first Flutter app. The repository does not currently support a browser/web preview because it uses native Android media and download plugins.
+Tube Arena is an Android-first Flutter prototype. GitHub Actions currently generates the missing Android native scaffold during CI, then builds the APKs.
 
 ## Get an Android build
 
-1. Open the repository's Actions tab.
-2. Open the latest Tube Arena Android CI run for the branch you want.
-3. Check the analysis, tests, debug APK build, split release APK build, and emulator smoke-test jobs separately.
-4. Download tube-arena-debug-apk for device testing, or tube-arena-release-apks for per-ABI release builds.
-5. Transfer the APK to your Android device and install it.
+1. Open the repository's **Actions** tab.
+2. Open the latest **Tube Arena Android CI** run for the branch you want to test.
+3. Check the **Flutter analyze, tests and Android build** job.
+4. Download the `tube-arena-debug-apk` artifact for device testing, or `tube-arena-release-apks` for per-ABI release builds.
+5. Install the APK on an Android device and test the actual workflows.
 
-A successful APK build does not guarantee that every media source, background task, or device-specific feature works. Test the app on a real device.
+The separate emulator smoke-test job must also pass before treating installation and launch as CI-verified. A successful build alone does not prove every device-specific or network feature works.
 
-## Build locally
+## Current feature boundaries
 
-With Flutter and the Android SDK installed:
+- Live YouTube search is available; search results open in the official YouTube app/browser.
+- The Home recommendations are demo data; sample demo playback is in-app.
+- The batch download queue uses single-file muxed streams so downloaded videos include audio; quality is typically limited to 360p30.
+- Local audio playback, MP3 conversion, local video/audio merge, and audio media-session controls are implemented.
+- Ad/tracker URL classification is not a network interceptor and does not remove YouTube ads.
+- A dedicated button-phone/3GP compatibility export option is not implemented yet.
 
-    flutter pub get
-    dart format lib test
-    flutter analyze
-    flutter test
-    flutter build apk --debug
-
-## Feature overview
-
-- Live YouTube search opens videos in the official YouTube app/browser.
-- Demo feed and sample in-app playback.
-- Authorized-media URL batch download queue and download management.
-- Wi-Fi-only preference, private library, and local media playback.
-- Local MP3 conversion and video/audio merge tools.
-- Lock-screen controls for local audio playback.
-
-See README.md for current limitations and verification requirements.
+See README.md for the full limitations and safety notes.
