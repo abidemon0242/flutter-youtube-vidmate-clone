@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../services/local_file_manager_service.dart';
+import '../../services/ffmpeg_merge_service.dart';
 
 class FolderContentsScreen extends StatefulWidget {
   const FolderContentsScreen({super.key, required this.folderName});
@@ -16,6 +17,7 @@ class FolderContentsScreen extends StatefulWidget {
 class _FolderContentsScreenState extends State<FolderContentsScreen> {
   final LocalFileManagerService _fileManager = LocalFileManagerService();
   late Future<List<LocalFile>> _files;
+  bool _isMerging = false;
 
   @override
   void initState() {
@@ -92,6 +94,55 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
         const SnackBar(content: Text('Could not move this file.')),
       );
     }
+  }
+
+  Future<void> _mergeWithAudio(LocalFile videoFile) async {
+    const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac', '.webm'];
+    final folders = await _fileManager.getFolders();
+    final folderNames = <String>{'Downloads', widget.folderName, ...folders.map((folder) => folder.name)};
+    final candidates = <LocalFile>[];
+    for (final name in folderNames) {
+      final entries = await _fileManager.getFilesInFolder(name);
+      candidates.addAll(entries.where((entry) =>
+        entry.path != videoFile.path && audioExtensions.any(entry.name.toLowerCase().endsWith),
+      ));
+    }
+    if (!mounted) return;
+    if (candidates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No local audio files were found.')));
+      return;
+    }
+    final audioPath = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('Choose an audio track'),
+        children: candidates.map((entry) => SimpleDialogOption(
+          onPressed: () => Navigator.pop(dialogContext, entry.path),
+          child: Text('${entry.name} • ${entry.sizeFormatted}', maxLines: 1, overflow: TextOverflow.ellipsis),
+        )).toList(),
+      ),
+    );
+    if (audioPath == null || !mounted) return;
+    final base = videoFile.path.replaceFirst(RegExp(r'\\.[^.]+$'), '');
+    final outputPath = '${base}_merged.mp4';
+    if (await File(outputPath).exists()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The merged output already exists. Rename or remove it first.')));
+      return;
+    }
+    setState(() => _isMerging = true);
+    final success = await FFmpegMergeService().mergeVideoAndAudio(
+      videoPath: videoFile.path,
+      audioPath: audioPath,
+      outputPath: outputPath,
+      quality: 'original',
+    );
+    if (!mounted) return;
+    setState(() => _isMerging = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(success ? 'Merged file saved: ${outputPath.split(Platform.pathSeparator).last}' : 'Could not merge these media files.'),
+    ));
+    if (success) await _refresh();
   }
 
   Future<void> _deleteFile(LocalFile file) async {
@@ -174,6 +225,12 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (playable) const Icon(Icons.play_circle_outline),
+                      if (playable && !audio)
+                        IconButton(
+                          tooltip: 'Merge with local audio',
+                          onPressed: _isMerging ? null : () => _mergeWithAudio(file),
+                          icon: const Icon(Icons.merge_type),
+                        ),
                       if (widget.folderName != 'Downloads')
                         PopupMenuButton<String>(
                           onSelected: (action) {
