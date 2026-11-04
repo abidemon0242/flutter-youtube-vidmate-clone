@@ -82,10 +82,19 @@ class DownloadsProvider extends ChangeNotifier {
   Future<bool> deleteFileFor(DownloadEntry item) async {
     try {
       final path = item.savedPath.trim();
-      if (path.isNotEmpty) {
-        final file = File(path);
-        if (await file.exists()) await file.delete();
+      if (path.isEmpty) return false;
+      final file = File(path);
+      if (!await file.exists()) return false;
+      final root = await file.parent.parent.resolveSymbolicLinks();
+      final resolved = await file.resolveSymbolicLinks();
+      final expectedRoot = await Directory('${root}').resolveSymbolicLinks();
+      if (resolved == expectedRoot ||
+          !resolved.startsWith('${expectedRoot}${Platform.pathSeparator}')) {
+        return false;
       }
+      final downloadsSegment = '${Platform.pathSeparator}TubeArena${Platform.pathSeparator}Downloads${Platform.pathSeparator}';
+      if (!resolved.contains(downloadsSegment)) return false;
+      await file.delete();
       _items.removeWhere((entry) => entry.id == item.id);
       _selectedIds.remove(item.id);
       notifyListeners();
