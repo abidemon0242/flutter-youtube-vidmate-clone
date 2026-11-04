@@ -1,18 +1,28 @@
 # Tube Arena
 
-A Flutter app inspired by YouTube with VidMate-style download features, a native ad-block strategy, local media management, and a custom library model.
+Tube Arena is an Android-first Flutter prototype for a YouTube-inspired media browser and local media library.
 
-## Features
-- YouTube-like home feed and search UI
-- Watch screen with action controls
-- Download quality dialog
-- Batch selection and bulk actions
-- Local library and custom folders
-- Audio-only mode and offline playback foundation
-- Modern app branding: Tube Arena
+## Working prototype features
 
-## App identity
-The app logo and naming are built around the provided Tube Arena identity and the download/audio-wave visual.
+- Mock video feed with category filtering and local search
+- Sample network video playback
+- Local folder creation and browsing inside the app's private storage
+- Download-list state management and safe file deletion when a saved path is supplied
+- Basic navigation between Home, Watch, Downloads, and Library
 
-## Notes
-This starter project is structured for clean architecture and future extension into full platform plugins for native background downloads, lock-screen controls, and advanced ad blocking.
+## Service foundations (not yet connected end-to-end)
+
+The repository also contains service-level foundations for YouTube metadata/stream extraction, background downloads, FFmpeg processing, media-session controls, and ad/tracker URL classification. These are not currently wired into the visible Watch/Download flow as a complete downloader.
+
+In particular:
+- The home feed uses mock data, not live YouTube search or recommendations.
+- The Watch screen uses a sample video URL.
+- The Download action is explicitly disabled in the prototype; it does not yet start a real download from the UI.
+- The ad-blocking class classifies URLs but does not intercept player or WebView network traffic.
+- Media-session controls are not yet connected to the video player.
+
+## Android build notes
+
+The Android CI workflow generates the missing Gradle scaffolding, applies the required Android SDK levels, runs Dart analysis and tests, builds a debug APK, and attempts an emulator launch smoke test.
+
+The checked-in Android directory is intentionally minimal; use the CI-generated Android project as the current build verification path.
