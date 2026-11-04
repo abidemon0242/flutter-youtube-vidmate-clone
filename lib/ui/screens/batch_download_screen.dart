@@ -18,7 +18,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   final TextEditingController _urlsController = TextEditingController();
   late final YoutubeExtractionService _extractionService;
   bool _isProcessing = false;
-  String _preferredQuality = '720p';
+  String _preferredQuality = '360p';
   bool _audioOnly = false;
   bool _wifiOnly = false;
   String _status = 'Paste one video link per line.';
