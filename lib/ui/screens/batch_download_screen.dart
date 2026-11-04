@@ -18,8 +18,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   final TextEditingController _urlsController = TextEditingController();
   late final YoutubeExtractionService _extractionService;
   bool _isProcessing = false;
-  String _preferredQuality = '720p';
+  String _preferredQuality = '240p';
   bool _audioOnly = false;
+  bool _buttonPhoneCompatible = false;
   bool _wifiOnly = false;
   String _status = 'Paste one video link per line.';
 
@@ -54,7 +55,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         return aHeight.compareTo(bHeight);
       });
 
-    final targetHeight = int.tryParse(_preferredQuality.replaceAll('p', '')) ?? 720;
+    final selectedHeight = int.tryParse(_preferredQuality.replaceAll('p', '')) ?? 720;
+    final targetHeight = _buttonPhoneCompatible
+        ? (selectedHeight < 240 ? selectedHeight : 240)
+        : selectedHeight;
     final atOrBelowTarget = ranked.where((option) {
       final height = int.tryParse(RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ?? '');
       return height != null && height <= targetHeight;
@@ -172,7 +176,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         }
         final safeId = downloadId.replaceAll(RegExp(r'[^\w-]'), '');
         final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
-        final extension = quality.format.toLowerCase().contains('webm') ? 'webm' : 'mp4';
+        final extension = _buttonPhoneCompatible
+            ? '3gp'
+            : (quality.format.toLowerCase().contains('webm') ? 'webm' : 'mp4');
         final fileName = '$fileBase.$extension';
         final savePath = '${documentsPath}/TubeArena/Downloads/$fileName';
 
@@ -182,8 +188,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           videoUrl: quality.videoUrl,
           audioUrl: quality.audioUrl,
           quality: quality.quality,
-          format: quality.format,
+          format: _buttonPhoneCompatible ? '3GP H.263/AMR-NB' : quality.format,
           isAudioOnly: false,
+          buttonPhoneCompatible: _buttonPhoneCompatible,
         );
         if (taskId == null) {
           failures.add('$title: download could not be queued');
@@ -195,7 +202,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             title: title,
             url: quality.videoUrl,
             size: quality.fileSize,
-            format: '${quality.quality} ${quality.format}',
+            format: _buttonPhoneCompatible
+                ? 'Button-phone 3GP • H.263/AMR-NB • QCIF'
+                : '${quality.quality} ${quality.format}',
             progress: 0,
             savedPath: savePath,
           ),
@@ -272,6 +281,20 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                 : (value) {
                     if (value != null) setState(() => _preferredQuality = value);
                   },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _buttonPhoneCompatible,
+            title: const Text('Button Phone Compatible'),
+            subtitle: const Text(
+              'Convert to 3GP with H.263 video (176×144) and AMR-NB audio after downloading. Uses extra time, storage and battery; playback still depends on the phone.',
+            ),
+            onChanged: _isProcessing || _audioOnly
+                ? null
+                : (value) => setState(() {
+                      _buttonPhoneCompatible = value;
+                      if (value) _preferredQuality = '240p';
+                    }),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

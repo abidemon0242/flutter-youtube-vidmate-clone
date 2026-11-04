@@ -69,6 +69,31 @@ class FFmpegMergeService {
     ]);
   }
 
+  /// Re-encodes to a legacy 3GP/H.263/AMR-NB profile commonly used by
+  /// older feature phones. The caller validates and replaces the source file.
+  Future<bool> convertForButtonPhone({
+    required String inputPath,
+    required String outputPath,
+  }) async {
+    if (_samePath(inputPath, outputPath) || !await File(inputPath).exists()) {
+      logger.e('Cannot convert: input file is missing or output would overwrite it.');
+      return false;
+    }
+    await Directory(File(outputPath).parent.path).create(recursive: true);
+    final converted = await _run([
+      '-y', '-i', inputPath,
+      '-map', '0:v:0', '-map', '0:a?',
+      '-vf', 'scale=176:144:force_original_aspect_ratio=decrease,pad=176:144:(ow-iw)/2:(oh-ih)/2,setsar=12/11',
+      '-r', '12.5',
+      '-c:v', 'h263', '-b:v', '128k',
+      '-c:a', 'libopencore_amrnb', '-b:a', '12.2k', '-ac', '1', '-ar', '8000',
+      '-f', '3gp', outputPath,
+    ]);
+    if (!converted) return false;
+    final output = File(outputPath);
+    return await output.exists() && await output.length() >= 1024;
+  }
+
   Future<bool> extractAudio({
     required String videoPath,
     required String audioOutputPath,
