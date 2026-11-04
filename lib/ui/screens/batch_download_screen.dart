@@ -67,7 +67,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       return height != null && height <= targetHeight;
     }).toList();
 
-    return atOrBelowTarget.isNotEmpty ? atOrBelowTarget.last : ranked.first;
+    if (atOrBelowTarget.isEmpty) {
+      throw Exception('No $_preferredFormat stream is available at or below $_preferredQuality.');
+    }
+    return atOrBelowTarget.last;
   }
 
   Future<void> _previewQualities() async {
