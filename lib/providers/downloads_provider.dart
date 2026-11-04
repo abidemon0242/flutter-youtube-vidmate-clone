@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 class DownloadEntry {
   DownloadEntry({
@@ -56,39 +55,56 @@ class DownloadsProvider extends ChangeNotifier {
   bool get hasSelection => _selectedIds.isNotEmpty;
 
   void addDownload(DownloadEntry item) {
+    _items.removeWhere((existing) => existing.id == item.id);
     _items.insert(0, item);
     notifyListeners();
   }
 
   void toggleSelection(String id) {
-    if (_selectedIds.contains(id)) {
-      _selectedIds.remove(id);
-    } else {
-      _selectedIds.add(id);
-    }
+    if (!_items.any((item) => item.id == id)) return;
+    if (!_selectedIds.add(id)) _selectedIds.remove(id);
     notifyListeners();
   }
 
   void clearSelection() {
+    if (_selectedIds.isEmpty) return;
     _selectedIds.clear();
     notifyListeners();
   }
 
+  /// Removes selected records without deleting their files.
   void removeSelected() {
-    for (final id in List.from(_selectedIds)) {
-      _items.removeWhere((item) => item.id == id);
-    }
+    _items.removeWhere((item) => _selectedIds.contains(item.id));
     _selectedIds.clear();
     notifyListeners();
   }
 
-  void deleteFileFor(DownloadEntry item) {
-    final file = File(item.savedPath);
-    if (file.existsSync()) {
-      file.deleteSync();
+  Future<bool> deleteFileFor(DownloadEntry item) async {
+    try {
+      final path = item.savedPath.trim();
+      if (path.isNotEmpty) {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      }
+      _items.removeWhere((entry) => entry.id == item.id);
+      _selectedIds.remove(item.id);
+      notifyListeners();
+      return true;
+    } catch (_) {
+      return false;
     }
-    _items.removeWhere((entry) => entry.id == item.id);
-    _selectedIds.remove(item.id);
+  }
+
+  Future<int> deleteSelectedFiles() async {
+    final selected = _items
+        .where((item) => _selectedIds.contains(item.id))
+        .toList(growable: false);
+    var removed = 0;
+    for (final item in selected) {
+      if (await deleteFileFor(item)) removed++;
+    }
+    _selectedIds.removeWhere((id) => !_items.any((item) => item.id == id));
     notifyListeners();
+    return removed;
   }
 }
