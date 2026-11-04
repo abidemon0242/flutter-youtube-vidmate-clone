@@ -69,6 +69,31 @@ class FFmpegMergeService {
     ]);
   }
 
+  /// Re-encodes a video to a conservative feature-phone playback profile.
+  Future<bool> convertForButtonPhone({
+    required String inputPath,
+    required String outputPath,
+  }) async {
+    if (_samePath(inputPath, outputPath) || !await File(inputPath).exists()) {
+      logger.e('Cannot convert: input file is missing or output would overwrite it.');
+      return false;
+    }
+    await Directory(File(outputPath).parent.path).create(recursive: true);
+    final converted = await _run([
+      '-y', '-i', inputPath,
+      '-map', '0:v:0', '-map', '0:a?',
+      '-vf', 'scale=320:240:force_original_aspect_ratio=decrease,pad=320:240:(ow-iw)/2:(oh-ih)/2,setsar=1',
+      '-r', '15',
+      '-c:v', 'libx264', '-profile:v', 'baseline', '-level', '3.0',
+      '-pix_fmt', 'yuv420p', '-b:v', '300k', '-maxrate', '400k', '-bufsize', '600k',
+      '-c:a', 'aac', '-b:a', '64k', '-ac', '2', '-ar', '44100',
+      '-movflags', '+faststart', '-f', 'mp4', outputPath,
+    ]);
+    if (!converted) return false;
+    final output = File(outputPath);
+    return await output.exists() && await output.length() >= 1024;
+  }
+
   Future<bool> extractAudio({
     required String videoPath,
     required String audioOutputPath,
