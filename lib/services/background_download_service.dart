@@ -20,6 +20,7 @@ class AppDownloadTask {
     required this.savePath,
     required this.quality,
     required this.format,
+    this.outputFormat = '',
     required this.isAudioOnly,
     this.taskId,
     this.status = DownloadStatus.pending,
@@ -44,6 +45,7 @@ class AppDownloadTask {
   final String savePath;
   final String quality;
   final String format;
+  final String outputFormat;
   final bool isAudioOnly;
   String? taskId;
   DownloadStatus status;
@@ -68,6 +70,7 @@ class AppDownloadTask {
         'savePath': savePath,
         'quality': quality,
         'format': format,
+        'outputFormat': outputFormat,
         'isAudioOnly': isAudioOnly,
         'taskId': taskId,
         'status': status.name,
@@ -95,6 +98,7 @@ class AppDownloadTask {
       savePath: json['savePath'] as String? ?? '',
       quality: json['quality'] as String? ?? '',
       format: json['format'] as String? ?? '',
+      outputFormat: json['outputFormat'] as String? ?? (json['format'] as String? ?? ''),
       isAudioOnly: json['isAudioOnly'] as bool? ?? false,
       taskId: json['taskId'] as String?,
       status: DownloadStatus.values.firstWhere(
@@ -269,12 +273,23 @@ class BackgroundDownloadService {
     try {
       final output = File(task.savePath);
       if (await output.exists()) await output.delete();
-      merged = await FFmpegMergeService().mergeVideoAndAudio(
+      final ffmpeg = FFmpegMergeService();
+      final needs3gp = task.outputFormat.toUpperCase() == '3GP';
+      final mergePath = needs3gp ? '${task.savePath}.source.mp4' : task.savePath;
+      final muxed = await ffmpeg.mergeVideoAndAudio(
         videoPath: task.videoTempPath!,
         audioPath: task.audioTempPath!,
-        outputPath: task.savePath,
+        outputPath: mergePath,
         quality: task.quality,
       );
+      merged = muxed && (!needs3gp || await ffmpeg.convertTo3gp(
+        inputPath: mergePath,
+        outputPath: task.savePath,
+      ));
+      if (needs3gp) {
+        final intermediate = File(mergePath);
+        if (await intermediate.exists()) await intermediate.delete();
+      }
     } catch (error, stackTrace) {
       logger.e('Adaptive stream merge failed', error: error, stackTrace: stackTrace);
     }
@@ -470,6 +485,7 @@ class BackgroundDownloadService {
     required String audioUrl,
     required String quality,
     required String format,
+    String? outputFormat,
     required bool isAudioOnly,
   }) async {
     try {
@@ -485,9 +501,15 @@ class BackgroundDownloadService {
       final downloadPath = '${documents.path}/TubeArena/Downloads';
       await Directory(downloadPath).create(recursive: true);
       final normalizedFormat = format.toLowerCase();
+      final normalizedOutputFormat = (outputFormat ?? format).toUpperCase();
+      const supportedVideoOutputs = {'MP4', 'WEBM', '3GP'};
+      if (!isAudioOnly && !supportedVideoOutputs.contains(normalizedOutputFormat)) return null;
       final fileExt = isAudioOnly
           ? (normalizedFormat.contains('mp3') ? '.mp3' : normalizedFormat.contains('webm') ? '.webm' : normalizedFormat.contains('aac') ? '.aac' : normalizedFormat.contains('wav') ? '.wav' : '.m4a')
-          : (normalizedFormat.contains('webm') ? '.webm' : '.mp4');
+          : '.${normalizedOutputFormat.toLowerCase()}';
+      if (!isAudioOnly && normalizedOutputFormat == '3GP' &&
+          (normalizedFormat != 'mp4' || audioUrl.trim().isEmpty)) return null;
+      final sourceExt = normalizedFormat.contains('webm') ? '.webm' : '.mp4';
       final normalizedTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
       final safeTitle = normalizedTitle.length > 80 ? normalizedTitle.substring(0, 80) : normalizedTitle;
       final safeId = id.replaceAll(RegExp(r'[^\w-]'), '');
@@ -511,7 +533,7 @@ class BackgroundDownloadService {
       if (requiresMerge && !validUrl(audioUrl)) return null;
 
       if (requiresMerge) {
-        final videoTempPath = '$downloadPath/$fileBase.video$fileExt';
+        final videoTempPath = '$downloadPath/$fileBase.video$sourceExt';
         final audioExt = normalizedFormat.contains('webm') ? '.webm' : '.m4a';
         final audioTempPath = '$downloadPath/$fileBase.audio$audioExt';
         for (final path in [outputPath, videoTempPath, audioTempPath]) {
@@ -537,6 +559,7 @@ class BackgroundDownloadService {
           savePath: outputPath,
           quality: quality,
           format: format,
+          outputFormat: normalizedOutputFormat,
           isAudioOnly: false,
           taskId: videoTaskId,
           videoTaskId: videoTaskId,
@@ -596,6 +619,7 @@ class BackgroundDownloadService {
         savePath: outputPath,
         quality: quality,
         format: format,
+        outputFormat: normalizedOutputFormat,
         isAudioOnly: isAudioOnly,
         taskId: taskId,
         status: DownloadStatus.pending,
