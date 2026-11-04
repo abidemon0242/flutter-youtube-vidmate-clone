@@ -275,15 +275,28 @@ class BackgroundDownloadService {
   Future<void> _restorePluginTasks() async {
     try {
       final pluginTasks = await fd.FlutterDownloader.loadTasks();
-      if (pluginTasks == null) return;
+      final tasksById = {
+        for (final task in pluginTasks ?? <fd.DownloadTask>[]) task.taskId: task,
+      };
 
-      final tasksById = {for (final task in pluginTasks) task.taskId: task};
       for (final task in _activeTasks.values) {
+        final isInProgress = task.status == DownloadStatus.pending ||
+            task.status == DownloadStatus.downloading ||
+            task.status == DownloadStatus.paused;
+        if (!isInProgress) continue;
+
         final pluginTaskId = task.taskId;
-        if (pluginTaskId == null) continue;
-        final pluginTask = tasksById[pluginTaskId];
-        if (pluginTask == null) continue;
-        task.progress = pluginTask.progress.toDouble();
+        final pluginTask =
+            pluginTaskId == null ? null : tasksById[pluginTaskId];
+        if (pluginTask == null) {
+          // Native task history can disappear after OS cleanup or app data
+          // restoration. Do not leave an orphaned task showing "downloading".
+          task.status = DownloadStatus.failed;
+          task.pausedByWifiPolicy = false;
+          continue;
+        }
+
+        task.progress = pluginTask.progress.toDouble().clamp(0, 100);
         task.status = _mapStatus(pluginTask.status);
       }
       await _persistMetadata();
