@@ -195,6 +195,37 @@ class LocalFileManagerService {
     }
   }
 
+  /// Rename a file without allowing paths or overwrites outside the library.
+  Future<bool> renameFile(String filePath, String newName) async {
+    try {
+      final safeName = newName.trim();
+      if (safeName.isEmpty ||
+          safeName == '.' ||
+          safeName == '..' ||
+          safeName.contains('/') ||
+          safeName.contains('\\') ||
+          safeName.contains(RegExp(r'[\\x00-\\x1F]'))) {
+        return false;
+      }
+      final file = File(filePath);
+      if (!await file.exists()) return false;
+      final parent = file.parent;
+      if (!await _isManagedDirectory(parent)) return false;
+      final destination = File('${parent.path}/$safeName');
+      if (await destination.exists()) return false;
+      final resolvedSource = await file.resolveSymbolicLinks();
+      final basePath = await _baseDirectory.resolveSymbolicLinks();
+      if (!resolvedSource.startsWith('$basePath${Platform.pathSeparator}')) {
+        return false;
+      }
+      await file.rename(destination.path);
+      return true;
+    } catch (error) {
+      logger.e('Error renaming file: $error');
+      return false;
+    }
+  }
+
   /// Move file to different folder
   Future<bool> moveFile(String filePath, String targetFolder) async {
     try {
