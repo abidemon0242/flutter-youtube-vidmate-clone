@@ -69,7 +69,8 @@ class FFmpegMergeService {
     ]);
   }
 
-  /// Re-encodes a video to a conservative feature-phone playback profile.
+  /// Re-encodes to a legacy 3GP/H.263/AMR-NB profile commonly used by
+  /// older feature phones. The caller validates and replaces the source file.
   Future<bool> convertForButtonPhone({
     required String inputPath,
     required String outputPath,
@@ -82,12 +83,11 @@ class FFmpegMergeService {
     final converted = await _run([
       '-y', '-i', inputPath,
       '-map', '0:v:0', '-map', '0:a?',
-      '-vf', 'scale=320:240:force_original_aspect_ratio=decrease,pad=320:240:(ow-iw)/2:(oh-ih)/2,setsar=1',
-      '-r', '15',
-      '-c:v', 'libx264', '-profile:v', 'baseline', '-level', '3.0',
-      '-pix_fmt', 'yuv420p', '-b:v', '300k', '-maxrate', '400k', '-bufsize', '600k',
-      '-c:a', 'aac', '-b:a', '64k', '-ac', '2', '-ar', '44100',
-      '-movflags', '+faststart', '-f', 'mp4', outputPath,
+      '-vf', 'scale=176:144:force_original_aspect_ratio=decrease,pad=176:144:(ow-iw)/2:(oh-ih)/2,setsar=12/11',
+      '-r', '12.5',
+      '-c:v', 'h263', '-b:v', '128k',
+      '-c:a', 'libopencore_amrnb', '-b:a', '12.2k', '-ac', '1', '-ar', '8000',
+      '-f', '3gp', outputPath,
     ]);
     if (!converted) return false;
     final output = File(outputPath);
