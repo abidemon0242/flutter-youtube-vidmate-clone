@@ -108,7 +108,12 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           continue;
         }
 
-        final safeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
+        final normalizedSafeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
+        // Keep the UI's expected path identical to BackgroundDownloadService,
+        // which caps sanitized titles at 80 characters.
+        final safeTitle = normalizedSafeTitle.length > 80
+            ? normalizedSafeTitle.substring(0, 80)
+            : normalizedSafeTitle;
         if (_audioOnly) {
           final audioOptions = await _extractionService.getAudioQualities(url);
           if (audioOptions.isEmpty) {
