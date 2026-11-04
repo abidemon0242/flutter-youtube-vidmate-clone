@@ -18,6 +18,9 @@ class FFmpegMergeService {
   FFmpegMergeService._internal();
 
 
+  bool _samePath(String first, String second) =>
+      File(first).absolute.path == File(second).absolute.path;
+
   Future<bool> _run(List<String> arguments) async {
     try {
       final session = await FFmpegKit.executeWithArguments(arguments);
@@ -36,7 +39,10 @@ class FFmpegMergeService {
     required String outputPath,
     required String quality,
   }) async {
-    if (!await File(videoPath).exists() || !await File(audioPath).exists()) {
+    if (_samePath(videoPath, outputPath) ||
+        _samePath(audioPath, outputPath) ||
+        !await File(videoPath).exists() ||
+        !await File(audioPath).exists()) {
       logger.e('Cannot merge: an input file does not exist.');
       return false;
     }
@@ -55,7 +61,7 @@ class FFmpegMergeService {
     required String codec,
     required String bitrate,
   }) async {
-    if (!await File(inputPath).exists()) return false;
+    if (_samePath(inputPath, outputPath) || !await File(inputPath).exists()) return false;
     await Directory(File(outputPath).parent.path).create(recursive: true);
     return _run([
       '-y', '-i', inputPath, '-c:v', codec, '-b:v', bitrate,
@@ -68,7 +74,7 @@ class FFmpegMergeService {
     required String audioOutputPath,
     required String format,
   }) async {
-    if (!await File(videoPath).exists()) return false;
+    if (_samePath(videoPath, audioOutputPath) || !await File(videoPath).exists()) return false;
     final normalizedFormat = format.toLowerCase();
     if (normalizedFormat != 'mp3' && normalizedFormat != 'm4a') {
       logger.e('Unsupported audio format: $format');
