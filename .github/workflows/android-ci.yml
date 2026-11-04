@@ -87,7 +87,7 @@ jobs:
               if content != original:
                   min_updated = True
               content, count = re.subn(
-                  r"(?m)^(\\s*compileSdk(?:Version)?\\s*(?:=\\s*)?)(?:flutter\\.compileSdkVersion|\\d+)(\\s*(?://.*)?$)",
+                  r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*)?)(?:flutter\.compileSdkVersion|\d+)(\s*(?://.*)?$)",
                   r"\\g<1>36\\g<2>",
                   content,
               )
@@ -204,7 +204,7 @@ jobs:
               if content != original:
                   min_updated = True
               content, count = re.subn(
-                  r"(?m)^(\\s*compileSdk(?:Version)?\\s*(?:=\\s*)?)(?:flutter\\.compileSdkVersion|\\d+)(\\s*(?://.*)?$)",
+                  r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*)?)(?:flutter\.compileSdkVersion|\d+)(\s*(?://.*)?$)",
                   r"\\g<1>36\\g<2>",
                   content,
               )
