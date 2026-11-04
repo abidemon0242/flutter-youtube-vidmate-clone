@@ -169,14 +169,14 @@ If you have access to someone's Android Studio on a shared computer:
 ✅ Browse the YouTube-style home feed  
 ✅ View video cards with thumbnails  
 ✅ Tap videos to see the watch screen  
-✅ View download quality options  
+ℹ️ Download controls are placeholders; real downloads are not wired into the UI yet  
 ✅ Test batch selection (long-press video)  
 ✅ Explore the Downloads and Library tabs  
 ✅ Create/manage custom folders  
 
-❌ *Real video downloading* (requires native Android/iOS)  
-❌ *Real lock-screen controls* (web doesn't support)  
-❌ *Real ad-blocking* (web doesn't support)  
+❌ *Real video downloading* (not yet connected to the app UI)  
+❌ *Working lock-screen controls* (the media handler is not yet connected to the player)  
+❌ *Network ad blocking* (the current service only classifies URLs; it does not intercept traffic)  
 
 ---
 
