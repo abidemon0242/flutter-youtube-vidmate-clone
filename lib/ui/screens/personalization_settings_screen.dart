@@ -8,6 +8,7 @@ class PersonalizationSettingsScreen extends StatelessWidget{
     return Scaffold(appBar:AppBar(title:const Text('Personalization & privacy')),body:ListView(padding:const EdgeInsets.all(16),children:[
       Text('Your activity stays on this device',style:Theme.of(context).textTheme.titleLarge),
       const SizedBox(height:8),const Text('Tube Arena uses in-app searches, likes, saves, watch activity and imported public playlist metadata to rank recommendations. This prototype stores personalization data locally.'),
+      SwitchListTile(contentPadding:EdgeInsets.zero,title:const Text('Personalized recommendations'),subtitle:const Text('Allow Tube Arena to learn from activity on this device.'),value:p.personalizationEnabled,onChanged:(value)=>p.setConsent(value)),
       const SizedBox(height:20),Card(child:ListTile(leading:const Icon(Icons.insights),title:const Text('Activity records'),trailing:Text(p.activityCount.toString()))),
       Card(child:ListTile(leading:const Icon(Icons.playlist_play),title:const Text('Imported playlists'),trailing:Text(p.playlists.length.toString()))),
       const SizedBox(height:20),Text('Detected interests',style:Theme.of(context).textTheme.titleMedium),

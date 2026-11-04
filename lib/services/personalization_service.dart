@@ -31,18 +31,23 @@ class PersonalizationService extends ChangeNotifier {
   final List<ActivityRecord> _events=[];
   final List<ImportedPlaylist> _playlists=[];
   bool _ready=false;
+  bool _consentDecided=false;
+  bool _personalizationEnabled=false;
   Future<void> _queue=Future<void>.value();
   List<ActivityRecord> get activity=>List.unmodifiable(_events);
   List<ImportedPlaylist> get playlists=>List.unmodifiable(_playlists);
   int get activityCount=>_events.length;
+  bool get consentDecided=>_consentDecided;
+  bool get personalizationEnabled=>_personalizationEnabled;
   Future<File> _file() async {final d=await _directoryResolver();final folder=Directory(d.path+'/TubeArena');await folder.create(recursive:true);return File(folder.path+'/personalization.json');}
   Future<void> initialize() async {
     if(_ready)return;
-    try{final f=await _file();if(await f.exists()){final j=jsonDecode(await f.readAsString());if(j is Map<String,dynamic>){if(j['activity'] is List)_events.addAll((j['activity'] as List).whereType<Map<String,dynamic>>().map(ActivityRecord.fromJson));if(j['playlists'] is List)_playlists.addAll((j['playlists'] as List).whereType<Map<String,dynamic>>().map(ImportedPlaylist.fromJson));}}}catch(e){debugPrint('Personalization restore: $e');}
+    try{final f=await _file();if(await f.exists()){final j=jsonDecode(await f.readAsString());if(j is Map<String,dynamic>){_consentDecided=j['consentDecided'] as bool? ?? false;_personalizationEnabled=j['personalizationEnabled'] as bool? ?? false;if(j['activity'] is List)_events.addAll((j['activity'] as List).whereType<Map<String,dynamic>>().map(ActivityRecord.fromJson));if(j['playlists'] is List)_playlists.addAll((j['playlists'] as List).whereType<Map<String,dynamic>>().map(ImportedPlaylist.fromJson));}}}catch(e){debugPrint('Personalization restore: $e');}
     _ready=true;notifyListeners();
   }
   Future<void> record({required String type,VideoModel? video,String query='',int seconds=0}) async {
     if(!_ready)await initialize();
+    if(!_personalizationEnabled)return;
     if(type=='search'&&query.trim().isEmpty)return;
     _events.insert(0,ActivityRecord(type,DateTime.now(),title:video?.title??'',category:video?.category??'',query:query.trim(),seconds:seconds.clamp(0,86400)));
     if(_events.length>2000)_events.removeRange(2000,_events.length);
@@ -50,6 +55,7 @@ class PersonalizationService extends ChangeNotifier {
   }
   Future<ImportedPlaylist> importPlaylist(String input) async {
     if(!_ready)await initialize();
+    if(!_personalizationEnabled)throw const PlaylistImportException('Enable personalization in the privacy settings before importing a playlist.');
     final u=Uri.tryParse(input.trim().startsWith('http')?input.trim():'https://'+input.trim());
     const hosts={'youtube.com','www.youtube.com','m.youtube.com','music.youtube.com'};
     final id=u!=null&&hosts.contains(u.host.toLowerCase())?u.queryParameters['list']:null;
@@ -82,6 +88,7 @@ class PersonalizationService extends ChangeNotifier {
     }on SocketException{throw const PlaylistImportException('Network error. Check your connection.');}finally{c.close(force:true);}
   }
   Map<String,double> get interestProfile {
+    if(!_personalizationEnabled)return const {};
     final out=<String,double>{},now=DateTime.now();
     for(final e in _events){final days=now.difference(e.time).inDays,recency=days<=1?1.0:days<=7?.8:days<=30?.55:.25;
       final weight=(switch(e.type){'like'=>4.0,'watch'=>e.seconds>=120?2.8:1.5,'open'=>.7,'save'=>3.0,'search'=>1.7,'playlist_import'=>2.0,'skip'=>-1.2,'dislike'=>-3.5,_=>0.0})*recency;
@@ -98,7 +105,8 @@ class PersonalizationService extends ChangeNotifier {
     return ranked.map((x)=>x.video).toList(growable:false);
   }
   Set<String> _tokens(String s){const stop={'the','and','for','with','from','that','this','your','you','how','what','when','where','why','are','was','into','about','video','videos','youtube','official','full','new','best','top'};return RegExp(r'[a-z0-9]{3,}').allMatches(s).map((m)=>m.group(0)!).where((x)=>!stop.contains(x)).toSet();}
+  Future<void> setConsent(bool enabled) async{_consentDecided=true;_personalizationEnabled=enabled;if(!enabled){_events.clear();_playlists.clear();}notifyListeners();await _persist();}
   Future<void> removePlaylist(String id) async{_playlists.removeWhere((p)=>p.id==id);await _persist();notifyListeners();}
   Future<void> clearActivity() async{_events.clear();_playlists.clear();notifyListeners();await _persist();}
-  Future<void> _persist(){_queue=_queue.then((_)async{try{final f=await _file();await f.writeAsString(jsonEncode({'activity':_events.map((e)=>e.toJson()).toList(),'playlists':_playlists.map((p)=>p.toJson()).toList()}),flush:true);}catch(e){debugPrint('Personalization save: $e');}});return _queue;}
+  Future<void> _persist(){_queue=_queue.then((_)async{try{final f=await _file();await f.writeAsString(jsonEncode({'consentDecided':_consentDecided,'personalizationEnabled':_personalizationEnabled,'activity':_events.map((e)=>e.toJson()).toList(),'playlists':_playlists.map((p)=>p.toJson()).toList()}),flush:true);}catch(e){debugPrint('Personalization save: $e');}});return _queue;}
 }

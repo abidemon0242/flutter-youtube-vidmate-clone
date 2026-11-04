@@ -10,7 +10,23 @@ import '../widgets/video_card.dart';
 class HomeScreen extends StatefulWidget{const HomeScreen({super.key});@override State<HomeScreen> createState()=>_HomeScreenState();}
 class _HomeScreenState extends State<HomeScreen>{
   late final MockYouTubeRepository repository;int selectedCategory=0;bool multiSelectMode=false;String searchQuery='';List<VideoModel> searchResults=[];bool searching=false;String? searchError;final Set<String> selectedIds={};
-  @override void initState(){super.initState();repository=context.read<MockYouTubeRepository>();}
+  @override void initState(){
+    super.initState();
+    repository=context.read<MockYouTubeRepository>();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final profile=context.read<PersonalizationService>();
+      if(!mounted||profile.consentDecided)return;
+      final accepted=await showDialog<bool>(context:context,barrierDismissible:false,builder:(dialog)=>AlertDialog(
+        title:const Text('Personalized recommendations'),
+        content:const Text('Tube Arena can use your in-app searches, likes, saves and watch activity to improve recommendations. This activity is stored locally on this device. You can turn personalization off or clear the data at any time.'),
+        actions:[
+          TextButton(onPressed:()=>Navigator.pop(dialog,false),child:const Text('Not now')),
+          FilledButton(onPressed:()=>Navigator.pop(dialog,true),child:const Text('Agree and continue')),
+        ],
+      ));
+      if(mounted)await profile.setConsent(accepted==true);
+    });
+  }
   List<VideoModel> videos(PersonalizationService p){
     if(searchQuery.isNotEmpty)return searchResults;
     final map=<String,VideoModel>{};for(final v in [...repository.getTrendingVideos(),...p.playlists.expand((x)=>x.videos)]){map.putIfAbsent(v.id,()=>v);}
