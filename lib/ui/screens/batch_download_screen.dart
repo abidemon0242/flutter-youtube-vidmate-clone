@@ -18,7 +18,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   final TextEditingController _urlsController = TextEditingController();
   late final YoutubeExtractionService _extractionService;
   bool _isProcessing = false;
-  String _preferredQuality = '360p';
+  String _preferredQuality = '1080p';
   String _preferredFormat = 'MP4';
   List<VideoQualityOption> _previewOptions = const [];
   bool _isPreviewLoading = false;
@@ -50,13 +50,36 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   }
 
   VideoQualityOption _chooseQuality(List<VideoQualityOption> options) {
-    final matching = options.where((option) =>
-        option.format.toUpperCase() == _preferredFormat &&
-        option.quality == _preferredQuality);
-    if (matching.isEmpty) {
-      throw Exception('$_preferredQuality $_preferredFormat is not available for this video.');
+    final matchingFormat = options
+        .where((option) => option.format.toUpperCase() == _preferredFormat)
+        .toList();
+    if (matchingFormat.isEmpty) {
+      throw Exception('No $_preferredFormat stream is available for the selected video.');
     }
-    return matching.first;
+
+    final exact = matchingFormat.where((option) => option.quality == _preferredQuality);
+    if (exact.isNotEmpty) return exact.first;
+
+    // For other links in a batch, use the highest real stream no higher than
+    // the selected resolution. Never silently exceed the user's limit.
+    final targetHeight =
+        int.tryParse(RegExp(r'(\\d+)p').firstMatch(_preferredQuality)?.group(1) ?? '') ?? 1080;
+    final atOrBelowTarget = matchingFormat.where((option) {
+      final height =
+          int.tryParse(RegExp(r'(\\d+)p').firstMatch(option.quality)?.group(1) ?? '');
+      return height != null && height <= targetHeight;
+    }).toList()
+      ..sort((a, b) {
+        final aHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
+        final bHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+        if (aHeight != bHeight) return bHeight.compareTo(aHeight);
+        return b.fps.compareTo(a.fps);
+      });
+
+    if (atOrBelowTarget.isEmpty) {
+      throw Exception('No $_preferredFormat stream is available at or below $_preferredQuality.');
+    }
+    return atOrBelowTarget.first;
   }
 
   List<VideoQualityOption> _sortedPreviewOptions(List<VideoQualityOption> options) {
