@@ -254,7 +254,7 @@ jobs:
           # intermittently fail with a broken pipe on this hosted emulator.
           disable-animations: false
           script: |
-            set -euo pipefail
+            set -eu
             adb install build/app/outputs/flutter-apk/app-debug.apk
             adb logcat -c
             adb shell am start -n com.tubearena.app/.MainActivity
