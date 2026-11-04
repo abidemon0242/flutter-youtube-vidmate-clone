@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../services/ffmpeg_merge_service.dart';
+import '../../services/media_session_service.dart';
 
 class LocalMediaPlayerScreen extends StatefulWidget {
   const LocalMediaPlayerScreen({super.key, required this.filePath});
@@ -22,6 +23,7 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
 
   VideoPlayerController? _videoController;
   AudioPlayer? _audioPlayer;
+  bool _ownsAudioPlayer = false;
   late final Future<void> _initialization;
   late final bool _isAudio;
   bool _isConverting = false;
@@ -35,8 +37,15 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
     _isAudio = _audioExtensions.contains(extension);
 
     if (_isAudio) {
-      _audioPlayer = AudioPlayer();
-      _initialization = _audioPlayer!.setFilePath(widget.filePath).then((_) {});
+      final handler = MediaSessionService().audioHandler;
+      if (handler != null) {
+        _audioPlayer = handler.player;
+        _initialization = handler.setFilePath(widget.filePath, title: _fileName);
+      } else {
+        _audioPlayer = AudioPlayer();
+        _ownsAudioPlayer = true;
+        _initialization = _audioPlayer!.setFilePath(widget.filePath).then((_) {});
+      }
     } else {
       _videoController = VideoPlayerController.file(File(widget.filePath));
       _videoController!.addListener(_refresh);
@@ -52,7 +61,7 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
   void dispose() {
     _videoController?.removeListener(_refresh);
     _videoController?.dispose();
-    _audioPlayer?.dispose();
+    if (_ownsAudioPlayer) _audioPlayer?.dispose();
     super.dispose();
   }
 
