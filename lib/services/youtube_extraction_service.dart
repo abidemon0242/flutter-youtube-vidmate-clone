@@ -122,8 +122,8 @@ class YoutubeExtractionService {
         final key = '$format-$quality';
         if (!seen.add(key)) continue;
 
-        final videoBytes = stream.size.totalBytes ?? 0;
-        final audioBytes = audio.size.totalBytes ?? 0;
+        final videoBytes = stream.size.totalBytes;
+        final audioBytes = audio.size.totalBytes;
         available.add(VideoQualityOption(
           quality: quality,
           format: format,
