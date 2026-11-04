@@ -237,14 +237,18 @@ class BackgroundDownloadService {
     final audio = task.audioStatus;
     if (video == DownloadStatus.failed || audio == DownloadStatus.failed) {
       task.status = DownloadStatus.failed;
+      final siblingId = video == DownloadStatus.failed ? task.audioTaskId : task.videoTaskId;
+      if (siblingId != null) unawaited(fd.FlutterDownloader.cancel(taskId: siblingId));
       return;
     }
     if (video == DownloadStatus.cancelled || audio == DownloadStatus.cancelled) {
       task.status = DownloadStatus.cancelled;
+      final siblingId = video == DownloadStatus.cancelled ? task.audioTaskId : task.videoTaskId;
+      if (siblingId != null) unawaited(fd.FlutterDownloader.cancel(taskId: siblingId));
       return;
     }
     if (video == DownloadStatus.completed && audio == DownloadStatus.completed) {
-      task.progress = 100;
+      task.progress = 99;
       if (!task.isMerging) _finishAdaptiveMerge(task);
       return;
     }
@@ -261,6 +265,8 @@ class BackgroundDownloadService {
     task.status = DownloadStatus.downloading;
     await _persistMetadata();
     _notifyListeners();
+    final output = File(task.savePath);
+    if (await output.exists()) await output.delete();
     final merged = await FFmpegMergeService().mergeVideoAndAudio(
       videoPath: task.videoTempPath!,
       audioPath: task.audioTempPath!,
@@ -586,7 +592,10 @@ class BackgroundDownloadService {
     if (task == null) return false;
     try {
       final ids = task.requiresMerge
-          ? [task.videoTaskId, task.audioTaskId].whereType<String>().toList()
+          ? [
+              if (task.videoStatus != DownloadStatus.completed) task.videoTaskId,
+              if (task.audioStatus != DownloadStatus.completed) task.audioTaskId,
+            ].whereType<String>().toList()
           : [task.taskId].whereType<String>().toList();
       if (ids.isEmpty) return false;
       for (final id in ids) {
@@ -659,9 +668,12 @@ class BackgroundDownloadService {
       if (await target.exists()) await target.delete();
 
       if (task.requiresMerge) {
+        final videoUri = Uri.tryParse(task.videoUrl);
+        final audioUri = Uri.tryParse(task.audioUrl);
         if (task.videoTempPath == null || task.audioTempPath == null ||
-            !Uri.tryParse(task.videoUrl)!.hasScheme ||
-            !Uri.tryParse(task.audioUrl)!.hasScheme) return false;
+            videoUri == null || audioUri == null ||
+            !['http', 'https'].contains(videoUri.scheme) || videoUri.host.isEmpty ||
+            !['http', 'https'].contains(audioUri.scheme) || audioUri.host.isEmpty) return false;
         for (final path in [task.videoTempPath!, task.audioTempPath!]) {
           final file = File(path);
           if (await file.exists()) await file.delete();
@@ -751,7 +763,19 @@ class BackgroundDownloadService {
   }
 
   Future<void> forgetTask(String downloadId) async {
-    _activeTasks.remove(downloadId);
+    final task = _activeTasks.remove(downloadId);
+    if (task != null && task.requiresMerge) {
+      final documents = await getApplicationDocumentsDirectory();
+      final root = Directory('${documents.path}/TubeArena/Downloads');
+      final prefix = '${root.absolute.path}${Platform.pathSeparator}';
+      for (final path in [task.videoTempPath, task.audioTempPath]) {
+        if (path == null) continue;
+        final file = File(path);
+        if (file.absolute.path.startsWith(prefix) && await file.exists()) {
+          await file.delete();
+        }
+      }
+    }
     await _persistMetadata();
     _notifyListeners();
   }
