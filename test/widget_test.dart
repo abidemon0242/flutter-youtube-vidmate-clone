@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/providers/downloads_provider.dart';
+import 'package:tube_arena/services/ad_blocker_service.dart';
 
 void main() {
   group('VideoModel', () {
@@ -21,6 +24,7 @@ void main() {
         isVerified: false,
       );
       expect(video.playbackUrl, VideoModel.demoPlaybackUrl);
+      expect(video.category, 'Tech');
     });
   });
 
@@ -28,8 +32,13 @@ void main() {
     test('adds and removes selected entries', () {
       final provider = DownloadsProvider();
       final entry = DownloadEntry(
-        id: 'one', title: 'One', url: 'https://example.com/one.mp4',
-        size: '1 MB', format: 'mp4', progress: 0, savedPath: '/tmp/one.mp4',
+        id: 'one',
+        title: 'One',
+        url: 'https://example.com/one.mp4',
+        size: '1 MB',
+        format: 'mp4',
+        progress: 0,
+        savedPath: '/tmp/one.mp4',
       );
       provider.addDownload(entry);
       expect(provider.items, hasLength(1));
@@ -38,6 +47,48 @@ void main() {
       expect(provider.items, isEmpty);
       expect(provider.hasSelection, isFalse);
       provider.dispose();
+    });
+
+    test('deletes selected file before removing its record', () async {
+      final directory = await Directory.systemTemp.createTemp('tube-arena-test-');
+      final file = File('${directory.path}/sample.mp4');
+      await file.writeAsString('sample');
+      final provider = DownloadsProvider()
+        ..addDownload(
+          DownloadEntry(
+            id: 'file-one',
+            title: 'Sample',
+            url: 'https://example.com/sample.mp4',
+            size: '6 B',
+            format: 'mp4',
+            progress: 100,
+            savedPath: file.path,
+          ),
+        )
+        ..toggleSelection('file-one');
+
+      expect(await provider.deleteSelectedFiles(), 1);
+      expect(await file.exists(), isFalse);
+      expect(provider.items, isEmpty);
+      provider.dispose();
+      await directory.delete(recursive: true);
+    });
+  });
+
+  group('AdBlockerService URL matching', () {
+    final blocker = AdBlockerService();
+
+    test('blocks ad host subdomains without matching lookalikes', () {
+      expect(blocker.isAdDomain('https://ads.doubleclick.net/banner'), isTrue);
+      expect(blocker.isAdDomain('https://notdoubleclick.net/banner'), isFalse);
+    });
+
+    test('does not classify YouTube privacy-enhanced host as advertising', () {
+      expect(blocker.isAdDomain('https://www.youtube-nocookie.com/embed/demo'), isFalse);
+    });
+
+    test('matches known tracking URL paths', () {
+      expect(blocker.isAdDomain('https://www.facebook.com/tr?id=123'), isTrue);
     });
   });
 }
