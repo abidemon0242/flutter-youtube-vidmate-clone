@@ -265,24 +265,38 @@ class BackgroundDownloadService {
     task.status = DownloadStatus.downloading;
     await _persistMetadata();
     _notifyListeners();
-    final output = File(task.savePath);
-    if (await output.exists()) await output.delete();
-    final merged = await FFmpegMergeService().mergeVideoAndAudio(
-      videoPath: task.videoTempPath!,
-      audioPath: task.audioTempPath!,
-      outputPath: task.savePath,
-      quality: task.quality,
-    );
-    if (merged) {
-      for (final path in [task.videoTempPath!, task.audioTempPath!]) {
-        final file = File(path);
-        if (await file.exists()) await file.delete();
-      }
-      task.status = DownloadStatus.completed;
-      task.progress = 100;
-    } else {
+    var merged = false;
+    try {
       final output = File(task.savePath);
       if (await output.exists()) await output.delete();
+      merged = await FFmpegMergeService().mergeVideoAndAudio(
+        videoPath: task.videoTempPath!,
+        audioPath: task.audioTempPath!,
+        outputPath: task.savePath,
+        quality: task.quality,
+      );
+    } catch (error, stackTrace) {
+      logger.e('Adaptive stream merge failed', error: error, stackTrace: stackTrace);
+    }
+
+    if (merged) {
+      task.status = DownloadStatus.completed;
+      task.progress = 100;
+      for (final path in [task.videoTempPath!, task.audioTempPath!]) {
+        try {
+          final file = File(path);
+          if (await file.exists()) await file.delete();
+        } catch (error) {
+          logger.w('Could not remove temporary stream file: $error');
+        }
+      }
+    } else {
+      try {
+        final output = File(task.savePath);
+        if (await output.exists()) await output.delete();
+      } catch (error) {
+        logger.w('Could not remove incomplete merged file: $error');
+      }
       task.status = DownloadStatus.failed;
     }
     task.isMerging = false;
@@ -534,17 +548,26 @@ class BackgroundDownloadService {
         _activeTasks[id] = task;
         await _persistMetadata();
 
-        final audioTaskId = await fd.FlutterDownloader.enqueue(
-          url: audioUrl,
-          savedDir: downloadPath,
-          fileName: audioTempPath.split(Platform.pathSeparator).last,
-          showNotification: false,
-          openFileFromNotification: false,
-          saveInPublicStorage: false,
-        );
+        String? audioTaskId;
+        try {
+          audioTaskId = await fd.FlutterDownloader.enqueue(
+            url: audioUrl,
+            savedDir: downloadPath,
+            fileName: audioTempPath.split(Platform.pathSeparator).last,
+            showNotification: false,
+            openFileFromNotification: false,
+            saveInPublicStorage: false,
+          );
+        } catch (error) {
+          logger.e('Could not queue adaptive audio stream: $error');
+        }
         if (audioTaskId == null) {
           await fd.FlutterDownloader.cancel(taskId: videoTaskId);
           _activeTasks.remove(id);
+          for (final path in [videoTempPath, audioTempPath]) {
+            final file = File(path);
+            if (await file.exists()) await file.delete();
+          }
           await _persistMetadata();
           return null;
         }
@@ -739,7 +762,10 @@ class BackgroundDownloadService {
     if (task == null) return false;
     try {
       final ids = task.requiresMerge
-          ? [task.videoTaskId, task.audioTaskId].whereType<String>().toList()
+          ? [
+              if (task.videoStatus != DownloadStatus.completed) task.videoTaskId,
+              if (task.audioStatus != DownloadStatus.completed) task.audioTaskId,
+            ].whereType<String>().toList()
           : [task.taskId].whereType<String>().toList();
       if (ids.isEmpty) return false;
       var success = true;
