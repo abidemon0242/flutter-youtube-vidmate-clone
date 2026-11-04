@@ -95,21 +95,58 @@ class YoutubeExtractionService {
 
       logger.i('Fetching video qualities for: $videoId');
       final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
-      // Use muxed streams only in the one-file download queue. Adaptive video-only
-      // streams require a second audio task and FFmpeg orchestration; queueing them
-      // alone would produce a silent video, so they are intentionally not offered.
-      final videoStreams = manifest.muxed.toList()
-        ..sort((a, b) => b.bitrate.compareTo(a.bitrate));
       final available = <VideoQualityOption>[];
       final seen = <String>{};
 
-      for (final stream in videoStreams) {
+      // Adaptive video-only streams provide the higher resolutions. Pair each
+      // with an audio-only stream in the same container so FFmpeg can mux them
+      // without silently changing the requested output format.
+      final videoOnly = manifest.videoOnly.toList()
+        ..sort((a, b) {
+          final height = b.videoResolution.height.compareTo(a.videoResolution.height);
+          if (height != 0) return height;
+          return b.bitrate.compareTo(a.bitrate);
+        });
+
+      for (final stream in videoOnly) {
         final quality = stream.qualityLabel.trim();
         final format = stream.container.name.toUpperCase();
-        // Keep MP4 and WebM entries for the same resolution distinct.
-        // Deduplicating by resolution alone could hide a valid format option.
-        if (quality.isEmpty || !seen.add('$format-$quality')) continue;
+        if (quality.isEmpty) continue;
 
+        final compatibleAudio = manifest.audioOnly
+            .where((audio) => audio.container == stream.container)
+            .toList()
+          ..sort((a, b) => b.bitrate.compareTo(a.bitrate));
+        if (compatibleAudio.isEmpty) continue;
+        final audio = compatibleAudio.first;
+        final key = '$format-$quality';
+        if (!seen.add(key)) continue;
+
+        final videoBytes = stream.size.totalBytes ?? 0;
+        final audioBytes = audio.size.totalBytes ?? 0;
+        available.add(VideoQualityOption(
+          quality: quality,
+          format: format,
+          fileSize: _formatBytes(videoBytes + audioBytes),
+          videoUrl: stream.url.toString(),
+          audioUrl: audio.url.toString(),
+          fps: stream.framerate.framesPerSecond.toInt(),
+          bitrate: _formatBitrate(stream.bitrate),
+        ));
+      }
+
+      // Retain muxed streams as a fallback for resolutions that have no
+      // compatible adaptive audio/video pair.
+      final muxedStreams = manifest.muxed.toList()
+        ..sort((a, b) {
+          final height = b.videoResolution.height.compareTo(a.videoResolution.height);
+          if (height != 0) return height;
+          return b.bitrate.compareTo(a.bitrate);
+        });
+      for (final stream in muxedStreams) {
+        final quality = stream.qualityLabel.trim();
+        final format = stream.container.name.toUpperCase();
+        if (quality.isEmpty || !seen.add('$format-$quality')) continue;
         available.add(VideoQualityOption(
           quality: quality,
           format: format,
@@ -121,7 +158,13 @@ class YoutubeExtractionService {
         ));
       }
 
-      logger.i('Found ${available.length} real video quality options');
+      available.sort((a, b) {
+        final aHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
+        final bHeight = int.tryParse(RegExp(r'(\\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+        if (aHeight != bHeight) return bHeight.compareTo(aHeight);
+        return b.fps.compareTo(a.fps);
+      });
+      logger.i('Found ${available.length} compatible video quality options');
       return available;
     } catch (e) {
       logger.e('Error fetching video qualities: $e');
