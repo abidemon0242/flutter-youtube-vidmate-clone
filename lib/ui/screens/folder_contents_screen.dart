@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -123,7 +125,144 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
       ),
     );
     if (audioPath == null || !mounted) return;
-    final base = videoFile.path.replaceFirst(RegExp(r'\\.[^.]+$'), '');
+    final base = videoFile.path.replaceFirst(RegExp(r'\.[^.]+, '');
+    final outputPath = '${base}_merged.mp4';
+    if (await File(outputPath).exists()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The merged output already exists. Rename or remove it first.')));
+      return;
+    }
+    setState(() => _isMerging = true);
+    final success = await FFmpegMergeService().mergeVideoAndAudio(
+      videoPath: videoFile.path,
+      audioPath: audioPath,
+      outputPath: outputPath,
+      quality: 'original',
+    );
+    if (!mounted) return;
+    setState(() => _isMerging = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(success ? 'Merged file saved: ${outputPath.split(Platform.pathSeparator).last}' : 'Could not merge these media files.'),
+    ));
+    if (success) await _refresh();
+  }
+
+  Future<void> _deleteFile(LocalFile file) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete file?'),
+        content: Text('Delete "${file.name}" permanently?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final deleted = await _fileManager.deleteFile(file.path);
+    if (!mounted) return;
+    if (deleted) {
+      await _refresh();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete this file.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.folderName)),
+      body: FutureBuilder<List<LocalFile>>(
+        future: _files,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return const Center(child: Text('Could not load this folder.'));
+          }
+          final files = snapshot.data ?? const <LocalFile>[];
+          if (files.isEmpty) {
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.folder_open_outlined, size: 56, color: AppColors.textSecondary),
+                  SizedBox(height: 12),
+                  Text('This folder is empty', style: TextStyle(color: AppColors.textSecondary)),
+                ],
+              ),
+            );
+          }
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: files.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final file = files[index];
+                final lowerName = file.name.toLowerCase();
+                final playable = [
+                  '.mp4', '.m4v', '.mov', '.webm', '.mkv',
+                  '.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac',
+                ].any(lowerName.endsWith);
+                final audio = [
+                  '.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac',
+                ].any(lowerName.endsWith);
+                return ListTile(
+                  leading: Icon(audio ? Icons.audio_file_outlined : Icons.video_file_outlined),
+                  title: Text(file.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text(file.sizeFormatted),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (playable) const Icon(Icons.play_circle_outline),
+                      if (playable && !audio)
+                        IconButton(
+                          tooltip: 'Merge with local audio',
+                          onPressed: _isMerging ? null : () => _mergeWithAudio(file),
+                          icon: const Icon(Icons.merge_type),
+                        ),
+                      if (widget.folderName != 'Downloads')
+                        PopupMenuButton<String>(
+                          onSelected: (action) {
+                            if (action == 'rename') _renameFile(file);
+                            if (action == 'move') _moveFile(file);
+                            if (action == 'delete') _deleteFile(file);
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: 'rename', child: Text('Rename')),
+                            PopupMenuItem(value: 'move', child: Text('Move')),
+                            PopupMenuItem(value: 'delete', child: Text('Delete')),
+                          ],
+                        ),
+                    ],
+                  ),
+                  onTap: playable
+                      ? () => context.push('/local-player', extra: file.path)
+                      : () => ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('This file format is not supported by the player.')),
+                          ),
+                );
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+), '');
     final outputPath = '${base}_merged.mp4';
     if (await File(outputPath).exists()) {
       if (!mounted) return;
