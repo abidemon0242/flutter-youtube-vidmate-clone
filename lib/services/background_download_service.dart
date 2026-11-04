@@ -9,6 +9,8 @@ import 'package:flutter_downloader/flutter_downloader.dart' as fd;
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'ffmpeg_merge_service.dart';
+
 class AppDownloadTask {
   AppDownloadTask({
     required this.id,
@@ -23,6 +25,16 @@ class AppDownloadTask {
     this.status = DownloadStatus.pending,
     this.progress = 0,
     this.pausedByWifiPolicy = false,
+    this.videoTaskId,
+    this.audioTaskId,
+    this.videoTempPath,
+    this.audioTempPath,
+    this.requiresMerge = false,
+    this.videoStatus,
+    this.audioStatus,
+    this.videoProgress = 0,
+    this.audioProgress = 0,
+    this.isMerging = false,
   });
 
   final String id;
@@ -37,6 +49,16 @@ class AppDownloadTask {
   DownloadStatus status;
   double progress;
   bool pausedByWifiPolicy;
+  String? videoTaskId;
+  String? audioTaskId;
+  String? videoTempPath;
+  String? audioTempPath;
+  final bool requiresMerge;
+  DownloadStatus? videoStatus;
+  DownloadStatus? audioStatus;
+  double videoProgress;
+  double audioProgress;
+  bool isMerging;
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -51,6 +73,16 @@ class AppDownloadTask {
         'status': status.name,
         'progress': progress,
         'pausedByWifiPolicy': pausedByWifiPolicy,
+        'videoTaskId': videoTaskId,
+        'audioTaskId': audioTaskId,
+        'videoTempPath': videoTempPath,
+        'audioTempPath': audioTempPath,
+        'requiresMerge': requiresMerge,
+        'videoStatus': videoStatus?.name,
+        'audioStatus': audioStatus?.name,
+        'videoProgress': videoProgress,
+        'audioProgress': audioProgress,
+        'isMerging': isMerging,
       };
 
   factory AppDownloadTask.fromJson(Map<String, dynamic> json) {
@@ -71,6 +103,16 @@ class AppDownloadTask {
       ),
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
       pausedByWifiPolicy: json['pausedByWifiPolicy'] as bool? ?? false,
+      videoTaskId: json['videoTaskId'] as String?,
+      audioTaskId: json['audioTaskId'] as String?,
+      videoTempPath: json['videoTempPath'] as String?,
+      audioTempPath: json['audioTempPath'] as String?,
+      requiresMerge: json['requiresMerge'] as bool? ?? false,
+      videoStatus: DownloadStatus.values.where((v) => v.name == json['videoStatus']).firstOrNull,
+      audioStatus: DownloadStatus.values.where((v) => v.name == json['audioStatus']).firstOrNull,
+      videoProgress: (json['videoProgress'] as num?)?.toDouble() ?? 0,
+      audioProgress: (json['audioProgress'] as num?)?.toDouble() ?? 0,
+      isMerging: json['isMerging'] as bool? ?? false,
     );
   }
 }
@@ -164,16 +206,81 @@ class BackgroundDownloadService {
     final progress = message[2] as int;
 
     final task = _activeTasks.values.cast<AppDownloadTask?>().firstWhere(
-      (item) => item?.taskId == taskId,
+      (item) => item?.taskId == taskId || item?.videoTaskId == taskId || item?.audioTaskId == taskId,
       orElse: () => null,
     );
     if (task == null) return;
 
-    task.progress = progress.toDouble();
-    if (statusIndex >= 0 && statusIndex < fd.DownloadTaskStatus.values.length) {
-      task.status = _mapStatus(fd.DownloadTaskStatus.values[statusIndex]);
+    final mapped = statusIndex >= 0 && statusIndex < fd.DownloadTaskStatus.values.length
+        ? _mapStatus(fd.DownloadTaskStatus.values[statusIndex])
+        : DownloadStatus.failed;
+    if (task.requiresMerge) {
+      if (task.videoTaskId == taskId) {
+        task.videoProgress = progress.toDouble().clamp(0, 100).toDouble();
+        task.videoStatus = mapped;
+      } else if (task.audioTaskId == taskId) {
+        task.audioProgress = progress.toDouble().clamp(0, 100).toDouble();
+        task.audioStatus = mapped;
+      }
+      task.progress = ((task.videoProgress + task.audioProgress) / 2).clamp(0, 100).toDouble();
+      _refreshAdaptiveTask(task);
+    } else {
+      task.progress = progress.toDouble().clamp(0, 100).toDouble();
+      task.status = mapped;
     }
     _persistMetadata();
+    _notifyListeners();
+  }
+
+  void _refreshAdaptiveTask(AppDownloadTask task) {
+    final video = task.videoStatus;
+    final audio = task.audioStatus;
+    if (video == DownloadStatus.failed || audio == DownloadStatus.failed) {
+      task.status = DownloadStatus.failed;
+      return;
+    }
+    if (video == DownloadStatus.cancelled || audio == DownloadStatus.cancelled) {
+      task.status = DownloadStatus.cancelled;
+      return;
+    }
+    if (video == DownloadStatus.completed && audio == DownloadStatus.completed) {
+      task.progress = 100;
+      if (!task.isMerging) _finishAdaptiveMerge(task);
+      return;
+    }
+    task.status = video == DownloadStatus.paused || audio == DownloadStatus.paused
+        ? DownloadStatus.paused
+        : video == DownloadStatus.downloading || audio == DownloadStatus.downloading
+            ? DownloadStatus.downloading
+            : DownloadStatus.pending;
+  }
+
+  Future<void> _finishAdaptiveMerge(AppDownloadTask task) async {
+    if (task.isMerging || task.videoTempPath == null || task.audioTempPath == null) return;
+    task.isMerging = true;
+    task.status = DownloadStatus.downloading;
+    await _persistMetadata();
+    _notifyListeners();
+    final merged = await FFmpegMergeService().mergeVideoAndAudio(
+      videoPath: task.videoTempPath!,
+      audioPath: task.audioTempPath!,
+      outputPath: task.savePath,
+      quality: task.quality,
+    );
+    if (merged) {
+      for (final path in [task.videoTempPath!, task.audioTempPath!]) {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      }
+      task.status = DownloadStatus.completed;
+      task.progress = 100;
+    } else {
+      final output = File(task.savePath);
+      if (await output.exists()) await output.delete();
+      task.status = DownloadStatus.failed;
+    }
+    task.isMerging = false;
+    await _persistMetadata();
     _notifyListeners();
   }
 
