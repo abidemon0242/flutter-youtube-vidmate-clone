@@ -649,7 +649,7 @@ class BackgroundDownloadService {
         if (id == null) return false;
         task.taskId = id;
       } else {
-        if (task.videoStatus != DownloadStatus.completed) {
+        if (task.videoStatus == DownloadStatus.paused) {
           if (task.videoTaskId == null) return false;
           final id = await fd.FlutterDownloader.resume(taskId: task.videoTaskId!);
           if (id == null) return false;
@@ -657,7 +657,7 @@ class BackgroundDownloadService {
           task.taskId = id;
           task.videoStatus = DownloadStatus.pending;
         }
-        if (task.audioStatus != DownloadStatus.completed) {
+        if (task.audioStatus == DownloadStatus.paused) {
           if (task.audioTaskId == null) return false;
           final id = await fd.FlutterDownloader.resume(taskId: task.audioTaskId!);
           if (id == null) return false;
