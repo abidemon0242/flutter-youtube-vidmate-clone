@@ -6,6 +6,7 @@ import 'dart:ui' show IsolateNameServer;
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_downloader/flutter_downloader.dart' as fd;
+import 'package:ffmpeg_kit_flutter_new_full/ffprobe_kit.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -298,12 +299,51 @@ class BackgroundDownloadService {
             : DownloadStatus.pending;
   }
 
+  Future<bool> _hasValidMergedOutput(AppDownloadTask task) async {
+    try {
+      final file = File(task.savePath);
+      if (!await file.exists() || await file.length() <= 0) return false;
+      final session = await FFprobeKit.getMediaInformation(task.savePath);
+      final information = await session.getMediaInformation();
+      final streams = information?.getStreams() ?? const [];
+      return streams.any((stream) => stream.getType() == 'video') &&
+          streams.any((stream) => stream.getType() == 'audio');
+    } catch (error) {
+      logger.w('Could not validate a previous merge output: $error');
+      return false;
+    }
+  }
+
   Future<void> _finishAdaptiveMerge(AppDownloadTask task) async {
-    if (task.isMerging || task.videoTempPath == null || task.audioTempPath == null) return;
+    if (task.isMerging) return;
     task.isMerging = true;
     task.status = DownloadStatus.processing;
     await _persistMetadata();
     _notifyListeners();
+    // A process can die after FFmpeg writes the final file but before the
+    // completed state is persisted. Adopt a valid output instead of deleting
+    // it and trying to merge input streams that may already have been cleaned.
+    if (await _hasValidMergedOutput(task)) {
+      task.status = DownloadStatus.completed;
+      task.progress = 100;
+      task.isMerging = false;
+      if (task.outputFormat.toUpperCase() == '3GP') {
+        final intermediate = File('${task.savePath}.source.mp4');
+        if (await intermediate.exists()) await intermediate.delete();
+      }
+      await _cleanupAdaptiveTempFiles(task);
+      await _persistMetadata();
+      _notifyListeners();
+      return;
+    }
+    if (task.videoTempPath == null || task.audioTempPath == null) {
+      task.status = DownloadStatus.failed;
+      task.progress = 0;
+      task.isMerging = false;
+      await _persistMetadata();
+      _notifyListeners();
+      return;
+    }
     var merged = false;
     try {
       final output = File(task.savePath);
