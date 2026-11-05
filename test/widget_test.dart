@@ -20,7 +20,7 @@ void main() {
       channelName: 'Test channel',
       views: '120 views',
       duration: '02:30',
-      thumbnailUrl: '',
+      thumbnailUrl: 'https://example.com/thumb.jpg',
       channelAvatar: '',
       isVerified: false,
     );

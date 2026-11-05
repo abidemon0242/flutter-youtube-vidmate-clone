@@ -130,13 +130,23 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
       appBar: _isFullscreen ? null : AppBar(
         title: Text(_fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
-          if (!_isAudio) IconButton(tooltip: 'Fullscreen', onPressed: _toggleFullscreen, icon: const Icon(Icons.fullscreen)),
-        actions: [
+          if (!_isAudio)
+            IconButton(
+              tooltip: 'Fullscreen',
+              onPressed: _toggleFullscreen,
+              icon: const Icon(Icons.fullscreen),
+            ),
           if (_isAudio && !widget.filePath.toLowerCase().endsWith('.mp3'))
             IconButton(
               tooltip: 'Convert to MP3',
               onPressed: _isConverting ? null : _convertToMp3,
-              icon: _isConverting ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.audio_file),
+              icon: _isConverting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.audio_file),
             ),
         ],
       ),
@@ -156,21 +166,81 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
     final duration = controller.value.duration;
     final position = controller.value.position;
     final max = duration.inMilliseconds.toDouble();
-    final value = position.inMilliseconds.clamp(0, duration.inMilliseconds).toDouble();
-    return Center(child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        AspectRatio(aspectRatio: controller.value.aspectRatio > 0 ? controller.value.aspectRatio : 16 / 9, child: VideoPlayer(controller)),
-        Row(children: [
-          IconButton(tooltip: 'Back 10 seconds', onPressed: () => controller.seekTo(Duration(milliseconds: (controller.value.position - const Duration(seconds: 10)).inMilliseconds.clamp(0, duration.inMilliseconds).toInt())), icon: const Icon(Icons.replay_10)),
-          IconButton(onPressed: () => controller.value.isPlaying ? controller.pause() : controller.play(), icon: Icon(controller.value.isPlaying ? Icons.pause : Icons.play_arrow)),
-          IconButton(tooltip: 'Forward 10 seconds', onPressed: () => controller.seekTo(Duration(milliseconds: (controller.value.position + const Duration(seconds: 10)).inMilliseconds.clamp(0, duration.inMilliseconds).toInt())), icon: const Icon(Icons.forward_10)),
-          Expanded(child: Slider(value: max <= 0 ? 0 : value, max: max <= 0 ? 1 : max, onChanged: (next) => controller.seekTo(Duration(milliseconds: next.round())))),
-          Text('${_formatDuration(position)} / ${_formatDuration(duration)}'),
-          IconButton(tooltip: 'Exit fullscreen', onPressed: _toggleFullscreen, icon: Icon(_isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen)),
-        ]),
-      ]),
-    ));
+    final value = position.inMilliseconds
+        .clamp(0, duration.inMilliseconds)
+        .toDouble();
+    final target = (int seconds) {
+      final requested = controller.value.position + Duration(seconds: seconds);
+      final clamped = requested.inMilliseconds
+          .clamp(0, duration.inMilliseconds)
+          .toInt();
+      return controller.seekTo(Duration(milliseconds: clamped));
+    };
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.all(_isFullscreen ? 4 : 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AspectRatio(
+              aspectRatio: controller.value.aspectRatio > 0
+                  ? controller.value.aspectRatio
+                  : 16 / 9,
+              child: VideoPlayer(controller),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  tooltip: 'Back 10 seconds',
+                  onPressed: () => target(-10),
+                  icon: const Icon(Icons.replay_10),
+                ),
+                IconButton(
+                  onPressed: () => controller.value.isPlaying
+                      ? controller.pause()
+                      : controller.play(),
+                  icon: Icon(
+                    controller.value.isPlaying
+                        ? Icons.pause
+                        : Icons.play_arrow,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Forward 10 seconds',
+                  onPressed: () => target(10),
+                  icon: const Icon(Icons.forward_10),
+                ),
+                IconButton(
+                  tooltip: _isFullscreen ? 'Exit fullscreen' : 'Fullscreen',
+                  onPressed: _toggleFullscreen,
+                  icon: Icon(
+                    _isFullscreen
+                        ? Icons.fullscreen_exit
+                        : Icons.fullscreen,
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Text(_formatDuration(position)),
+                Expanded(
+                  child: Slider(
+                    value: max <= 0 ? 0 : value,
+                    max: max <= 0 ? 1 : max,
+                    onChanged: (next) => controller.seekTo(
+                      Duration(milliseconds: next.round()),
+                    ),
+                  ),
+                ),
+                Text(_formatDuration(duration)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildAudioPlayer() {
