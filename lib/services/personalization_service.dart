@@ -91,7 +91,7 @@ class PersonalizationService extends ChangeNotifier {
     if(!_personalizationEnabled)return const {};
     final out=<String,double>{},now=DateTime.now();
     for(final e in _events){final days=now.difference(e.time).inDays,recency=days<=1?1.0:days<=7?0.8:days<=30?0.55:0.25;
-      final weight=(switch(e.type){'like'=>4.0,'watch'=>e.seconds>=120?2.8:1.5,'open'=>.7,'save'=>3.0,'search'=>1.7,'playlist_import'=>2.0,'skip'=>-1.2,'dislike'=>-3.5,_=>0.0})*recency;
+      final weight=(switch(e.type){'like'=>4.0,'unlike'=>-4.0,'watch'=>e.seconds>=120?2.8:1.5,'open'=>.7,'save'=>3.0,'unsave'=>-3.0,'search'=>1.7,'playlist_import'=>2.0,'skip'=>-1.2,'dislike'=>-3.5,_=>0.0})*recency;
       for(final t in _tokens((e.title+' '+e.category+' '+e.query).toLowerCase())){out[t]=(out[t]??0)+weight;}
       if(e.category.isNotEmpty){final k='category:'+e.category.toLowerCase();out[k]=(out[k]??0)+weight;}
     }
