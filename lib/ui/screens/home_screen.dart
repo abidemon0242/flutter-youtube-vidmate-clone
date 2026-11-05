@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
-import '../../data/repositories/mock_youtube_repository.dart';
+import '../../data/repositories/youtube_repository.dart';
 import '../../models/video_model.dart';
 import '../../services/personalization_service.dart';
 import '../widgets/video_card.dart';
@@ -16,7 +16,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final MockYouTubeRepository repository;
+  late final YouTubeRepository repository;
   int selectedCategory = 0;
   bool multiSelectMode = false;
   String searchQuery = '';
@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    repository = context.read<MockYouTubeRepository>();
+    repository = context.read<YouTubeRepository>();
     _loadFeed();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final profile = context.read<PersonalizationService>();
@@ -72,7 +72,7 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
     try {
-      final results = await repository.getTrendingVideos(category: category);
+      final results = await repository.getFeedVideos(category: category);
       if (!mounted) return;
       setState(() {
         feedVideos = results;
