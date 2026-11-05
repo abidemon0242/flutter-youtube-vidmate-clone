@@ -742,18 +742,35 @@ class BackgroundDownloadService {
         task.taskId = videoId;
         task.videoStatus = DownloadStatus.pending;
         task.videoProgress = 0;
-        final audioId = await fd.FlutterDownloader.enqueue(
-          url: task.audioUrl,
-          savedDir: root.path,
-          fileName: File(task.audioTempPath!).uri.pathSegments.last,
-          showNotification: false,
-          openFileFromNotification: false,
-          saveInPublicStorage: false,
-        );
+        String? audioId;
+        try {
+          audioId = await fd.FlutterDownloader.enqueue(
+            url: task.audioUrl,
+            savedDir: root.path,
+            fileName: File(task.audioTempPath!).uri.pathSegments.last,
+            showNotification: false,
+            openFileFromNotification: false,
+            saveInPublicStorage: false,
+          );
+        } catch (error) {
+          logger.e('Could not queue adaptive audio stream during retry: $error');
+        }
         if (audioId == null) {
-          await fd.FlutterDownloader.cancel(taskId: videoId);
+          // Do not leave the successfully queued video stream running alone.
+          try {
+            await fd.FlutterDownloader.cancel(taskId: videoId);
+          } catch (error) {
+            logger.w('Could not cancel partial adaptive retry: $error');
+          }
+          task.taskId = null;
+          task.videoTaskId = null;
+          task.audioTaskId = null;
+          task.videoStatus = DownloadStatus.failed;
+          task.audioStatus = DownloadStatus.failed;
           task.status = DownloadStatus.failed;
+          task.progress = 0;
           await _persistMetadata();
+          _notifyListeners();
           return false;
         }
         task.audioTaskId = audioId;
