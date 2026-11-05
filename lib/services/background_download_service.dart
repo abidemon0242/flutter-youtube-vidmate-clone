@@ -780,10 +780,20 @@ class BackgroundDownloadService {
         final options = await extractor.getAudioQualities(source);
         if (options.isEmpty) return false;
         final requested = int.tryParse(RegExp(r'(\d+)').firstMatch(task.quality)?.group(1) ?? '') ?? 0;
-        final matching = options.where((o) => o.format.toUpperCase() == task.format.toUpperCase()).toList();
-        final candidates = matching.isNotEmpty ? matching : options;
-        candidates.sort((a,b) => (int.tryParse(RegExp(r'(\d+)').firstMatch(a.bitrate)?.group(1) ?? '') ?? 0).compareTo(int.tryParse(RegExp(r'(\d+)').firstMatch(b.bitrate)?.group(1) ?? '') ?? 0));
-        final below = candidates.where((o) => (int.tryParse(RegExp(r'(\d+)').firstMatch(o.bitrate)?.group(1) ?? '') ?? 0) <= requested).toList();
+        final candidates = options
+            .where((option) => option.format.toUpperCase() == task.format.toUpperCase())
+            .toList();
+        if (candidates.isEmpty) return false;
+        candidates.sort((a, b) {
+          final aBitrate = int.tryParse(RegExp(r'(\d+)').firstMatch(a.bitrate)?.group(1) ?? '') ?? 0;
+          final bBitrate = int.tryParse(RegExp(r'(\d+)').firstMatch(b.bitrate)?.group(1) ?? '') ?? 0;
+          return aBitrate.compareTo(bBitrate);
+        });
+        final below = candidates.where((option) {
+          final bitrate = int.tryParse(RegExp(r'(\d+)').firstMatch(option.bitrate)?.group(1) ?? '') ?? 0;
+          return bitrate <= requested;
+        }).toList();
+        if (requested > 0 && below.isEmpty) return false;
         final chosen = below.isNotEmpty ? below.last : candidates.first;
         task.audioUrl = chosen.audioUrl;
         task.format = chosen.format;
