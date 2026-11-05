@@ -162,9 +162,9 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         AspectRatio(aspectRatio: controller.value.aspectRatio > 0 ? controller.value.aspectRatio : 16 / 9, child: VideoPlayer(controller)),
         Row(children: [
-          IconButton(tooltip: 'Back 10 seconds', onPressed: () => controller.seekTo(Duration(milliseconds: (controller.value.position - const Duration(seconds: 10)).inMilliseconds.clamp(0, duration.inMilliseconds))), icon: const Icon(Icons.replay_10)),
+          IconButton(tooltip: 'Back 10 seconds', onPressed: () => controller.seekTo(Duration(milliseconds: (controller.value.position - const Duration(seconds: 10)).inMilliseconds.clamp(0, duration.inMilliseconds).toInt())), icon: const Icon(Icons.replay_10)),
           IconButton(onPressed: () => controller.value.isPlaying ? controller.pause() : controller.play(), icon: Icon(controller.value.isPlaying ? Icons.pause : Icons.play_arrow)),
-          IconButton(tooltip: 'Forward 10 seconds', onPressed: () => controller.seekTo(Duration(milliseconds: (controller.value.position + const Duration(seconds: 10)).inMilliseconds.clamp(0, duration.inMilliseconds))), icon: const Icon(Icons.forward_10)),
+          IconButton(tooltip: 'Forward 10 seconds', onPressed: () => controller.seekTo(Duration(milliseconds: (controller.value.position + const Duration(seconds: 10)).inMilliseconds.clamp(0, duration.inMilliseconds).toInt())), icon: const Icon(Icons.forward_10)),
           Expanded(child: Slider(value: max <= 0 ? 0 : value, max: max <= 0 ? 1 : max, onChanged: (next) => controller.seekTo(Duration(milliseconds: next.round())))),
           Text('${_formatDuration(position)} / ${_formatDuration(duration)}'),
           IconButton(tooltip: 'Exit fullscreen', onPressed: _toggleFullscreen, icon: Icon(_isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen)),

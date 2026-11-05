@@ -1,14 +1,39 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/providers/downloads_provider.dart';
 import 'package:tube_arena/services/ad_blocker_service.dart';
 import 'package:tube_arena/services/background_download_service.dart';
+import 'package:tube_arena/ui/widgets/video_card.dart';
 import 'package:tube_arena/data/repositories/youtube_repository.dart';
 
 void main() {
+
+  testWidgets('VideoCard renders video metadata and responds to tap', (tester) async {
+    var tapped = false;
+    const video = VideoModel(
+      id: 'widget-video',
+      title: 'Widget test video',
+      channelName: 'Test channel',
+      views: '120 views',
+      duration: '02:30',
+      thumbnailUrl: '',
+      channelAvatar: '',
+      isVerified: false,
+    );
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: VideoCard(video: video, onTap: () => tapped = true),
+      ),
+    ));
+    expect(find.text('Widget test video'), findsOneWidget);
+    expect(find.text('Test channel'), findsOneWidget);
+    await tester.tap(find.text('Widget test video'));
+    expect(tapped, isTrue);
+  });
 
   group('YouTubeRepository', () {
     test('provides supported live-feed categories', () {
