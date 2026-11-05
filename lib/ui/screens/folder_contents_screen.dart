@@ -142,7 +142,8 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
       videoPath: videoFile.path,
       audioPath: audioPath,
       outputPath: outputPath,
-      quality: 'original',
+      quality: 'standard compatibility',
+      normalizeForMp4: true,
     );
     if (!mounted) return;
     setState(() => _isMerging = false);

@@ -49,6 +49,7 @@ class FFmpegMergeService {
     required String audioPath,
     required String outputPath,
     required String quality,
+    bool normalizeForMp4 = false,
   }) async {
     if (_samePath(videoPath, outputPath) ||
         _samePath(audioPath, outputPath) ||
@@ -59,9 +60,13 @@ class FFmpegMergeService {
       return false;
     }
     logger.i('Merging streams at $quality to $outputPath');
+    final codecArguments = normalizeForMp4
+        ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart']
+        : ['-c:v', 'copy', '-c:a', 'copy'];
     return _run([
       '-n', '-i', videoPath, '-i', audioPath,
-      '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'copy',
+      '-map', '0:v:0', '-map', '1:a:0',
+      ...codecArguments,
       '-shortest', outputPath,
     ]);
   }
