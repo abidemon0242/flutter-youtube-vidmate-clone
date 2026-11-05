@@ -12,17 +12,48 @@ import 'ui/screens/personalization_settings_screen.dart';
 import 'ui/screens/playlist_import_screen.dart';
 import 'ui/screens/watch_screen.dart';
 
-class TubeArenaApp extends StatelessWidget{
+class TubeArenaApp extends StatelessWidget {
   const TubeArenaApp({super.key});
-  static final GoRouter _router=GoRouter(initialLocation:'/',routes:[
-    GoRoute(path:'/',builder:(c,s)=>const HomeScreen()),
-    GoRoute(path:'/add-downloads',builder:(c,s)=>const BatchDownloadScreen()),
-    GoRoute(path:'/playlists',builder:(c,s)=>const PlaylistImportScreen()),
-    GoRoute(path:'/personalization',builder:(c,s)=>const PersonalizationSettingsScreen()),
-    GoRoute(path:'/local-player',builder:(c,s)=>LocalMediaPlayerScreen(filePath:s.extra as String)),
-    GoRoute(path:'/watch',builder:(c,s){final v=s.extra;return WatchScreen(video:v is VideoModel?v:VideoModel.demo);}),
-    GoRoute(path:'/downloads',builder:(c,s)=>const DownloadsScreen()),
-    GoRoute(path:'/library',builder:(c,s)=>const LibraryScreen(),routes:[GoRoute(path:':folder',builder:(c,s)=>FolderContentsScreen(folderName:s.pathParameters['folder']!))]),
-  ]);
-  @override Widget build(BuildContext context)=>MaterialApp.router(title:'Tube Arena',debugShowCheckedModeBanner:false,theme:AppTheme.lightTheme,routerConfig:_router);
+
+  static final GoRouter _router = GoRouter(
+    initialLocation: '/',
+    routes: [
+      GoRoute(path: '/', builder: (c, s) => const HomeScreen()),
+      GoRoute(
+        path: '/add-downloads',
+        builder: (c, s) => BatchDownloadScreen(
+          initialUrl: s.extra is String ? s.extra! as String : null,
+        ),
+      ),
+      GoRoute(path: '/playlists', builder: (c, s) => const PlaylistImportScreen()),
+      GoRoute(path: '/personalization', builder: (c, s) => const PersonalizationSettingsScreen()),
+      GoRoute(path: '/local-player', builder: (c, s) => LocalMediaPlayerScreen(filePath: s.extra as String)),
+      GoRoute(
+        path: '/watch',
+        builder: (c, s) {
+          final v = s.extra;
+          return WatchScreen(video: v is VideoModel ? v : VideoModel.demo);
+        },
+      ),
+      GoRoute(path: '/downloads', builder: (c, s) => const DownloadsScreen()),
+      GoRoute(
+        path: '/library',
+        builder: (c, s) => const LibraryScreen(),
+        routes: [
+          GoRoute(
+            path: ':folder',
+            builder: (c, s) => FolderContentsScreen(folderName: s.pathParameters['folder']!),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) => MaterialApp.router(
+        title: 'Tube Arena',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        routerConfig: _router,
+      );
 }
