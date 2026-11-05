@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:ffmpeg_kit_flutter_new_full/ffprobe_kit.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -82,15 +83,34 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
     }
   }
 
+  Future<bool> _isWebmAudioOnly(LocalFile file) async {
+    if (!file.name.toLowerCase().endsWith('.webm')) return false;
+    try {
+      final session = await FFprobeKit.getMediaInformation(file.path);
+      final information = await session.getMediaInformation();
+      final streams = information?.getStreams() ?? const [];
+      final hasAudio = streams.any((stream) => stream.getType() == 'audio');
+      final hasVideo = streams.any((stream) => stream.getType() == 'video');
+      return hasAudio && !hasVideo;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _mergeWithAudio(LocalFile videoFile) async {
-    const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac', '.webm'];
+    const audioExtensions = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'];
     final folders = await _fileManager.getFolders();
     final folderNames = <String>{'Downloads', widget.folderName, ...folders.map((folder) => folder.name)};
     final candidates = <LocalFile>[];
     for (final name in folderNames) {
       final entries = await _fileManager.getFilesInFolder(name);
-      candidates.addAll(entries.where((entry) =>
-          entry.path != videoFile.path && audioExtensions.any(entry.name.toLowerCase().endsWith)));
+      for (final entry in entries) {
+        if (entry.path == videoFile.path) continue;
+        final lowerName = entry.name.toLowerCase();
+        if (audioExtensions.any(lowerName.endsWith) || await _isWebmAudioOnly(entry)) {
+          candidates.add(entry);
+        }
+      }
     }
     if (!mounted) return;
     if (candidates.isEmpty) {
@@ -183,7 +203,7 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
                 final file = files[index];
                 final lowerName = file.name.toLowerCase();
                 final audio = ['.mp3', '.m4a', '.aac', '.wav', '.ogg', '.flac'].any(lowerName.endsWith);
-                final playable = audio || ['.mp4', '.m4v', '.mov', '.webm', '.mkv'].any(lowerName.endsWith);
+                final playable = audio || ['.mp4', '.m4v', '.mov', '.webm', '.mkv', '.3gp'].any(lowerName.endsWith);
                 return ListTile(
                   leading: Icon(audio ? Icons.audio_file_outlined : Icons.video_file_outlined),
                   title: Text(file.name, maxLines: 1, overflow: TextOverflow.ellipsis),

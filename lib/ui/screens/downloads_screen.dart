@@ -76,12 +76,16 @@ class DownloadsScreen extends StatelessWidget {
                         Text('${item.format} • ${item.size}'),
                         const SizedBox(height: 8),
                         LinearProgressIndicator(
-                          value: (item.progress.clamp(0, 100) / 100).toDouble(),
+                          value: item.status == 'processing'
+                              ? null
+                              : (item.progress.clamp(0, 100) / 100).toDouble(),
                           minHeight: 4,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${item.status == 'processing' ? 'Merging' : item.status} • ${item.progress.toStringAsFixed(0)}%',
+                          item.status == 'processing'
+                              ? 'Merging file…'
+                              : '${item.status} • ${item.progress.toStringAsFixed(0)}%',
                           style: const TextStyle(
                               color: AppColors.textSecondary, fontSize: 12),
                         ),

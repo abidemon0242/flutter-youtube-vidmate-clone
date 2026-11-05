@@ -352,6 +352,7 @@ class BackgroundDownloadService {
         logger.w('Could not remove incomplete merged file: $error');
       }
       task.status = DownloadStatus.failed;
+      task.progress = 0;
     }
     task.isMerging = false;
     await _cleanupAdaptiveTempFiles(task);
