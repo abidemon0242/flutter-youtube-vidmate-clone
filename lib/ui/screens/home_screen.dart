@@ -21,6 +21,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool multiSelectMode = false;
   String searchQuery = '';
   List<VideoModel> searchResults = [];
+  List<VideoModel> feedVideos = [];
+  bool feedLoading = true;
+  String? feedError;
   bool searching = false;
   String? searchError;
   final Set<String> selectedIds = {};
@@ -29,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     repository = context.read<MockYouTubeRepository>();
+    _loadFeed();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final profile = context.read<PersonalizationService>();
       if (!mounted || profile.consentDecided) return;
@@ -56,25 +60,44 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  List<VideoModel> videos(PersonalizationService profile) {
-    if (searchQuery.isNotEmpty) return searchResults;
-
-    final unique = <String, VideoModel>{};
-    for (final video in [
-      ...repository.getTrendingVideos(),
-      ...profile.playlists.expand((playlist) => playlist.videos),
-    ]) {
-      unique.putIfAbsent(video.id, () => video);
-    }
-
+  Future<void> _loadFeed() async {
     final categories = repository.getCategories();
     final category = selectedCategory < categories.length
         ? categories[selectedCategory]
         : 'All';
-    final filtered = category == 'All'
-        ? unique.values.toList()
-        : unique.values.where((video) => video.category == category).toList();
-    return profile.rankVideos(filtered);
+    if (mounted) {
+      setState(() {
+        feedLoading = true;
+        feedError = null;
+      });
+    }
+    try {
+      final results = await repository.getTrendingVideos(category: category);
+      if (!mounted) return;
+      setState(() {
+        feedVideos = results;
+        feedLoading = false;
+        feedError = results.isEmpty ? 'No live results were returned. Try another category or refresh.' : null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        feedLoading = false;
+        feedError = 'Could not load live videos. Check your connection and try again.';
+      });
+    }
+  }
+
+  List<VideoModel> videos(PersonalizationService profile) {
+    if (searchQuery.isNotEmpty) return searchResults;
+    final unique = <String, VideoModel>{};
+    for (final video in [
+      ...feedVideos,
+      ...profile.playlists.expand((playlist) => playlist.videos),
+    ]) {
+      unique.putIfAbsent(video.id, () => video);
+    }
+    return profile.rankVideos(unique.values.toList());
   }
 
   void toggle(String id) {
@@ -278,6 +301,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     selectedIds.clear();
                     multiSelectMode = false;
                   });
+                  _loadFeed();
                 },
               ),
               separatorBuilder: (_, __) => const SizedBox(width: 8),
@@ -288,6 +312,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : searchError != null
                     ? Center(child: Text(searchError!))
+                    : feedLoading && searchQuery.isEmpty
+                        ? const Center(child: CircularProgressIndicator())
+                    : feedError != null && visibleVideos.isEmpty
+                        ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Text(feedError!), const SizedBox(height: 12), FilledButton.icon(onPressed: _loadFeed, icon: const Icon(Icons.refresh), label: const Text('Retry'))]))
                     : visibleVideos.isEmpty
                         ? const Center(child: Text('No videos available'))
                         : ListView.builder(
