@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../providers/downloads_provider.dart';
@@ -80,7 +81,7 @@ class DownloadsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${item.status} • ${item.progress.toStringAsFixed(0)}%',
+                          '${item.status == 'processing' ? 'Merging' : item.status} • ${item.progress.toStringAsFixed(0)}%',
                           style: const TextStyle(
                               color: AppColors.textSecondary, fontSize: 12),
                         ),
@@ -115,6 +116,14 @@ class DownloadsScreen extends StatelessWidget {
                           case 'retry':
                             success = await downloads.retryDownload(item.id);
                             break;
+                          case 'share':
+                            final file = File(item.savedPath);
+                            if (await file.exists()) {
+                              await Share.shareXFiles([XFile(item.savedPath)], text: item.title);
+                            } else if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The downloaded file is missing.')));
+                            }
+                            return;
                           case 'delete':
                             success = await downloads.deleteFileFor(item);
                             if (context.mounted) {
@@ -156,8 +165,12 @@ class DownloadsScreen extends StatelessWidget {
                             item.status == 'cancelled')
                           const PopupMenuItem(
                               value: 'retry', child: Text('Retry')),
-                        const PopupMenuItem(
-                            value: 'delete', child: Text('Delete file and record')),
+                        if (completed)
+                          const PopupMenuItem(
+                              value: 'share', child: Text('Share / export file')),
+                        if (item.status != 'processing')
+                          const PopupMenuItem(
+                              value: 'delete', child: Text('Delete file and record')),
                       ],
                     ),
                   ),

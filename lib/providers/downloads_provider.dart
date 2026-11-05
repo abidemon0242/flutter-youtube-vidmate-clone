@@ -214,6 +214,9 @@ class DownloadsProvider extends ChangeNotifier {
   Future<bool> retryDownload(String id) => _downloadService.retryDownload(id);
 
   Future<bool> deleteFileFor(DownloadEntry item) async {
+    // FFmpeg owns the output while a merge is in progress. Do not remove its
+    // history or inputs until the processing operation has completed.
+    if (item.status == 'processing') return false;
     try {
       if ((item.status == 'pending' ||
               item.status == 'downloading' ||

@@ -27,6 +27,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool searching = false;
   String? searchError;
   final Set<String> selectedIds = {};
+  int _feedRequest = 0;
+  int _searchRequest = 0;
 
   @override
   void initState() {
@@ -61,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadFeed() async {
+    final request = ++_feedRequest;
     final categories = repository.getCategories();
     final category = selectedCategory < categories.length
         ? categories[selectedCategory]
@@ -73,14 +76,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     try {
       final results = await repository.getFeedVideos(category: category);
-      if (!mounted) return;
+      if (!mounted || request != _feedRequest) return;
       setState(() {
         feedVideos = results;
         feedLoading = false;
         feedError = results.isEmpty ? 'No live results were returned. Try another category or refresh.' : null;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || request != _feedRequest) return;
       setState(() {
         feedLoading = false;
         feedError = 'Could not load live videos. Check your connection and try again.';
@@ -139,6 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final term = query.trim();
+    final request = ++_searchRequest;
     await context.read<PersonalizationService>().record(
           type: 'search',
           query: term,
@@ -155,23 +159,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final found = await repository.searchVideos(term);
-      if (!mounted) return;
+      if (!mounted || request != _searchRequest || term != searchQuery) return;
       setState(() {
         searchResults =
             context.read<PersonalizationService>().rankVideos(found);
       });
     } catch (_) {
-      if (mounted) {
+      if (mounted && request == _searchRequest && term == searchQuery) {
         setState(() {
           searchError = 'Search is temporarily unavailable. Check your connection.';
         });
       }
     } finally {
-      if (mounted) setState(() => searching = false);
+      if (mounted && request == _searchRequest) setState(() => searching = false);
     }
   }
 
   void clearSearch() {
+    _searchRequest++;
     setState(() {
       searchQuery = '';
       searchResults = [];
@@ -292,6 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: Text(categories[index]),
                 selected: index == selectedCategory,
                 onSelected: (_) {
+                  _searchRequest++;
                   setState(() {
                     selectedCategory = index;
                     searchQuery = '';
