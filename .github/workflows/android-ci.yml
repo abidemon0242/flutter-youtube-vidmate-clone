@@ -242,6 +242,58 @@ jobs:
           flutter build apk --debug
           (cd android && ./gradlew --stop)
 
+      - name: Prepare emulator smoke-test script
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/tube-arena-smoke.sh" <<'SMOKE'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          wait_for_package_manager() {
+            for attempt in $(seq 1 60); do
+              if adb shell service check package 2>/dev/null | grep -q "found"; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
+
+          adb wait-for-device
+          if ! wait_for_package_manager; then
+            echo "Package Manager did not become ready; rebooting emulator once."
+            adb reboot
+            adb wait-for-device
+            wait_for_package_manager
+          fi
+
+          installed=false
+          for attempt in 1 2 3; do
+            if adb install -r build/app/outputs/flutter-apk/app-debug.apk; then
+              installed=true
+              break
+            fi
+            echo "APK installation attempt $attempt failed."
+            if [ "$attempt" -lt 3 ]; then
+              adb reboot
+              adb wait-for-device
+              wait_for_package_manager
+            fi
+          done
+          test "$installed" = true
+
+          adb logcat -c
+          adb shell am start -n com.tubearena.app/.MainActivity
+          sleep 15
+          app_pid="$(adb shell pidof com.tubearena.app || true)"
+          test -n "$app_pid"
+          if adb logcat -d -t 1500 | grep -E "FATAL EXCEPTION|AndroidRuntime"; then
+            echo "Android runtime crash detected."
+            exit 1
+          fi
+          SMOKE
+          chmod +x "$RUNNER_TEMP/tube-arena-smoke.sh"
+
       - name: Boot emulator, install and launch app
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -251,55 +303,7 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
           emulator-boot-timeout: 1200
-          # The runner's animation toggle invokes adb settings calls that
-          # intermittently fail with a broken pipe on this hosted emulator.
+          # Keep runner animation toggling disabled; the smoke script handles
+          # package readiness and APK installation after the emulator boots.
           disable-animations: false
-          script: |
-            set -eu
-
-            wait_for_package_manager() {
-              attempt=0
-              while [ "$attempt" -lt 60 ]; do
-                if adb shell service check package 2>/dev/null | grep -q "found"; then
-                  return 0
-                fi
-                attempt=$((attempt + 1))
-                sleep 5
-              done
-              return 1
-            }
-
-            adb wait-for-device
-            if ! wait_for_package_manager; then
-              echo "Package Manager did not become ready; rebooting emulator once."
-              adb reboot
-              adb wait-for-device
-              wait_for_package_manager
-            fi
-
-            installed=false
-            attempt=1
-            while [ "$attempt" -le 3 ]; do
-              if adb install -r build/app/outputs/flutter-apk/app-debug.apk; then
-                installed=true
-                break
-              fi
-              echo "APK installation attempt $attempt failed."
-              if [ "$attempt" -lt 3 ]; then
-                adb reboot
-                adb wait-for-device
-                wait_for_package_manager
-              fi
-              attempt=$((attempt + 1))
-            done
-            test "$installed" = true
-
-            adb logcat -c
-            adb shell am start -n com.tubearena.app/.MainActivity
-            sleep 15
-            app_pid="$(adb shell pidof com.tubearena.app || true)"
-            test -n "$app_pid"
-            if adb logcat -d -t 1500 | grep -E "FATAL EXCEPTION|AndroidRuntime"; then
-              echo "Android runtime crash detected."
-              exit 1
-            fi
+          script: bash "$RUNNER_TEMP/tube-arena-smoke.sh"
