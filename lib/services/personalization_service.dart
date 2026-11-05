@@ -104,7 +104,7 @@ class PersonalizationService extends ChangeNotifier {
       ..sort((a,b)=>b.score.compareTo(a.score));
     return ranked.map((x)=>x.video).toList(growable:false);
   }
-  Set<String> _tokens(String s){const stop={'the','and','for','with','from','that','this','your','you','how','what','when','where','why','are','was','into','about','video','videos','youtube','official','full','new','best','top','এবং','কেন','কী','কিভাবে','করে','থেকে','জন্য','আমার','আপনার','ভিডিও'};return s.split(RegExp(r'[^a-z0-9\\u0980-\\u09FF]+')).where((x)=>x.length>=2&&!stop.contains(x)).toSet();}
+  Set<String> _tokens(String s){const stop={'the','and','for','with','from','that','this','your','you','how','what','when','where','why','are','was','into','about','video','videos','youtube','official','full','new','best','top','এবং','কেন','কী','কিভাবে','করে','থেকে','জন্য','আমার','আপনার','ভিডিও'};return s.split(RegExp(r'[^a-z0-9\u0980-\u09FF]+')).where((x)=>x.length>=2&&!stop.contains(x)).toSet();}
   Future<void> setConsent(bool enabled) async{_consentDecided=true;_personalizationEnabled=enabled;if(!enabled){_events.clear();_playlists.clear();}notifyListeners();await _persist();}
   Future<void> removePlaylist(String id) async{_playlists.removeWhere((p)=>p.id==id);await _persist();notifyListeners();}
   Future<void> clearActivity() async{_events.clear();_playlists.clear();notifyListeners();await _persist();}
