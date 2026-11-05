@@ -407,9 +407,13 @@ class BackgroundDownloadService {
       final decoded = jsonDecode(await file.readAsString());
       if (decoded is List) {
         for (final item in decoded) {
-          if (item is Map<String, dynamic>) {
+          if (item is! Map<String, dynamic>) continue;
+          try {
             final task = AppDownloadTask.fromJson(item);
             _activeTasks[task.id] = task;
+          } catch (error) {
+            // A corrupt row must not discard every other saved download.
+            logger.w('Skipping invalid saved download task: $error');
           }
         }
       }
