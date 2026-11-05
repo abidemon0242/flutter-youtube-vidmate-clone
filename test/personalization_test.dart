@@ -16,7 +16,13 @@ void main(){
   expect(profile.rankVideos([other,related]).first.id,'related');
   expect(profile.interestProfile['flutter'],greaterThan(0));
  });
- test('rejects non-YouTube playlist URLs',(){expect(()=>profile.importPlaylist('https://example.com/?list=PL1234567890'),throwsA(isA<PlaylistImportException>()));});
- test('reports missing API key for valid playlist URL',(){expect(()=>profile.importPlaylist('https://youtube.com/playlist?list=PL1234567890'),throwsA(isA<PlaylistImportException>()));});
+ test('rejects non-YouTube playlist URLs',()async{await expectLater(profile.importPlaylist('https://example.com/?list=PL1234567890'),throwsA(isA<PlaylistImportException>()));});
+ test('reports missing API key for valid playlist URL',()async{await expectLater(profile.importPlaylist('https://youtube.com/playlist?list=PL1234567890'),throwsA(isA<PlaylistImportException>()));});
+
+ test('learns Bengali search terms',()async{
+  await profile.record(type:'search',query:'কৃত্রিম বুদ্ধিমত্তা');
+  expect(profile.interestProfile['কৃত্রিম'],greaterThan(0));
+  expect(profile.interestProfile['বুদ্ধিমত্তা'],greaterThan(0));
+ });
  test('persists and restores activity',()async{await profile.record(type:'search',query:'cybersecurity basics');profile.dispose();profile=PersonalizationService(directoryResolver:()async=>temp,apiKey:'');await profile.initialize();expect(profile.activityCount,1);expect(profile.interestProfile['cybersecurity'],greaterThan(0));});
 }
