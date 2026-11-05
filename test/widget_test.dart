@@ -73,6 +73,7 @@ void main() {
         id: 'persisted-video',
         title: 'Persisted video',
         url: 'https://example.com/video.mp4',
+        sourceUrl: 'https://www.youtube.com/watch?v=abcdefghijk',
         size: '12 MB',
         format: '720p MP4',
         progress: 67.5,
@@ -86,6 +87,7 @@ void main() {
 
       expect(restored.id, entry.id);
       expect(restored.title, entry.title);
+      expect(restored.sourceUrl, entry.sourceUrl);
       expect(restored.progress, entry.progress);
       expect(restored.status, entry.status);
       expect(restored.savedPath, entry.savedPath);
