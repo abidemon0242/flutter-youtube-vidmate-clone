@@ -48,14 +48,14 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
       ProcessingState.completed => AudioProcessingState.completed,
     };
     playbackState.add(PlaybackState(
+      // This handler plays one local file at a time. Do not advertise
+      // previous/next actions when there is no queue to navigate.
       controls: [
-        MediaControl.skipToPrevious,
         state.playing ? MediaControl.pause : MediaControl.play,
         MediaControl.stop,
-        MediaControl.skipToNext,
       ],
       systemActions: const {MediaAction.seek},
-      androidCompactActionIndices: const [0, 1, 2],
+      androidCompactActionIndices: const [0, 1],
       processingState: processingState,
       playing: state.playing,
       updatePosition: _player.position,
