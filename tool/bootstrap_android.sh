@@ -37,6 +37,45 @@ if 'android:name="flutterEmbedding"' not in content:
         1,
     )
 manifest.write_text(content)
+
+# Keep this bootstrap usable outside CI too. Several plugins require API 24+
+# and the current plugin set is compiled against Android API 36.
+import re
+
+gradle_paths = [
+    Path("android/app/build.gradle"),
+    Path("android/app/build.gradle.kts"),
+]
+min_replacements = [
+    ("minSdkVersion flutter.minSdkVersion", "minSdkVersion 24"),
+    ("minSdkVersion = flutter.minSdkVersion", "minSdkVersion = 24"),
+    ("minSdk = flutter.minSdkVersion", "minSdk = 24"),
+]
+min_updated = False
+compile_updated = False
+for path in gradle_paths:
+    if not path.exists():
+        continue
+    original = path.read_text()
+    updated = original
+    for old, new in min_replacements:
+        updated = updated.replace(old, new)
+    if updated != original:
+        min_updated = True
+    updated, count = re.subn(
+        r"(?m)^(\\s*compileSdk(?:Version)?\\s*(?:=\\s*)?)(?:flutter\\.compileSdkVersion|\\d+)(\\s*(?://.*)?$)",
+        r"\\g<1>36\\g<2>",
+        updated,
+    )
+    if count:
+        compile_updated = True
+    if updated != original:
+        path.write_text(updated)
+
+if not min_updated:
+    raise SystemExit("Could not set Android minSdk to 24 in generated Gradle configuration.")
+if not compile_updated:
+    raise SystemExit("Could not set Android compileSdk to 36 in generated Gradle configuration.")
 PY
 
-echo "Android project scaffolding generated. Review the Android files before committing them."
+echo "Android project scaffolding generated with plugin-compatible SDK levels."
