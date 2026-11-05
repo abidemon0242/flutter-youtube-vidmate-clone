@@ -24,6 +24,7 @@ class _WatchScreenState extends State<WatchScreen>
     with WidgetsBindingObserver {
   late final VideoPlayerController controller;
   late final PersonalizationService profile;
+  late final MediaSessionService mediaSession;
 
   bool playing = false;
   bool ready = false;
@@ -41,6 +42,7 @@ class _WatchScreenState extends State<WatchScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     profile = context.read<PersonalizationService>();
+    mediaSession = context.read<MediaSessionService>();
     record('open');
 
     final uri = Uri.tryParse(widget.video.playbackUrl);
@@ -63,8 +65,11 @@ class _WatchScreenState extends State<WatchScreen>
       watched += delta.inSeconds;
     }
     last = position;
+    if (mounted && playing != controller.value.isPlaying) {
+      setState(() => playing = controller.value.isPlaying);
+    }
     if (mounted && controller.value.isInitialized) {
-      context.read<MediaSessionService>().updateExternalVideoState(
+      mediaSession.updateExternalVideoState(
         playing: controller.value.isPlaying,
         position: position,
         duration: controller.value.duration,
@@ -149,7 +154,7 @@ class _WatchScreenState extends State<WatchScreen>
       if (mounted) {
         setState(() => ready = true);
         try {
-          await context.read<MediaSessionService>().setExternalVideoSession(
+          await mediaSession.setExternalVideoSession(
             title: widget.video.title,
             onPlay: () => controller.play(),
             onPause: () => controller.pause(),
@@ -195,7 +200,7 @@ class _WatchScreenState extends State<WatchScreen>
     track();
     flushWatchTime();
     controller.removeListener(track);
-    context.read<MediaSessionService>().clearExternalVideoSession();
+    mediaSession.clearExternalVideoSession();
     controller.dispose();
     super.dispose();
   }
