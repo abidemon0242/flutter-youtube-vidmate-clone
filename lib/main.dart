@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'app.dart';
-import 'data/repositories/mock_youtube_repository.dart';
+import 'data/repositories/youtube_repository.dart';
 import 'providers/downloads_provider.dart';
 import 'services/ad_blocker_service.dart';
 import 'services/background_download_service.dart';
@@ -23,7 +23,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => DownloadsProvider()..initialize()),
         ChangeNotifierProvider<PersonalizationService>.value(value: profile),
         Provider(
-          create: (_) => MockYouTubeRepository(),
+          create: (_) => YouTubeRepository(),
           dispose: (_, repository) => repository.dispose(),
         ),
         Provider(create: (_) => AdBlockerService()),
