@@ -87,7 +87,7 @@ if not compile_updated:
 # Keep imports before the Gradle plugins block, but put executable declarations
 # after it: Kotlin/Groovy Gradle scripts require plugins {} to be the first block.
 def insert_after_plugins_or_before_android(content, declarations):
-    match = re.search(r"(?m)^\\s*plugins\\s*\\{", content)
+    match = re.search(r"(?m)^\s*plugins\s*\{", content)
     if match:
         brace = content.find("{", match.start())
         depth = 0
@@ -97,11 +97,11 @@ def insert_after_plugins_or_before_android(content, declarations):
             elif content[index] == "}":
                 depth -= 1
                 if depth == 0:
-                    return content[:index + 1] + "\\n\\n" + declarations + content[index + 1:]
+                    return content[:index + 1] + "\n\n" + declarations + content[index + 1:]
         raise SystemExit("Could not locate the end of the Gradle plugins block.")
-    match = re.search(r"(?m)^\\s*android\\s*\\{", content)
+    match = re.search(r"(?m)^\s*android\s*\{", content)
     if match:
-        return content[:match.start()] + declarations + "\\n" + content[match.start():]
+        return content[:match.start()] + declarations + "\n" + content[match.start():]
     raise SystemExit("Could not find a Gradle plugins or android block for signing setup.")
 
 signing_updated = False
@@ -112,7 +112,7 @@ for path in gradle_paths:
     if path.name.endswith(".kts"):
         if "keystorePropertiesFile" not in content:
             if "import java.util.Properties" not in content:
-                content = "import java.util.Properties\\n\\n" + content
+                content = "import java.util.Properties\n\n" + content
             declarations = """val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
@@ -132,18 +132,18 @@ if (keystorePropertiesFile.exists()) {
   }
 
 """
-            content, count = re.subn(r"(?m)^(\\s*)buildTypes\\s*\\{", signing_block + r"\\1buildTypes {", content, count=1)
+            content, count = re.subn(r"(?m)^(\s*)buildTypes\s*\{", signing_block + r"\1buildTypes {", content, count=1)
             if not count:
                 raise SystemExit("Could not add release signing configuration to Kotlin Gradle file.")
         content, count = re.subn(
-            r'signingConfig\\s*=\\s*signingConfigs\\.getByName\\("debug"\\)',
+            r'signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)',
             'signingConfig = if (keystorePropertiesFile.exists()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")',
             content,
             count=1,
         )
         if not count:
             content, count = re.subn(
-                r"signingConfig\\s*=\\s*signingConfigs\\.debug",
+                r"signingConfig\s*=\s*signingConfigs\.debug",
                 'signingConfig = if (keystorePropertiesFile.exists()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")',
                 content,
                 count=1,
@@ -154,7 +154,7 @@ if (keystorePropertiesFile.exists()) {
     else:
         if "keystorePropertiesFile" not in content:
             if "import java.util.Properties" not in content:
-                content = "import java.util.Properties\\n\\n" + content
+                content = "import java.util.Properties\n\n" + content
             declarations = """def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('key.properties')
 if (keystorePropertiesFile.exists()) {
@@ -174,18 +174,18 @@ if (keystorePropertiesFile.exists()) {
   }
 
 """
-            content, count = re.subn(r"(?m)^(\\s*)buildTypes\\s*\\{", signing_block + r"\\1buildTypes {", content, count=1)
+            content, count = re.subn(r"(?m)^(\s*)buildTypes\s*\{", signing_block + r"\1buildTypes {", content, count=1)
             if not count:
                 raise SystemExit("Could not add release signing configuration to Groovy Gradle file.")
         content, count = re.subn(
-            r"signingConfig\\s+signingConfigs\\.debug",
+            r"signingConfig\s+signingConfigs\.debug",
             "signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug",
             content,
             count=1,
         )
         if not count:
             content, count = re.subn(
-                r"signingConfig\\s*=\\s*signingConfigs\\.debug",
+                r"signingConfig\s*=\s*signingConfigs\.debug",
                 "signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug",
                 content,
                 count=1,
