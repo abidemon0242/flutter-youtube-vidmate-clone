@@ -10,6 +10,7 @@ import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'ffmpeg_merge_service.dart';
+import 'youtube_extraction_service.dart';
 
 class AppDownloadTask {
   AppDownloadTask({
@@ -17,6 +18,7 @@ class AppDownloadTask {
     required this.title,
     required this.videoUrl,
     required this.audioUrl,
+    this.sourceUrl,
     required this.savePath,
     required this.quality,
     required this.format,
@@ -40,11 +42,12 @@ class AppDownloadTask {
 
   final String id;
   final String title;
-  final String videoUrl;
-  final String audioUrl;
+  String videoUrl;
+  String audioUrl;
+  final String? sourceUrl;
   final String savePath;
-  final String quality;
-  final String format;
+  String quality;
+  String format;
   final String outputFormat;
   final bool isAudioOnly;
   String? taskId;
@@ -55,7 +58,7 @@ class AppDownloadTask {
   String? audioTaskId;
   String? videoTempPath;
   String? audioTempPath;
-  final bool requiresMerge;
+  bool requiresMerge;
   DownloadStatus? videoStatus;
   DownloadStatus? audioStatus;
   double videoProgress;
@@ -67,6 +70,7 @@ class AppDownloadTask {
         'title': title,
         'videoUrl': videoUrl,
         'audioUrl': audioUrl,
+        'sourceUrl': sourceUrl,
         'savePath': savePath,
         'quality': quality,
         'format': format,
@@ -95,6 +99,7 @@ class AppDownloadTask {
       title: json['title'] as String? ?? 'Download',
       videoUrl: json['videoUrl'] as String? ?? '',
       audioUrl: json['audioUrl'] as String? ?? '',
+      sourceUrl: json['sourceUrl'] as String?,
       savePath: json['savePath'] as String? ?? '',
       quality: json['quality'] as String? ?? '',
       format: json['format'] as String? ?? '',
@@ -128,6 +133,7 @@ enum DownloadStatus {
   completed,
   failed,
   cancelled,
+  processing,
 }
 
 class BackgroundDownloadService {
@@ -262,17 +268,20 @@ class BackgroundDownloadService {
       task.status = DownloadStatus.failed;
       final siblingId = video == DownloadStatus.failed ? task.audioTaskId : task.videoTaskId;
       if (siblingId != null) unawaited(fd.FlutterDownloader.cancel(taskId: siblingId));
+      unawaited(_cleanupAdaptiveTempFiles(task));
       return;
     }
     if (video == DownloadStatus.cancelled || audio == DownloadStatus.cancelled) {
       task.status = DownloadStatus.cancelled;
       final siblingId = video == DownloadStatus.cancelled ? task.audioTaskId : task.videoTaskId;
       if (siblingId != null) unawaited(fd.FlutterDownloader.cancel(taskId: siblingId));
+      unawaited(_cleanupAdaptiveTempFiles(task));
       return;
     }
     if (video == DownloadStatus.completed && audio == DownloadStatus.completed) {
       task.progress = 99;
-      if (!task.isMerging) _finishAdaptiveMerge(task);
+      task.status = DownloadStatus.processing;
+      if (!task.isMerging) unawaited(_finishAdaptiveMerge(task));
       return;
     }
     task.status = video == DownloadStatus.paused || audio == DownloadStatus.paused
@@ -285,7 +294,7 @@ class BackgroundDownloadService {
   Future<void> _finishAdaptiveMerge(AppDownloadTask task) async {
     if (task.isMerging || task.videoTempPath == null || task.audioTempPath == null) return;
     task.isMerging = true;
-    task.status = DownloadStatus.downloading;
+    task.status = DownloadStatus.processing;
     await _persistMetadata();
     _notifyListeners();
     var merged = false;
@@ -338,8 +347,22 @@ class BackgroundDownloadService {
       task.status = DownloadStatus.failed;
     }
     task.isMerging = false;
+    await _cleanupAdaptiveTempFiles(task);
     await _persistMetadata();
     _notifyListeners();
+  }
+
+  Future<void> _cleanupAdaptiveTempFiles(AppDownloadTask task) async {
+    final documents = await getApplicationDocumentsDirectory();
+    final root = Directory('${documents.path}/TubeArena/Downloads');
+    final prefix = '${root.absolute.path}${Platform.pathSeparator}';
+    for (final path in [task.videoTempPath, task.audioTempPath]) {
+      if (path == null) continue;
+      final file = File(path);
+      if (!file.absolute.path.startsWith(prefix)) continue;
+      try { if (await file.exists()) await file.delete(); }
+      catch (error) { logger.w('Could not clean temporary download file: $error'); }
+    }
   }
 
   DownloadStatus _mapStatus(fd.DownloadTaskStatus status) {
@@ -513,6 +536,7 @@ class BackgroundDownloadService {
     required String title,
     required String videoUrl,
     required String audioUrl,
+    String? sourceUrl,
     required String quality,
     required String format,
     String? outputFormat,
@@ -586,6 +610,7 @@ class BackgroundDownloadService {
           title: title,
           videoUrl: videoUrl,
           audioUrl: audioUrl,
+          sourceUrl: sourceUrl,
           savePath: outputPath,
           quality: quality,
           format: format,
@@ -646,6 +671,7 @@ class BackgroundDownloadService {
         title: title,
         videoUrl: videoUrl,
         audioUrl: audioUrl,
+        sourceUrl: sourceUrl,
         savePath: outputPath,
         quality: quality,
         format: format,
@@ -666,7 +692,7 @@ class BackgroundDownloadService {
 
   Future<bool> pauseDownload(String downloadId) async {
     final task = _activeTasks[downloadId];
-    if (task == null) return false;
+    if (task == null || task.isMerging || task.status == DownloadStatus.processing) return false;
     try {
       final ids = task.requiresMerge
           ? [
@@ -729,12 +755,69 @@ class BackgroundDownloadService {
     }
   }
 
+  Future<bool> _refreshYoutubeStreams(AppDownloadTask task) async {
+    final source = task.sourceUrl?.trim() ?? '';
+    if (source.isEmpty) return true;
+    final extractor = YoutubeExtractionService();
+    try {
+      if (task.isAudioOnly) {
+        final options = await extractor.getAudioQualities(source);
+        if (options.isEmpty) return false;
+        final requested = int.tryParse(RegExp(r'(\d+)').firstMatch(task.quality)?.group(1) ?? '') ?? 0;
+        final matching = options.where((o) => o.format.toUpperCase() == task.format.toUpperCase()).toList();
+        final candidates = matching.isNotEmpty ? matching : options;
+        candidates.sort((a,b) => (int.tryParse(RegExp(r'(\d+)').firstMatch(a.bitrate)?.group(1) ?? '') ?? 0).compareTo(int.tryParse(RegExp(r'(\d+)').firstMatch(b.bitrate)?.group(1) ?? '') ?? 0));
+        final below = candidates.where((o) => (int.tryParse(RegExp(r'(\d+)').firstMatch(o.bitrate)?.group(1) ?? '') ?? 0) <= requested).toList();
+        final chosen = below.isNotEmpty ? below.last : candidates.first;
+        task.audioUrl = chosen.audioUrl;
+        task.format = chosen.format;
+        task.quality = chosen.bitrate;
+        return true;
+      }
+      final options = await extractor.getVideoQualities(source);
+      final expectedFormat = task.outputFormat.toUpperCase() == '3GP' ? 'MP4' : task.format.toUpperCase();
+      final compatible = options.where((o) => o.format.toUpperCase() == expectedFormat && (task.outputFormat.toUpperCase() != '3GP' || o.audioUrl.isNotEmpty)).toList();
+      if (compatible.isEmpty) return false;
+      final targetHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(task.quality)?.group(1) ?? '') ?? 0;
+      compatible.sort((a,b) {
+        final ah = int.tryParse(RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
+        final bh = int.tryParse(RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+        if (ah != bh) return ah.compareTo(bh);
+        return a.fps.compareTo(b.fps);
+      });
+      final exact = compatible.where((o) => o.quality == task.quality).toList();
+      final below = compatible.where((o) => (int.tryParse(RegExp(r'(\d+)p').firstMatch(o.quality)?.group(1) ?? '') ?? 0) <= targetHeight).toList();
+      final chosen = exact.isNotEmpty ? exact.first : below.isNotEmpty ? below.last : compatible.first;
+      task.videoUrl = chosen.videoUrl;
+      task.audioUrl = chosen.audioUrl;
+      task.quality = chosen.quality;
+      task.format = chosen.format;
+      task.requiresMerge = chosen.audioUrl.isNotEmpty;
+      if (task.requiresMerge) {
+        final output = File(task.savePath);
+        final dot = output.path.lastIndexOf('.');
+        final base = dot > output.path.lastIndexOf(Platform.pathSeparator) ? output.path.substring(0,dot) : output.path;
+        final ext = chosen.format.toLowerCase().contains('webm') ? '.webm' : '.mp4';
+        task.videoTempPath = '$base.video$ext';
+        task.audioTempPath = '$base.audio${ext == '.webm' ? '.webm' : '.m4a'}';
+      }
+      return true;
+    } catch (error) {
+      logger.e('Could not refresh YouTube stream URLs for retry: $error');
+      return false;
+    } finally { await extractor.dispose(); }
+  }
+
   Future<bool> retryDownload(String downloadId) async {
     if (_wifiOnly && !await _hasWifiConnection()) return false;
     final task = _activeTasks[downloadId];
     if (task == null ||
         (task.status != DownloadStatus.failed && task.status != DownloadStatus.cancelled)) return false;
     try {
+      if (!await _refreshYoutubeStreams(task)) {
+        logger.w('Retry stopped because fresh compatible YouTube streams could not be obtained.');
+        return false;
+      }
       final documents = await getApplicationDocumentsDirectory();
       final root = Directory('${documents.path}/TubeArena/Downloads');
       await root.create(recursive: true);
@@ -844,7 +927,7 @@ class BackgroundDownloadService {
 
   Future<bool> cancelDownload(String downloadId) async {
     final task = _activeTasks[downloadId];
-    if (task == null) return false;
+    if (task == null || task.isMerging || task.status == DownloadStatus.processing) return false;
     try {
       final ids = task.requiresMerge
           ? [
@@ -863,6 +946,7 @@ class BackgroundDownloadService {
       }
       if (success) {
         task.status = DownloadStatus.cancelled;
+        if (task.requiresMerge) await _cleanupAdaptiveTempFiles(task);
         await _persistMetadata();
         _notifyListeners();
       }
