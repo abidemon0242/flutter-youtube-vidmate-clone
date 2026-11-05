@@ -29,6 +29,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   bool _isPreviewLoading = false;
   bool _audioOnly = false;
   bool _wifiOnly = false;
+  bool _notificationsDenied = false;
   String _status = 'Paste one video link per line.';
 
   @override
@@ -182,7 +183,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       documentsPath = (await getApplicationDocumentsDirectory()).path;
       if (Platform.isAndroid) {
         // A denied notification permission does not block the download itself.
-        await Permission.notification.request();
+        final permission = await Permission.notification.request();
+        _notificationsDenied = !permission.isGranted;
       }
     } catch (error) {
       if (!mounted) return;
@@ -250,7 +252,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             isAudioOnly: true,
           );
           if (taskId == null) {
-            failures.add('$title: audio download could not be queued');
+            failures.add('$title: ${downloadService.initializationError ?? 'audio download could not be queued'}');
             continue;
           }
           downloads.addDownload(
@@ -298,7 +300,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           isAudioOnly: false,
         );
         if (taskId == null) {
-          failures.add('$title: download could not be queued');
+          failures.add('$title: ${downloadService.initializationError ?? 'download could not be queued'}');
           continue;
         }
         downloads.addDownload(
@@ -321,9 +323,12 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     if (!mounted) return;
     setState(() {
       _isProcessing = false;
-      _status = failures.isEmpty
+      final permissionNote = _notificationsDenied
+          ? ' Android notification permission is off; downloads may run without visible notifications.'
+          : '';
+      _status = (failures.isEmpty
           ? '$queued download(s) queued successfully.'
-          : '$queued queued; ${failures.length} link(s) could not be queued.';
+          : '$queued queued; ${failures.length} link(s) could not be queued.') + permissionNote;
     });
 
     if (queued > 0 && failures.isEmpty) {
