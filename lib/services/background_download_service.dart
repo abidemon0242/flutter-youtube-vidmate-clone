@@ -794,7 +794,8 @@ class BackgroundDownloadService {
       });
       final exact = compatible.where((o) => o.quality == task.quality).toList();
       final below = compatible.where((o) => (int.tryParse(RegExp(r'(\d+)p').firstMatch(o.quality)?.group(1) ?? '') ?? 0) <= targetHeight).toList();
-      final chosen = exact.isNotEmpty ? exact.first : below.isNotEmpty ? below.last : compatible.first;
+      if (exact.isEmpty && below.isEmpty) return false;
+      final chosen = exact.isNotEmpty ? exact.first : below.last;
       task.videoUrl = chosen.videoUrl;
       task.audioUrl = chosen.audioUrl;
       task.quality = chosen.quality;
@@ -821,6 +822,9 @@ class BackgroundDownloadService {
     if (task == null ||
         (task.status != DownloadStatus.failed && task.status != DownloadStatus.cancelled)) return false;
     try {
+      // Remove stale adaptive fragments before selecting new stream URLs. The
+      // refreshed manifest may switch this task between adaptive and muxed.
+      await _cleanupAdaptiveTempFiles(task);
       if (!await _refreshYoutubeStreams(task)) {
         logger.w('Retry stopped because fresh compatible YouTube streams could not be obtained.');
         return false;
