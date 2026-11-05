@@ -32,6 +32,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
 
   String get _preferredAudioOption => '$_preferredAudioFormat|$_preferredAudioBitrate';
   bool _isPreviewLoading = false;
+  int _previewRequest = 0;
   bool _audioOnly = false;
   bool _wifiOnly = false;
   bool _notificationsDenied = false;
@@ -119,6 +120,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   }
 
   Future<void> _previewQualities() async {
+    if (_isPreviewLoading || _isProcessing) return;
+    final request = ++_previewRequest;
     final urls = _readUrls();
     if (urls.isEmpty) {
       setState(() => _status = 'Add a video URL first to check available formats and sizes.');
@@ -135,12 +138,13 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     try {
       if (_audioOnly) {
         final audioOptions = await _extractionService.getAudioQualities(urls.first);
-        if (!mounted) return;
+        if (!mounted || request != _previewRequest) return;
         setState(() {
           _previewAudioOptions = audioOptions;
           _isPreviewLoading = false;
           if (audioOptions.isEmpty) {
             _preferredAudioBitrate = '';
+            _preferredAudioFormat = '';
             _status = 'This video does not provide a compatible audio stream.';
           } else {
             if (!audioOptions.any((option) => '${option.format}|${option.bitrate}' == _preferredAudioOption)) {
@@ -154,7 +158,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         return;
       }
       final options = await _extractionService.getVideoQualities(urls.first);
-      if (!mounted) return;
+      if (!mounted || request != _previewRequest) return;
       final matching = _sortedPreviewOptions(options.where((option) {
         final matchesSource = option.format.toUpperCase() == _sourceFormat;
         return matchesSource && (_preferredFormat != '3GP' || option.audioUrl.isNotEmpty);
@@ -184,7 +188,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         }
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || request != _previewRequest) return;
       setState(() {
         _isPreviewLoading = false;
         _status = 'Could not check video formats: $error';
@@ -435,6 +439,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                 : (value) {
                     if (value != null) {
                       setState(() {
+                        _previewRequest++;
                         _preferredFormat = value;
                         _previewOptions = const [];
                       });
@@ -548,6 +553,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             title: const Text('Audio only'),
             subtitle: const Text('Save the original audio format; this does not convert to MP3 or another audio format.'),
             onChanged: _isProcessing ? null : (value) => setState(() {
+              _previewRequest++;
               _audioOnly = value;
               _previewOptions = const [];
               _previewAudioOptions = const [];
@@ -574,6 +580,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             maxLines: 10,
             keyboardType: TextInputType.multiline,
             onChanged: (_) => setState(() {
+              _previewRequest++;
               // A preview belongs to the first URL only; invalidate it when
               // the pasted video list changes so stale sizes cannot be selected.
               _previewOptions = const [];
@@ -606,7 +613,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
-            onPressed: _isProcessing ? null : _startBatch,
+            onPressed: _isProcessing || _isPreviewLoading ? null : _startBatch,
             icon: _isProcessing
                 ? const SizedBox(
                     width: 18,
