@@ -36,20 +36,27 @@ class VideoCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: CachedNetworkImage(
-                    imageUrl: video.thumbnailUrl,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: 220,
-                    placeholder: (context, url) => Container(
-                      color: AppColors.card,
-                      height: 220,
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppColors.card,
-                      child: const Icon(Icons.broken_image_outlined),
-                    ),
-                  ),
+                  child: video.thumbnailUrl.isEmpty
+                      ? Container(
+                          color: AppColors.card,
+                          width: double.infinity,
+                          height: 220,
+                          child: const Icon(Icons.video_library_outlined),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: video.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: 220,
+                          placeholder: (context, url) => Container(
+                            color: AppColors.card,
+                            height: 220,
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: AppColors.card,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
                 ),
                 Positioned(
                   right: 10,
