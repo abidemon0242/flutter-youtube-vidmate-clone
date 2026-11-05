@@ -25,6 +25,8 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
   late final Future<void> _initialization;
   bool _isAudio = false;
   bool _isFullscreen = false;
+  int _lastPositionSecond = -1;
+  bool? _lastPlaying;
 
   @override
   void initState() {
@@ -85,6 +87,17 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
 
   String get _fileName => widget.filePath.split(Platform.pathSeparator).last;
 
+  Future<void> _seekBy(int seconds) async {
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) return;
+    final duration = controller.value.duration;
+    final requested = controller.value.position + Duration(seconds: seconds);
+    final milliseconds = requested.inMilliseconds
+        .clamp(0, duration.inMilliseconds)
+        .toInt();
+    await controller.seekTo(Duration(milliseconds: milliseconds));
+  }
+
   Future<void> _toggleFullscreen() async {
     final entering = !_isFullscreen;
     if (mounted) setState(() => _isFullscreen = entering);
@@ -104,13 +117,18 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
 
   void _refresh() {
     final controller = _videoController;
-    if (controller != null && controller.value.isInitialized) {
-      MediaSessionService().updateExternalVideoState(
-        playing: controller.value.isPlaying,
-        position: controller.value.position,
-        duration: controller.value.duration,
-      );
-    }
+    if (controller == null || !controller.value.isInitialized) return;
+    final position = controller.value.position;
+    final playing = controller.value.isPlaying;
+    final second = position.inSeconds;
+    if (second == _lastPositionSecond && playing == _lastPlaying) return;
+    _lastPositionSecond = second;
+    _lastPlaying = playing;
+    MediaSessionService().updateExternalVideoState(
+      playing: playing,
+      position: position,
+      duration: controller.value.duration,
+    );
     if (mounted) setState(() {});
   }
 
@@ -191,13 +209,6 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
     final value = position.inMilliseconds
         .clamp(0, duration.inMilliseconds)
         .toDouble();
-    final target = (int seconds) {
-      final requested = controller.value.position + Duration(seconds: seconds);
-      final clamped = requested.inMilliseconds
-          .clamp(0, duration.inMilliseconds)
-          .toInt();
-      return controller.seekTo(Duration(milliseconds: clamped));
-    };
     return Center(
       child: Padding(
         padding: EdgeInsets.all(_isFullscreen ? 4 : 16),
@@ -215,7 +226,7 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
               children: [
                 IconButton(
                   tooltip: 'Back 10 seconds',
-                  onPressed: () => target(-10),
+                  onPressed: () => _seekBy(-10),
                   icon: const Icon(Icons.replay_10),
                 ),
                 IconButton(
@@ -230,7 +241,7 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
                 ),
                 IconButton(
                   tooltip: 'Forward 10 seconds',
-                  onPressed: () => target(10),
+                  onPressed: () => _seekBy(10),
                   icon: const Icon(Icons.forward_10),
                 ),
                 IconButton(
