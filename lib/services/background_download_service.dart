@@ -217,7 +217,13 @@ class BackgroundDownloadService {
   }
 
   void _handleCallback(dynamic message) {
-    if (message is! List || message.length != 3) return;
+    if (message is! List ||
+        message.length != 3 ||
+        message[0] is! String ||
+        message[1] is! int ||
+        message[2] is! int) {
+      return;
+    }
     final taskId = message[0] as String;
     final statusIndex = message[1] as int;
     final progress = message[2] as int;
@@ -739,6 +745,20 @@ class BackgroundDownloadService {
       if (await target.exists()) await target.delete();
 
       if (task.requiresMerge) {
+        // Clear stale native task IDs and statuses before enqueuing either
+        // stream. A fast callback from the new video task must never be
+        // mistaken for completion/failure of the previous audio task.
+        task.taskId = null;
+        task.videoTaskId = null;
+        task.audioTaskId = null;
+        task.videoStatus = DownloadStatus.pending;
+        task.audioStatus = DownloadStatus.pending;
+        task.videoProgress = 0;
+        task.audioProgress = 0;
+        task.progress = 0;
+        task.isMerging = false;
+        await _persistMetadata();
+
         final videoUri = Uri.tryParse(task.videoUrl);
         final audioUri = Uri.tryParse(task.audioUrl);
         if (task.videoTempPath == null || task.audioTempPath == null ||
