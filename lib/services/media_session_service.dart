@@ -63,7 +63,6 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
     if (!_externalMode) return;
     _externalPlaying = playing;
     _externalPosition = position;
-    _externalDuration = duration;
     _broadcastPlaybackState();
   }
 
