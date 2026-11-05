@@ -182,7 +182,7 @@ class YoutubeExtractionService {
       }
 
       logger.i('Fetching audio qualities for: $videoId');
-      final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
+      final manifest = await _youtube.videos.streamsClient.getManifest(videoId).timeout(const Duration(seconds: 30));
       final audioStreams = manifest.audioOnly.toList();
       if (audioStreams.isEmpty) return const [];
 
