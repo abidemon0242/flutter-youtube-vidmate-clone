@@ -134,7 +134,12 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> stop() async {
-    await _player.stop();
+    if (_externalMode) {
+      await _externalPause?.call();
+      _externalPlaying = false;
+    } else {
+      await _player.stop();
+    }
     await super.stop();
     _broadcastPlaybackState();
   }
