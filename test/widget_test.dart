@@ -5,8 +5,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/providers/downloads_provider.dart';
 import 'package:tube_arena/services/ad_blocker_service.dart';
+import 'package:tube_arena/data/repositories/youtube_repository.dart';
 
 void main() {
+
+  group('YouTubeRepository', () {
+    test('provides supported live-feed categories', () {
+      final repository = YouTubeRepository();
+      expect(repository.getCategories(), containsAll([
+        'All', 'Music', 'Tech', 'Movies', 'Tutorials', 'Live', 'News', 'Gaming', 'Design',
+      ]));
+      repository.dispose();
+    });
+  });
+
   group('VideoModel', () {
     test('demo playback URL is non-empty and HTTPS', () {
       expect(VideoModel.demo.playbackUrl, startsWith('https://'));
