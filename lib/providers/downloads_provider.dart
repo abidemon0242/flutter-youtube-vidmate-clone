@@ -157,9 +157,14 @@ class DownloadsProvider extends ChangeNotifier {
       );
       if (current == null) {
         _items.insert(0, updated);
-      } else if (current.progress != updated.progress ||
-          current.status != updated.status ||
-          current.savedPath != updated.savedPath) {
+      } else if (current.title != updated.title ||
+          current.url != updated.url ||
+          current.size != updated.size ||
+          current.format != updated.format ||
+          current.progress != updated.progress ||
+          current.savedPath != updated.savedPath ||
+          current.isAudioOnly != updated.isAudioOnly ||
+          current.status != updated.status) {
         _items[index] = updated;
       } else {
         continue;
