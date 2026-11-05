@@ -133,9 +133,21 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         if (matching.isEmpty) {
           _status = 'This video does not provide a $_preferredFormat stream.';
         } else {
-          // Start with the highest resolution actually returned for this video.
-          _preferredQuality = matching.first.quality;
-          final selected = matching.first;
+          // For older feature phones, avoid downloading a large HD source
+          // only to shrink it to CIF during 3GP conversion. Prefer 240p, or
+          // the lowest available stream if the source has no 240p-or-lower option.
+          final selected = _preferredFormat == '3GP'
+              ? matching.firstWhere(
+                  (option) {
+                    final height = int.tryParse(
+                      RegExp(r'(\\d+)p').firstMatch(option.quality)?.group(1) ?? '',
+                    );
+                    return height != null && height <= 240;
+                  },
+                  orElse: () => matching.last,
+                )
+              : matching.first;
+          _preferredQuality = selected.quality;
           _status = 'Available selection: ${selected.quality} ${selected.format} • ${selected.fileSize}';
         }
       });
