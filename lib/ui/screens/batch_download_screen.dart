@@ -440,6 +440,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                     if (value != null) {
                       setState(() {
                         _previewRequest++;
+                        _isPreviewLoading = false;
                         _preferredFormat = value;
                         _previewOptions = const [];
                       });
@@ -554,6 +555,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             subtitle: const Text('Save the original audio format; this does not convert to MP3 or another audio format.'),
             onChanged: _isProcessing ? null : (value) => setState(() {
               _previewRequest++;
+              _isPreviewLoading = false;
               _audioOnly = value;
               _previewOptions = const [];
               _previewAudioOptions = const [];
@@ -581,6 +583,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             keyboardType: TextInputType.multiline,
             onChanged: (_) => setState(() {
               _previewRequest++;
+              _isPreviewLoading = false;
               // A preview belongs to the first URL only; invalidate it when
               // the pasted video list changes so stale sizes cannot be selected.
               _previewOptions = const [];
