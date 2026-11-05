@@ -27,13 +27,13 @@ content = content.replace(' package="com.tubearena.app"', '')
 if 'android:name="io.flutter.embedding.android.NormalTheme"' not in content:
     content = content.replace(
         '        <intent-filter>',
-        '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\\n        <intent-filter>',
+        '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\n        <intent-filter>',
         1,
     )
 if 'android:name="flutterEmbedding"' not in content:
     content = content.replace(
         '    </application>',
-        '        <meta-data android:name="flutterEmbedding" android:value="2" />\\n    </application>',
+        '        <meta-data android:name="flutterEmbedding" android:value="2" />\n    </application>',
         1,
     )
 manifest.write_text(content)
