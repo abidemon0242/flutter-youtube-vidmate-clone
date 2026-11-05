@@ -41,7 +41,7 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 
 ## Android build and verification
 
-The Android project scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI uses the same bootstrap script before formatting verification, static analysis, tests, APK builds and an emulator install/launch smoke test.
+The Android project scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI uses the same bootstrap script before formatting verification, static analysis, tests, APK builds and an emulator install/launch smoke test. The bootstrap script preserves `android/key.properties` and configures an owner-managed release keystore when present; see [Release signing](docs/RELEASE_SIGNING.md). CI artifacts use debug signing when no publisher key is supplied.
 
 The bootstrap-generated Android project is not currently committed as a complete native scaffold. The generated files are local build output. The repository does not yet pin the complete dependency graph with a committed `pubspec.lock`; dependency resolution may therefore change between builds.
 
