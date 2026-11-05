@@ -118,10 +118,14 @@ class DownloadsProvider extends ChangeNotifier {
         final decoded = jsonDecode(await file.readAsString());
         if (decoded is List) {
           for (final value in decoded) {
-            if (value is Map<String, dynamic>) {
+            if (value is! Map<String, dynamic>) continue;
+            try {
               final entry = DownloadEntry.fromJson(value);
               _items.removeWhere((item) => item.id == entry.id);
               _items.add(entry);
+            } catch (error) {
+              // One malformed history row must not hide all other downloads.
+              debugPrint('Skipping invalid download history entry: $error');
             }
           }
         }
