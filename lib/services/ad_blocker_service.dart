@@ -94,6 +94,12 @@ class AdBlockerService {
 
   Map<String, dynamic> getStatistics(List<String> requestedUrls) {
     final blockedUrls = requestedUrls.where(isAdDomain).toList();
+    final blockedDomains = blockedUrls
+        .map((url) => _parseUri(url)?.host.toLowerCase())
+        .whereType<String>()
+        .toSet()
+        .toList()
+      ..sort();
     final total = requestedUrls.length;
     final blocked = blockedUrls.length;
     final rate = total == 0 ? '0' : (blocked / total * 100).toStringAsFixed(2);
@@ -101,7 +107,8 @@ class AdBlockerService {
       'total_requests': total,
       'blocked_requests': blocked,
       'block_rate': '$rate%',
-      'blocked_domains': blockedUrls,
+      'blocked_domains': blockedDomains,
+      'blocked_urls': blockedUrls,
     };
   }
 }
