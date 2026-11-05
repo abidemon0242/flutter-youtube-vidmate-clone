@@ -66,9 +66,7 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
-  Future<void> play() async {
-    unawaited(_player.play());
-  }
+  Future<void> play() => _player.play();
 
   @override
   Future<void> pause() => _player.pause();
