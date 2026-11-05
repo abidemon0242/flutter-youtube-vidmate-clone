@@ -147,6 +147,8 @@ class BackgroundDownloadService {
   bool _wifiOnly = false;
   String? _metadataPath;
   String? _preferencesPath;
+  Future<void> _metadataSaveQueue = Future<void>.value();
+  Future<void>? _initialization;
 
   bool get wifiOnly => _wifiOnly;
 
@@ -164,9 +166,20 @@ class BackgroundDownloadService {
     sendPort?.send([taskId, status, progress]);
   }
 
-  Future<void> initialize() async {
-    if (_initialized) return;
+  Future<void> initialize() {
+    if (_initialized) return Future<void>.value();
+    final active = _initialization;
+    if (active != null) return active;
+    late final Future<void> attempt;
+    attempt = _initialize().whenComplete(() {
+      if (identical(_initialization, attempt)) _initialization = null;
+    });
+    _initialization = attempt;
+    return attempt;
+  }
 
+  Future<void> _initialize() async {
+    if (_initialized) return;
     try {
       final documents = await getApplicationDocumentsDirectory();
       _metadataPath = '${documents.path}/TubeArena/download_tasks.json';
@@ -471,19 +484,22 @@ class BackgroundDownloadService {
     }
   }
 
-  Future<void> _persistMetadata() async {
+  Future<void> _persistMetadata() {
     final path = _metadataPath;
-    if (path == null) return;
-    try {
-      final file = File(path);
-      await file.parent.create(recursive: true);
-      await file.writeAsString(
-        jsonEncode(_activeTasks.values.map((task) => task.toJson()).toList()),
-        flush: true,
-      );
-    } catch (error) {
-      logger.w('Could not save download metadata: $error');
-    }
+    if (path == null) return Future<void>.value();
+    _metadataSaveQueue = _metadataSaveQueue.then((_) async {
+      try {
+        final file = File(path);
+        await file.parent.create(recursive: true);
+        await file.writeAsString(
+          jsonEncode(_activeTasks.values.map((task) => task.toJson()).toList()),
+          flush: true,
+        );
+      } catch (error) {
+        logger.w('Could not save download metadata: $error');
+      }
+    });
+    return _metadataSaveQueue;
   }
 
   Future<String?> startDownload({
