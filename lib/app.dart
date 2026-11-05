@@ -21,9 +21,15 @@ class TubeArenaApp extends StatelessWidget {
       GoRoute(path: '/', builder: (c, s) => const HomeScreen()),
       GoRoute(
         path: '/add-downloads',
-        builder: (c, s) => BatchDownloadScreen(
-          initialUrl: s.extra is String ? s.extra! as String : null,
-        ),
+        builder: (c, s) {
+          final extra = s.extra;
+          final urls = extra is String
+              ? [extra]
+              : extra is List
+                  ? extra.whereType<String>().toList()
+                  : null;
+          return BatchDownloadScreen(initialUrls: urls);
+        },
       ),
       GoRoute(path: '/playlists', builder: (c, s) => const PlaylistImportScreen()),
       GoRoute(path: '/personalization', builder: (c, s) => const PersonalizationSettingsScreen()),
