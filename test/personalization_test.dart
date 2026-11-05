@@ -19,6 +19,12 @@ void main(){
  test('rejects non-YouTube playlist URLs',()async{await expectLater(profile.importPlaylist('https://example.com/?list=PL1234567890'),throwsA(isA<PlaylistImportException>()));});
  test('reports missing API key for valid playlist URL',()async{await expectLater(profile.importPlaylist('https://youtube.com/playlist?list=PL1234567890'),throwsA(isA<PlaylistImportException>()));});
 
+ test('unlike and unsave feedback reduce previously learned interest',()async{
+  const video=VideoModel(id:'feedback',title:'Flutter programming',channelName:'Dev',views:'1',duration:'1',thumbnailUrl:'',channelAvatar:'',isVerified:false,category:'Tutorials');
+  await profile.record(type:'like',video:video);
+  await profile.record(type:'unlike',video:video);
+  expect(profile.interestProfile['flutter'],closeTo(0,0.0001));
+ });
  test('learns Bengali search terms',()async{
   await profile.record(type:'search',query:'কৃত্রিম বুদ্ধিমত্তা');
   expect(profile.interestProfile['কৃত্রিম'],greaterThan(0));
