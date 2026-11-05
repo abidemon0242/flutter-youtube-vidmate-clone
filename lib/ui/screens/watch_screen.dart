@@ -33,6 +33,7 @@ class _WatchScreenState extends State<WatchScreen>
   bool liked = false;
   Duration last = Duration.zero;
   int watched = 0;
+  int _lastUiSecond = -1;
 
   Future<void> record(String type, {int seconds = 0}) =>
       profile.record(type: type, video: widget.video, seconds: seconds);
@@ -65,7 +66,11 @@ class _WatchScreenState extends State<WatchScreen>
       watched += delta.inSeconds;
     }
     last = position;
-    if (mounted && playing != controller.value.isPlaying) {
+    final positionSecond = position.inSeconds;
+    if (mounted &&
+        (playing != controller.value.isPlaying ||
+            _lastUiSecond != positionSecond)) {
+      _lastUiSecond = positionSecond;
       setState(() => playing = controller.value.isPlaying);
     }
     if (mounted && controller.value.isInitialized) {
@@ -75,6 +80,27 @@ class _WatchScreenState extends State<WatchScreen>
         duration: controller.value.duration,
       );
     }
+  }
+
+  Future<void> _seekBy(int seconds) async {
+    if (!controller.value.isInitialized) return;
+    final duration = controller.value.duration;
+    final requested = controller.value.position + Duration(seconds: seconds);
+    final target = requested < Duration.zero
+        ? Duration.zero
+        : requested > duration
+            ? duration
+            : requested;
+    await controller.seekTo(target);
+  }
+
+  String _formatTime(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return hours > 0
+        ? '${hours.toString().padLeft(2, '0')}:$minutes:$seconds'
+        : '$minutes:$seconds';
   }
 
   Future<void> _openFullscreen() async {
@@ -267,30 +293,56 @@ class _WatchScreenState extends State<WatchScreen>
                                   ),
                                 ),
                               ),
-                              Row(mainAxisSize: MainAxisSize.min, children: [
-                              IconButton.filled(
-                                onPressed: () async {
-                                  if (controller.value.isPlaying) {
-                                    await controller.pause();
-                                  } else {
-                                    await controller.play();
-                                  }
-                                  if (mounted) {
-                                    setState(() {
-                                      playing = controller.value.isPlaying;
-                                    });
-                                  }
-                                },
-                                icon: Icon(
-                                  playing ? Icons.pause : Icons.play_arrow,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Back 10 seconds',
+                                    onPressed: () => _seekBy(-10),
+                                    icon: const Icon(Icons.replay_10, color: Colors.white),
+                                  ),
+                                  IconButton.filled(
+                                    onPressed: () async {
+                                      if (controller.value.isPlaying) {
+                                        await controller.pause();
+                                      } else {
+                                        await controller.play();
+                                      }
+                                      if (mounted) {
+                                        setState(() => playing = controller.value.isPlaying);
+                                      }
+                                    },
+                                    icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Forward 10 seconds',
+                                    onPressed: () => _seekBy(10),
+                                    icon: const Icon(Icons.forward_10, color: Colors.white),
+                                  ),
+                                  IconButton.filled(
+                                    tooltip: 'Fullscreen',
+                                    onPressed: _openFullscreen,
+                                    icon: const Icon(Icons.fullscreen),
+                                  ),
+                                ],
                               ),
-                              IconButton.filled(tooltip: 'Fullscreen', onPressed: _openFullscreen, icon: const Icon(Icons.fullscreen)),
-                              ]),
                             ],
                           ),
               ),
             ),
+            if (ready)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${_formatTime(controller.value.position)} / ${_formatTime(controller.value.duration)}',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 16),
             Text(
               video.title,
