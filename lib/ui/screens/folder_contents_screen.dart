@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_flutter_new_full/ffprobe_kit.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../services/ffmpeg_merge_service.dart';
@@ -213,19 +214,32 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
                     if (playable) const Icon(Icons.play_circle_outline),
                     if (playable && !audio)
                       IconButton(tooltip: 'Merge with local audio', onPressed: _isMerging ? null : () => _mergeWithAudio(file), icon: const Icon(Icons.merge_type)),
-                    if (widget.folderName != 'Downloads')
-                      PopupMenuButton<String>(
-                        onSelected: (action) {
-                          if (action == 'rename') _renameFile(file);
-                          if (action == 'move') _moveFile(file);
-                          if (action == 'delete') _deleteFile(file);
-                        },
-                        itemBuilder: (context) => const [
+                    PopupMenuButton<String>(
+                      onSelected: (action) async {
+                        if (action == 'share') {
+                          try {
+                            if (await File(file.path).exists()) {
+                              await Share.shareXFiles([XFile(file.path)], text: file.name);
+                            } else if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This file is missing.')));
+                            }
+                          } catch (error) {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not export this file: $error')));
+                          }
+                        }
+                        if (action == 'rename') _renameFile(file);
+                        if (action == 'move') _moveFile(file);
+                        if (action == 'delete') _deleteFile(file);
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(value: 'share', child: Text('Share / export')),
+                        if (widget.folderName != 'Downloads') ...const [
                           PopupMenuItem(value: 'rename', child: Text('Rename')),
                           PopupMenuItem(value: 'move', child: Text('Move')),
                           PopupMenuItem(value: 'delete', child: Text('Delete')),
                         ],
-                      ),
+                      ],
+                    ),
                   ]),
                   onTap: playable
                       ? () => context.push('/local-player', extra: file.path)
