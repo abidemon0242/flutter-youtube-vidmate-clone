@@ -248,7 +248,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 4096 -cores 4
           emulator-boot-timeout: 1200
           # The runner's animation toggle invokes adb settings calls that
           # intermittently fail with a broken pipe on this hosted emulator.
