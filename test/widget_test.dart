@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -25,6 +26,31 @@ void main() {
       );
       expect(video.playbackUrl, VideoModel.demoPlaybackUrl);
       expect(video.category, 'Tech');
+    });
+  });
+
+  group('DownloadEntry persistence', () {
+    test('round-trips progress, status, and saved file metadata', () {
+      final entry = DownloadEntry(
+        id: 'persisted-video',
+        title: 'Persisted video',
+        url: 'https://example.com/video.mp4',
+        size: '12 MB',
+        format: '720p MP4',
+        progress: 67.5,
+        savedPath: '/private/TubeArena/Downloads/video.mp4',
+        status: 'downloading',
+      );
+
+      final restored = DownloadEntry.fromJson(
+        jsonDecode(jsonEncode(entry.toJson())) as Map<String, dynamic>,
+      );
+
+      expect(restored.id, entry.id);
+      expect(restored.title, entry.title);
+      expect(restored.progress, entry.progress);
+      expect(restored.status, entry.status);
+      expect(restored.savedPath, entry.savedPath);
     });
   });
 
