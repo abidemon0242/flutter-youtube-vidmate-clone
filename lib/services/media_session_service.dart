@@ -23,6 +23,62 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
 
   final AudioPlayer _player = AudioPlayer();
   final Logger _logger = Logger();
+  Future<void> Function()? _externalPlay;
+  Future<void> Function()? _externalPause;
+  Future<void> Function(Duration)? _externalSeek;
+  bool _externalMode = false;
+  bool _externalPlaying = false;
+  Duration _externalPosition = Duration.zero;
+  Duration? _externalDuration;
+
+  Future<void> setExternalVideoSession({
+    required String title,
+    required Future<void> Function() onPlay,
+    required Future<void> Function() onPause,
+    required Future<void> Function(Duration) onSeek,
+    required bool playing,
+    required Duration position,
+    required Duration duration,
+  }) async {
+    _externalMode = true;
+    _externalPlay = onPlay;
+    _externalPause = onPause;
+    _externalSeek = onSeek;
+    _externalPlaying = playing;
+    _externalPosition = position;
+    _externalDuration = duration;
+    mediaItem.add(MediaItem(
+      id: 'tube-arena-video:$title',
+      title: title,
+      artist: 'Tube Arena',
+      duration: duration,
+    ));
+    _broadcastPlaybackState();
+  }
+
+  void updateExternalVideoState({
+    required bool playing,
+    required Duration position,
+    required Duration duration,
+  }) {
+    if (!_externalMode) return;
+    _externalPlaying = playing;
+    _externalPosition = position;
+    _externalDuration = duration;
+    _broadcastPlaybackState();
+  }
+
+  void clearExternalVideoSession() {
+    _externalMode = false;
+    _externalPlay = null;
+    _externalPause = null;
+    _externalSeek = null;
+    _externalPlaying = false;
+    _externalPosition = Duration.zero;
+    _externalDuration = null;
+    mediaItem.add(null);
+    _broadcastPlaybackState();
+  }
 
   AudioPlayer get player => _player;
 
@@ -40,36 +96,41 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
 
   void _broadcastPlaybackState() {
     final state = _player.playerState;
-    final processingState = switch (state.processingState) {
-      ProcessingState.idle => AudioProcessingState.idle,
-      ProcessingState.loading => AudioProcessingState.loading,
-      ProcessingState.buffering => AudioProcessingState.buffering,
-      ProcessingState.ready => AudioProcessingState.ready,
-      ProcessingState.completed => AudioProcessingState.completed,
-    };
+    final processingState = _externalMode
+        ? AudioProcessingState.ready
+        : switch (state.processingState) {
+            ProcessingState.idle => AudioProcessingState.idle,
+            ProcessingState.loading => AudioProcessingState.loading,
+            ProcessingState.buffering => AudioProcessingState.buffering,
+            ProcessingState.ready => AudioProcessingState.ready,
+            ProcessingState.completed => AudioProcessingState.completed,
+          };
+    final playing = _externalMode ? _externalPlaying : state.playing;
     playbackState.add(PlaybackState(
-      // This handler plays one local file at a time. Do not advertise
-      // previous/next actions when there is no queue to navigate.
       controls: [
-        state.playing ? MediaControl.pause : MediaControl.play,
+        playing ? MediaControl.pause : MediaControl.play,
         MediaControl.stop,
       ],
       systemActions: const {MediaAction.seek},
       androidCompactActionIndices: const [0, 1],
       processingState: processingState,
-      playing: state.playing,
-      updatePosition: _player.position,
-      bufferedPosition: _player.bufferedPosition,
+      playing: playing,
+      updatePosition: _externalMode ? _externalPosition : _player.position,
+      bufferedPosition: _externalMode ? _externalPosition : _player.bufferedPosition,
       speed: _player.speed,
       queueIndex: 0,
     ));
   }
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() => _externalMode
+      ? (_externalPlay?.call() ?? Future<void>.value())
+      : _player.play();
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() => _externalMode
+      ? (_externalPause?.call() ?? Future<void>.value())
+      : _player.pause();
 
   @override
   Future<void> stop() async {
@@ -79,7 +140,9 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) => _externalMode
+      ? (_externalSeek?.call(position) ?? Future<void>.value())
+      : _player.seek(position);
 
   @override
   Future<void> skipToNext() async {
@@ -143,4 +206,41 @@ class MediaSessionService {
   Future<void> playFromLockScreen() async => _audioHandler?.play();
   Future<void> pauseFromLockScreen() async => _audioHandler?.pause();
   Future<void> stopPlayback() async => _audioHandler?.stop();
+
+  Future<void> setExternalVideoSession({
+    required String title,
+    required Future<void> Function() onPlay,
+    required Future<void> Function() onPause,
+    required Future<void> Function(Duration) onSeek,
+    required bool playing,
+    required Duration position,
+    required Duration duration,
+  }) async {
+    await initialize();
+    final handler = _audioHandler;
+    if (handler == null) throw StateError('Media session is unavailable.');
+    await handler.setExternalVideoSession(
+      title: title,
+      onPlay: onPlay,
+      onPause: onPause,
+      onSeek: onSeek,
+      playing: playing,
+      position: position,
+      duration: duration,
+    );
+  }
+
+  void updateExternalVideoState({
+    required bool playing,
+    required Duration position,
+    required Duration duration,
+  }) {
+    _audioHandler?.updateExternalVideoState(
+      playing: playing,
+      position: position,
+      duration: duration,
+    );
+  }
+
+  void clearExternalVideoSession() => _audioHandler?.clearExternalVideoSession();
 }
