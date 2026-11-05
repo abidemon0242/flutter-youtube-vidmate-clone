@@ -120,6 +120,12 @@ class DownloadsScreen extends StatelessWidget {
                           case 'retry':
                             success = await downloads.retryDownload(item.id);
                             break;
+                          case 'readd':
+                            final source = item.sourceUrl;
+                            if (source != null && source.isNotEmpty) {
+                              context.push('/add-downloads', extra: source);
+                            }
+                            return;
                           case 'share':
                             try {
                               final file = File(item.savedPath);
@@ -171,10 +177,12 @@ class DownloadsScreen extends StatelessWidget {
                             item.status == 'paused')
                           const PopupMenuItem(
                               value: 'cancel', child: Text('Cancel')),
-                        if (item.status == 'failed' ||
-                            item.status == 'cancelled')
+                        if ((item.status == 'failed' || item.status == 'cancelled') && downloads.hasServiceTask(item.id))
                           const PopupMenuItem(
                               value: 'retry', child: Text('Retry')),
+                        if ((item.status == 'failed' || item.status == 'cancelled') && item.sourceUrl != null && item.sourceUrl!.isNotEmpty)
+                          const PopupMenuItem(
+                              value: 'readd', child: Text('Re-add source link')),
                         if (completed)
                           const PopupMenuItem(
                               value: 'share', child: Text('Share / export file')),

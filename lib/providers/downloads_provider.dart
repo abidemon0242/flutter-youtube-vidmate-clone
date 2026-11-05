@@ -12,6 +12,7 @@ class DownloadEntry {
     required this.id,
     required this.title,
     required this.url,
+    this.sourceUrl,
     required this.size,
     required this.format,
     required this.progress,
@@ -23,6 +24,7 @@ class DownloadEntry {
   final String id;
   final String title;
   final String url;
+  final String? sourceUrl;
   final String size;
   final String format;
   final double progress;
@@ -34,6 +36,7 @@ class DownloadEntry {
     String? id,
     String? title,
     String? url,
+    String? sourceUrl,
     String? size,
     String? format,
     double? progress,
@@ -44,6 +47,7 @@ class DownloadEntry {
         id: id ?? this.id,
         title: title ?? this.title,
         url: url ?? this.url,
+        sourceUrl: sourceUrl ?? this.sourceUrl,
         size: size ?? this.size,
         format: format ?? this.format,
         progress: progress ?? this.progress,
@@ -56,6 +60,7 @@ class DownloadEntry {
         'id': id,
         'title': title,
         'url': url,
+        'sourceUrl': sourceUrl,
         'size': size,
         'format': format,
         'progress': progress,
@@ -68,6 +73,7 @@ class DownloadEntry {
         id: json['id'] as String,
         title: json['title'] as String? ?? 'Download',
         url: json['url'] as String? ?? '',
+        sourceUrl: json['sourceUrl'] as String?,
         size: json['size'] as String? ?? 'Unknown',
         format: json['format'] as String? ?? '',
         progress: ((json['progress'] as num?)?.toDouble() ?? 0).clamp(0, 100).toDouble(),
@@ -133,10 +139,30 @@ class DownloadsProvider extends ChangeNotifier {
     } catch (error) {
       debugPrint('Could not restore download history: $error');
     }
+    await _reconcileHistoryWithService();
     _initialized = true;
     _syncFromService(_downloadService.getActiveTasks());
     notifyListeners();
   }
+
+  Future<void> _reconcileHistoryWithService() async {
+    final activeIds = _downloadService.getActiveTasks().keys.toSet();
+    var changed = false;
+    for (var index = 0; index < _items.length; index++) {
+      final item = _items[index];
+      if (activeIds.contains(item.id)) continue;
+      final wasActive = {'pending', 'downloading', 'paused', 'processing'}.contains(item.status);
+      final completedFileMissing = item.status == 'completed' &&
+          (item.savedPath.trim().isEmpty || !await File(item.savedPath).exists());
+      if (wasActive || completedFileMissing) {
+        _items[index] = item.copyWith(status: 'failed', progress: 0);
+        changed = true;
+      }
+    }
+    if (changed) await _persist();
+  }
+
+  bool hasServiceTask(String id) => _downloadService.getActiveTasks().containsKey(id);
 
   void _syncFromService(Map<String, AppDownloadTask> tasks) {
     if (!_initialized) return;
@@ -148,6 +174,7 @@ class DownloadsProvider extends ChangeNotifier {
         id: task.id,
         title: task.title,
         url: task.isAudioOnly ? task.audioUrl : task.videoUrl,
+        sourceUrl: task.sourceUrl ?? current?.sourceUrl,
         size: current?.size ?? 'Unknown',
         format: '${task.quality} ${task.outputFormat.isEmpty ? task.format : task.outputFormat}'.trim(),
         progress: task.progress.clamp(0, 100).toDouble(),
@@ -159,6 +186,7 @@ class DownloadsProvider extends ChangeNotifier {
         _items.insert(0, updated);
       } else if (current.title != updated.title ||
           current.url != updated.url ||
+          current.sourceUrl != updated.sourceUrl ||
           current.size != updated.size ||
           current.format != updated.format ||
           current.progress != updated.progress ||
@@ -211,7 +239,10 @@ class DownloadsProvider extends ChangeNotifier {
   Future<bool> pauseDownload(String id) => _downloadService.pauseDownload(id);
   Future<bool> resumeDownload(String id) => _downloadService.resumeDownload(id);
   Future<bool> cancelDownload(String id) => _downloadService.cancelDownload(id);
-  Future<bool> retryDownload(String id) => _downloadService.retryDownload(id);
+  Future<bool> retryDownload(String id) {
+    if (!_downloadService.getActiveTasks().containsKey(id)) return Future<bool>.value(false);
+    return _downloadService.retryDownload(id);
+  }
 
   Future<bool> deleteFileFor(DownloadEntry item) async {
     // FFmpeg owns the output while a merge is in progress. Do not remove its

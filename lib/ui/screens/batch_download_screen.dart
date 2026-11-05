@@ -230,6 +230,16 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     final failures = <String>[];
     final seenVideoIds = <String>{};
 
+    Future<bool> prepareExistingRecord(String id, String title) async {
+      final existing = downloads.items.where((item) => item.id == id).toList();
+      if (existing.isEmpty) return true;
+      final item = existing.first;
+      final canRequeue = item.status == 'failed' || item.status == 'cancelled';
+      if (canRequeue && await downloads.deleteFileFor(item)) return true;
+      failures.add('$title: a download with this ID is already queued or could not be safely cleared');
+      return false;
+    }
+
     for (var index = 0; index < urls.length; index++) {
       if (!mounted) return;
       final url = urls[index];
@@ -281,10 +291,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           final exactAudio = formatOptions.where((option) => option.bitrate == _preferredAudioBitrate);
           final audio = exactAudio.isNotEmpty ? exactAudio.first : atOrBelowTarget.first;
           final downloadId = 'youtube-audio-$videoId';
-          if (downloads.items.any((item) => item.id == downloadId)) {
-            failures.add('$title: audio is already queued');
-            continue;
-          }
+          if (!await prepareExistingRecord(downloadId, title)) continue;
           final safeId = downloadId.replaceAll(RegExp(r'[^\w-]'), '');
           final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
           final extension = audio.format.toLowerCase().contains('webm')
@@ -313,6 +320,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
               id: downloadId,
               title: title,
               url: audio.audioUrl,
+              sourceUrl: url,
               size: audio.fileSize,
               format: 'Audio ${audio.bitrate} ${audio.format}',
               progress: 0,
@@ -331,10 +339,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         }
         final quality = _chooseQuality(options);
         final downloadId = 'youtube-$videoId';
-        if (downloads.items.any((item) => item.id == downloadId)) {
-          failures.add('$title: video is already queued');
-          continue;
-        }
+        if (!await prepareExistingRecord(downloadId, title)) continue;
         final safeId = downloadId.replaceAll(RegExp(r'[^\w-]'), '');
         final fileBase = safeTitle.isEmpty ? safeId : '${safeTitle}_$safeId';
         final extension = _preferredFormat.toLowerCase();
@@ -361,6 +366,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             id: downloadId,
             title: title,
             url: quality.videoUrl,
+            sourceUrl: url,
             size: quality.fileSize,
             format: '${quality.quality} $_preferredFormat',
             progress: 0,
