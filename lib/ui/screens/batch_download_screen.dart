@@ -28,6 +28,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   List<VideoQualityOption> _previewOptions = const [];
   List<AudioQualityOption> _previewAudioOptions = const [];
   String _preferredAudioBitrate = '';
+  String _preferredAudioFormat = '';
+
+  String get _preferredAudioOption => '$_preferredAudioFormat|$_preferredAudioBitrate';
   bool _isPreviewLoading = false;
   bool _audioOnly = false;
   bool _wifiOnly = false;
@@ -140,10 +143,11 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             _preferredAudioBitrate = '';
             _status = 'This video does not provide a compatible audio stream.';
           } else {
-            if (!audioOptions.any((option) => option.bitrate == _preferredAudioBitrate)) {
+            if (!audioOptions.any((option) => '${option.format}|${option.bitrate}' == _preferredAudioOption)) {
+              _preferredAudioFormat = audioOptions.first.format;
               _preferredAudioBitrate = audioOptions.first.bitrate;
             }
-            final selected = audioOptions.firstWhere((option) => option.bitrate == _preferredAudioBitrate);
+            final selected = audioOptions.firstWhere((option) => '${option.format}|${option.bitrate}' == _preferredAudioOption);
             _status = 'Available audio: ${selected.bitrate} ${selected.format} • ${selected.fileSize}';
           }
         });
@@ -253,7 +257,14 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           final targetBitrate = int.tryParse(
                 RegExp(r'(\\d+)').firstMatch(_preferredAudioBitrate)?.group(1) ?? '',
               ) ?? 0;
-          final atOrBelowTarget = audioOptions.where((option) {
+          final formatOptions = _preferredAudioFormat.isEmpty
+              ? audioOptions
+              : audioOptions.where((option) => option.format == _preferredAudioFormat).toList();
+          if (formatOptions.isEmpty) {
+            failures.add('$title: selected audio format $_preferredAudioFormat is unavailable');
+            continue;
+          }
+          final atOrBelowTarget = formatOptions.where((option) {
             final bitrate = int.tryParse(
                   RegExp(r'(\\d+)').firstMatch(option.bitrate)?.group(1) ?? '',
                 ) ?? 0;
@@ -263,7 +274,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             failures.add('$title: no audio stream is available at or below $_preferredAudioBitrate');
             continue;
           }
-          final exactAudio = audioOptions.where((option) => option.bitrate == _preferredAudioBitrate);
+          final exactAudio = formatOptions.where((option) => option.bitrate == _preferredAudioBitrate);
           final audio = exactAudio.isNotEmpty ? exactAudio.first : atOrBelowTarget.first;
           final downloadId = 'youtube-audio-$videoId';
           if (downloads.items.any((item) => item.id == downloadId)) {
@@ -433,8 +444,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           const SizedBox(height: 12),
           if (_audioOnly && _previewAudioOptions.isNotEmpty)
             DropdownButtonFormField<String>(
-              initialValue: _previewAudioOptions.any((option) => option.bitrate == _preferredAudioBitrate)
-                  ? _preferredAudioBitrate
+              initialValue: _previewAudioOptions.any((option) => '${option.format}|${option.bitrate}' == _preferredAudioOption)
+                  ? _preferredAudioOption
                   : null,
               decoration: const InputDecoration(
                 labelText: 'Audio bitrate',
@@ -443,7 +454,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
               ),
               items: _previewAudioOptions
                   .map((option) => DropdownMenuItem(
-                        value: option.bitrate,
+                        value: '${option.format}|${option.bitrate}',
                         child: Text('${option.bitrate} • ${option.format} • ${option.fileSize}'),
                       ))
                   .toList(),
@@ -452,8 +463,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                   : (value) {
                       if (value == null) return;
                       setState(() {
-                        _preferredAudioBitrate = value;
-                        final selected = _previewAudioOptions.firstWhere((option) => option.bitrate == value);
+                        final selected = _previewAudioOptions.firstWhere((option) => '${option.format}|${option.bitrate}' == value);
+                        _preferredAudioFormat = selected.format;
+                        _preferredAudioBitrate = selected.bitrate;
                         _status = 'Selected audio: ${selected.bitrate} ${selected.format} • ${selected.fileSize}';
                       });
                     },
@@ -497,7 +509,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           if (_audioOnly && _previewAudioOptions.isNotEmpty)
             Builder(builder: (context) {
-              final selected = _previewAudioOptions.firstWhere((option) => option.bitrate == _preferredAudioBitrate);
+              final selected = _previewAudioOptions.firstWhere((option) => '${option.format}|${option.bitrate}' == _preferredAudioOption);
               return Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12)),
@@ -540,6 +552,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
               _previewOptions = const [];
               _previewAudioOptions = const [];
               _preferredAudioBitrate = '';
+              _preferredAudioFormat = '';
             }),
           ),
           SwitchListTile(
