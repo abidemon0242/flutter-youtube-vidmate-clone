@@ -240,6 +240,7 @@ jobs:
         run: |
           flutter pub get
           flutter build apk --debug
+          (cd android && ./gradlew --stop)
 
       - name: Boot emulator, install and launch app
         uses: reactivecircus/android-emulator-runner@v2
@@ -248,7 +249,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 4096 -cores 4
+          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
           emulator-boot-timeout: 1200
           # The runner's animation toggle invokes adb settings calls that
           # intermittently fail with a broken pipe on this hosted emulator.
