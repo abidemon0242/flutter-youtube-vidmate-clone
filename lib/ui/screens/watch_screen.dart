@@ -63,6 +63,32 @@ class _WatchScreenState extends State<WatchScreen>
       watched += delta.inSeconds;
     }
     last = position;
+    if (mounted && controller.value.isInitialized) {
+      context.read<MediaSessionService>().updateExternalVideoState(
+        playing: controller.value.isPlaying,
+        position: position,
+        duration: controller.value.duration,
+      );
+    }
+  }
+
+  Future<void> _openFullscreen() async {
+    await SystemChrome.setPreferredOrientations(const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(MaterialPageRoute(
+      builder: (pageContext) => Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(fit: StackFit.expand, children: [
+          Center(child: AspectRatio(aspectRatio: controller.value.aspectRatio > 0 ? controller.value.aspectRatio : 16 / 9, child: VideoPlayer(controller))),
+          Positioned(top: 8, left: 8, child: IconButton(color: Colors.white, onPressed: () => Navigator.of(pageContext).pop(), icon: const Icon(Icons.close_fullscreen))),
+          Positioned(left: 16, right: 16, bottom: 12, child: VideoProgressIndicator(controller, allowScrubbing: true)),
+          Center(child: IconButton.filled(onPressed: () async { if (controller.value.isPlaying) { await controller.pause(); } else { await controller.play(); } if (mounted) setState(() => playing = controller.value.isPlaying); }, icon: Icon(controller.value.isPlaying ? Icons.pause : Icons.play_arrow))),
+        ]),
+      ),
+    ));
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
   }
 
   void flushWatchTime() {
@@ -236,6 +262,7 @@ class _WatchScreenState extends State<WatchScreen>
                                   ),
                                 ),
                               ),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
                               IconButton.filled(
                                 onPressed: () async {
                                   if (controller.value.isPlaying) {
@@ -253,6 +280,8 @@ class _WatchScreenState extends State<WatchScreen>
                                   playing ? Icons.pause : Icons.play_arrow,
                                 ),
                               ),
+                              IconButton.filled(tooltip: 'Fullscreen', onPressed: _openFullscreen, icon: const Icon(Icons.fullscreen)),
+                              ]),
                             ],
                           ),
               ),
