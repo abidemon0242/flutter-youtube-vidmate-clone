@@ -63,8 +63,8 @@ for path in gradle_paths:
     if updated != original:
         min_updated = True
     updated, count = re.subn(
-        r"(?m)^(\\s*compileSdk(?:Version)?\\s*(?:=\\s*)?)(?:flutter\\.compileSdkVersion|\\d+)(\\s*(?://.*)?$)",
-        r"\\g<1>36\\g<2>",
+        r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*)?)(?:flutter\.compileSdkVersion|\d+)(\s*(?://.*)?$)",
+        r"\g<1>36\g<2>",
         updated,
     )
     if count:
