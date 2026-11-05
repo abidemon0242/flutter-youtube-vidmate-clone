@@ -67,6 +67,19 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
       _videoController = VideoPlayerController.file(File(widget.filePath));
       _videoController!.addListener(_refresh);
       await _videoController!.initialize();
+      try {
+        await MediaSessionService().setExternalVideoSession(
+          title: _fileName,
+          onPlay: () => _videoController!.play(),
+          onPause: () => _videoController!.pause(),
+          onSeek: (position) => _videoController!.seekTo(position),
+          playing: _videoController!.value.isPlaying,
+          position: _videoController!.value.position,
+          duration: _videoController!.value.duration,
+        );
+      } catch (error) {
+        debugPrint('Local video media-session connection failed: $error');
+      }
     }
   }
 
@@ -90,6 +103,14 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
   }
 
   void _refresh() {
+    final controller = _videoController;
+    if (controller != null && controller.value.isInitialized) {
+      MediaSessionService().updateExternalVideoState(
+        playing: controller.value.isPlaying,
+        position: controller.value.position,
+        duration: controller.value.duration,
+      );
+    }
     if (mounted) setState(() {});
   }
 
@@ -116,6 +137,7 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
   @override
   void dispose() {
     _videoController?.removeListener(_refresh);
+    if (_videoController != null) MediaSessionService().clearExternalVideoSession();
     _videoController?.dispose();
     if (_ownsAudioPlayer) _audioPlayer?.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
