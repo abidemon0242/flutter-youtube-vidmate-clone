@@ -40,6 +40,7 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
     required Duration position,
     required Duration duration,
   }) async {
+    await _player.stop();
     _externalMode = true;
     _externalPlay = onPlay;
     _externalPause = onPause;
