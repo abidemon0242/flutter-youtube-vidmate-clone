@@ -133,5 +133,20 @@ void main() {
     test('matches known tracking URL paths', () {
       expect(blocker.isAdDomain('https://www.facebook.com/tr?id=123'), isTrue);
     });
+
+    test('reports unique hostnames separately from blocked URLs', () {
+      final stats = blocker.getStatistics([
+        'https://ads.doubleclick.net/banner?id=1',
+        'https://ads.doubleclick.net/banner?id=2',
+        'https://pagead2.googlesyndication.com/pagead?id=3',
+      ]);
+
+      expect(stats['blocked_requests'], 3);
+      expect(
+        stats['blocked_domains'],
+        ['ads.doubleclick.net', 'pagead2.googlesyndication.com'],
+      );
+      expect(stats['blocked_urls'], hasLength(3));
+    });
   });
 }
