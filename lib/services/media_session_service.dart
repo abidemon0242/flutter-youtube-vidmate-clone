@@ -29,7 +29,6 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
   bool _externalMode = false;
   bool _externalPlaying = false;
   Duration _externalPosition = Duration.zero;
-  Duration? _externalDuration;
 
   Future<void> setExternalVideoSession({
     required String title,
@@ -47,7 +46,6 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
     _externalSeek = onSeek;
     _externalPlaying = playing;
     _externalPosition = position;
-    _externalDuration = duration;
     mediaItem.add(MediaItem(
       id: 'tube-arena-video:$title',
       title: title,
@@ -76,7 +74,6 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
     _externalSeek = null;
     _externalPlaying = false;
     _externalPosition = Duration.zero;
-    _externalDuration = null;
     mediaItem.add(null);
     _broadcastPlaybackState();
   }
