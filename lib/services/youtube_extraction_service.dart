@@ -60,8 +60,10 @@ class YoutubeExtractionService {
       }
 
       logger.i('Extracting metadata from YouTube video: $videoId');
-      final video = await _youtube.videos.get(videoId);
-      final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
+      final video = await _youtube.videos.get(videoId).timeout(const Duration(seconds: 30));
+      final manifest = await _youtube.videos.streamsClient
+          .getManifest(videoId)
+          .timeout(const Duration(seconds: 30));
       final audioStream = manifest.audioOnly.isNotEmpty
           ? manifest.audioOnly.withHighestBitrate()
           : null;
