@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -8,6 +9,7 @@ import 'package:video_player/video_player.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
 import '../../services/personalization_service.dart';
+import '../../services/media_session_service.dart';
 
 class WatchScreen extends StatefulWidget {
   const WatchScreen({super.key, required this.video});
@@ -118,7 +120,22 @@ class _WatchScreenState extends State<WatchScreen>
 
     try {
       await controller.initialize();
-      if (mounted) setState(() => ready = true);
+      if (mounted) {
+        setState(() => ready = true);
+        try {
+          await context.read<MediaSessionService>().setExternalVideoSession(
+            title: widget.video.title,
+            onPlay: () => controller.play(),
+            onPause: () => controller.pause(),
+            onSeek: (position) => controller.seekTo(position),
+            playing: controller.value.isPlaying,
+            position: controller.value.position,
+            duration: controller.value.duration,
+          );
+        } catch (error) {
+          debugPrint('Media session connection failed: $error');
+        }
+      }
     } catch (_) {
       if (mounted) setState(() => failed = true);
     }
@@ -152,6 +169,7 @@ class _WatchScreenState extends State<WatchScreen>
     track();
     flushWatchTime();
     controller.removeListener(track);
+    context.read<MediaSessionService>().clearExternalVideoSession();
     controller.dispose();
     super.dispose();
   }
