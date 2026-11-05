@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -177,6 +180,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     late final String documentsPath;
     try {
       documentsPath = (await getApplicationDocumentsDirectory()).path;
+      if (Platform.isAndroid) {
+        // A denied notification permission does not block the download itself.
+        await Permission.notification.request();
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -237,6 +244,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             title: title,
             videoUrl: '',
             audioUrl: audio.audioUrl,
+            sourceUrl: url,
             quality: audio.bitrate,
             format: audio.format,
             isAudioOnly: true,
@@ -283,6 +291,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           title: title,
           videoUrl: quality.videoUrl,
           audioUrl: quality.audioUrl,
+          sourceUrl: url,
           quality: quality.quality,
           format: quality.format,
           outputFormat: _preferredFormat,

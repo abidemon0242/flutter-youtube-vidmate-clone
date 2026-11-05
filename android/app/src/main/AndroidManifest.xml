@@ -37,6 +37,7 @@
         
         <!-- Background download service -->
         <service android:name="vn.hunghd.flutterdownloader.DownloadService"
+            android:foregroundServiceType="dataSync"
             android:exported="false" />
 
         <!-- Audio service for lock-screen controls -->
