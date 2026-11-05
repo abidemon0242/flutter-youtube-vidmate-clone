@@ -12,11 +12,17 @@ fi
 TEMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEMP_DIR"' EXIT
 cp android/app/src/main/AndroidManifest.xml "$TEMP_DIR/TubeArenaManifest.xml"
+if [[ -f android/key.properties ]]; then
+  cp android/key.properties "$TEMP_DIR/TubeArenaKeyProperties.properties"
+fi
 
 flutter create --platforms=android --org com.tubearena --project-name app "$TEMP_DIR/native"
 rm -rf android
 cp -R "$TEMP_DIR/native/android" android
 cp "$TEMP_DIR/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
+if [[ -f "$TEMP_DIR/TubeArenaKeyProperties.properties" ]]; then
+  cp "$TEMP_DIR/TubeArenaKeyProperties.properties" android/key.properties
+fi
 
 python3 - <<'PY'
 from pathlib import Path
@@ -76,6 +82,89 @@ if not min_updated:
     raise SystemExit("Could not set Android minSdk to 24 in generated Gradle configuration.")
 if not compile_updated:
     raise SystemExit("Could not set Android compileSdk to 36 in generated Gradle configuration.")
+
+# Configure a publisher-owned release key when android/key.properties exists.
+signing_updated = False
+for path in gradle_paths:
+    if not path.exists():
+        continue
+    content = path.read_text()
+    if path.name.endswith(".kts"):
+        if "keystorePropertiesFile" not in content:
+            prefix = """import java.util.Properties
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
+"""
+            content = prefix + content
+        if 'create("release")' not in content:
+            signing_block = """  signingConfigs {
+    create("release") {
+      if (keystorePropertiesFile.exists()) {
+        storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+        storePassword = keystoreProperties.getProperty("storePassword")
+        keyAlias = keystoreProperties.getProperty("keyAlias")
+        keyPassword = keystoreProperties.getProperty("keyPassword")
+      }
+    }
+  }
+
+"""
+            content, count = re.subn(r"(?m)^(\s*)buildTypes\s*\{", signing_block + r"\1buildTypes {", content, count=1)
+            if not count:
+                raise SystemExit("Could not add release signing configuration to Kotlin Gradle file.")
+        content, count = re.subn(
+            r'signingConfig\s*=\s*signingConfigs\.getByName\("debug"\)',
+            'signingConfig = if (keystorePropertiesFile.exists()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")',
+            content,
+            count=1,
+        )
+        if not count:
+            raise SystemExit("Could not connect release signing in Kotlin Gradle file.")
+        signing_updated = True
+    else:
+        if "keystorePropertiesFile" not in content:
+            prefix = """def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+"""
+            content = prefix + content
+        if "signingConfigs {" not in content:
+            signing_block = """  signingConfigs {
+    release {
+      if (keystorePropertiesFile.exists()) {
+        storeFile rootProject.file(keystoreProperties['storeFile'])
+        storePassword keystoreProperties['storePassword']
+        keyAlias keystoreProperties['keyAlias']
+        keyPassword keystoreProperties['keyPassword']
+      }
+    }
+  }
+
+"""
+            content, count = re.subn(r"(?m)^(\s*)buildTypes\s*\{", signing_block + r"\1buildTypes {", content, count=1)
+            if not count:
+                raise SystemExit("Could not add release signing configuration to Groovy Gradle file.")
+        content, count = re.subn(
+            r"signingConfig\s+signingConfigs\.debug",
+            "signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug",
+            content,
+            count=1,
+        )
+        if not count:
+            raise SystemExit("Could not connect release signing in Groovy Gradle file.")
+        signing_updated = True
+    path.write_text(content)
+
+if not signing_updated:
+    raise SystemExit("Could not configure release signing for the generated Android project.")
 PY
 
 echo "Android project scaffolding generated with plugin-compatible SDK levels."
