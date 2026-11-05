@@ -150,7 +150,11 @@ class BackgroundDownloadService {
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   final Connectivity _connectivity = Connectivity();
   bool _initialized = false;
+  String? _initializationError;
   bool _wifiOnly = false;
+
+  bool get isInitialized => _initialized;
+  String? get initializationError => _initializationError;
   String? _metadataPath;
   String? _preferencesPath;
   Future<void> _metadataSaveQueue = Future<void>.value();
@@ -199,7 +203,8 @@ class BackgroundDownloadService {
 
       _receivePort = ReceivePort();
       IsolateNameServer.removePortNameMapping(_portName);
-      IsolateNameServer.registerPortWithName(_receivePort!.sendPort, _portName);
+      final registered = IsolateNameServer.registerPortWithName(_receivePort!.sendPort, _portName);
+      if (!registered) throw StateError('Could not register the background download callback port.');
       _receivePort!.listen(_handleCallback);
       await fd.FlutterDownloader.registerCallback(downloadCallback);
 
@@ -207,6 +212,7 @@ class BackgroundDownloadService {
       await _restoreMetadata();
       await _restorePluginTasks();
       _initialized = true;
+      _initializationError = null;
       _connectivitySubscription = _connectivity.onConnectivityChanged.listen(_applyNetworkPolicy);
       await _applyNetworkPolicy(await _connectivity.checkConnectivity());
       _notifyListeners();
@@ -218,6 +224,7 @@ class BackgroundDownloadService {
       await _connectivitySubscription?.cancel();
       _connectivitySubscription = null;
       _initialized = false;
+      _initializationError = error.toString();
       logger.e('Error initializing download service', error: error, stackTrace: stackTrace);
     }
   }
@@ -486,6 +493,7 @@ class BackgroundDownloadService {
             if (task.status != DownloadStatus.completed) {
               task.status = DownloadStatus.failed;
               task.pausedByWifiPolicy = false;
+              unawaited(_cleanupAdaptiveTempFiles(task));
             }
             continue;
           }
