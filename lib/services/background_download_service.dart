@@ -353,15 +353,22 @@ class BackgroundDownloadService {
   }
 
   Future<void> _cleanupAdaptiveTempFiles(AppDownloadTask task) async {
-    final documents = await getApplicationDocumentsDirectory();
-    final root = Directory('${documents.path}/TubeArena/Downloads');
-    final prefix = '${root.absolute.path}${Platform.pathSeparator}';
-    for (final path in [task.videoTempPath, task.audioTempPath]) {
-      if (path == null) continue;
-      final file = File(path);
-      if (!file.absolute.path.startsWith(prefix)) continue;
-      try { if (await file.exists()) await file.delete(); }
-      catch (error) { logger.w('Could not clean temporary download file: $error'); }
+    try {
+      final documents = await getApplicationDocumentsDirectory();
+      final root = Directory('${documents.path}/TubeArena/Downloads');
+      final prefix = '${root.absolute.path}${Platform.pathSeparator}';
+      for (final path in [task.videoTempPath, task.audioTempPath]) {
+        if (path == null) continue;
+        final file = File(path);
+        if (!file.absolute.path.startsWith(prefix)) continue;
+        try {
+          if (await file.exists()) await file.delete();
+        } catch (error) {
+          logger.w('Could not clean temporary download file: $error');
+        }
+      }
+    } catch (error) {
+      logger.w('Could not access download storage for temporary-file cleanup: $error');
     }
   }
 

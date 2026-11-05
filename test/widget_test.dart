@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/providers/downloads_provider.dart';
 import 'package:tube_arena/services/ad_blocker_service.dart';
+import 'package:tube_arena/services/background_download_service.dart';
 import 'package:tube_arena/data/repositories/youtube_repository.dart';
 
 void main() {
@@ -63,6 +64,34 @@ void main() {
       expect(restored.progress, entry.progress);
       expect(restored.status, entry.status);
       expect(restored.savedPath, entry.savedPath);
+    });
+  });
+
+  group('Background download task persistence', () {
+    test('preserves the source URL and processing state across restart', () {
+      final task = AppDownloadTask(
+        id: 'youtube-video-12345678901',
+        title: 'Video',
+        videoUrl: 'https://cdn.example/video',
+        audioUrl: 'https://cdn.example/audio',
+        sourceUrl: 'https://www.youtube.com/watch?v=12345678901',
+        savePath: '/private/TubeArena/Downloads/video.mp4',
+        quality: '720p',
+        format: 'MP4',
+        outputFormat: 'MP4',
+        isAudioOnly: false,
+        requiresMerge: true,
+        status: DownloadStatus.processing,
+        progress: 99,
+        isMerging: true,
+      );
+      final restored = AppDownloadTask.fromJson(
+        jsonDecode(jsonEncode(task.toJson())) as Map<String, dynamic>,
+      );
+      expect(restored.sourceUrl, task.sourceUrl);
+      expect(restored.requiresMerge, isTrue);
+      expect(restored.status, DownloadStatus.processing);
+      expect(restored.isMerging, isTrue);
     });
   });
 

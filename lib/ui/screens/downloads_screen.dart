@@ -117,11 +117,15 @@ class DownloadsScreen extends StatelessWidget {
                             success = await downloads.retryDownload(item.id);
                             break;
                           case 'share':
-                            final file = File(item.savedPath);
-                            if (await file.exists()) {
-                              await Share.shareXFiles([XFile(item.savedPath)], text: item.title);
-                            } else if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The downloaded file is missing.')));
+                            try {
+                              final file = File(item.savedPath);
+                              if (await file.exists()) {
+                                await Share.shareXFiles([XFile(item.savedPath)], text: item.title);
+                              } else if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The downloaded file is missing.')));
+                              }
+                            } catch (error) {
+                              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not export this file: $error')));
                             }
                             return;
                           case 'delete':
@@ -150,6 +154,8 @@ class DownloadsScreen extends StatelessWidget {
                         }
                       },
                       itemBuilder: (_) => [
+                        if (item.status == 'processing')
+                          const PopupMenuItem(enabled: false, child: Text('Merging — actions unavailable')),
                         if (item.status == 'downloading')
                           const PopupMenuItem(
                               value: 'pause', child: Text('Pause')),
