@@ -16,7 +16,7 @@ Check both the Flutter build/test job and the separate emulator smoke-test job. 
 
 - Explore uses live public YouTube search results, not official Trending.
 - YouTube watch pages open in the official YouTube app/browser.
-- Batch downloads use available stream qualities and FFmpeg for adaptive stream merging.
+- Batch downloads use selectable video resolution and audio bitrate limits, and FFmpeg for adaptive stream merging.
 - Retry refreshes YouTube stream URLs for tasks that saved the original source URL. Older records and generic direct URLs cannot be refreshed.
 - The Downloads screen provides **Share / export file** for completed files. Files are stored privately and shared through Android's share sheet.
 - 3GP conversion uses H.263/AMR-NB; codec and feature-phone compatibility vary.
