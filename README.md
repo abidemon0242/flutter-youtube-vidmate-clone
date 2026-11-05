@@ -7,6 +7,7 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - Live YouTube video search; selected YouTube results open through the official YouTube app or browser
 - Demo feed and sample in-app network playback
 - Category filtering and local feed search
+- Watch-screen handoff to the batch downloader, with supported YouTube URLs prefilled
 - Batch URL input for media the user owns or is authorized to save
 - Download queue with persistent history, background task callbacks, progress, pause, resume, cancel, retry, and file deletion
 - Wi-Fi-only preference with network-aware pausing while the app is active
@@ -22,8 +23,8 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - The home recommendations/feed are still demo data; live YouTube search is available separately.
 - YouTube search results open in the official YouTube app/browser rather than playing inside Tube Arena.
 - YouTube stream extraction can fail when the source changes or does not expose a compatible stream. Only download content you own or have permission to save.
-- The download queue uses single-file muxed streams so saved videos include audio. This limits available video quality (typically up to 360p30); higher adaptive video/audio streams are not automatically downloaded and merged.
-- There is no dedicated 3GP/H.263/AMR export preset for ordinary button phones yet; 144p/240p MP4 or WebM downloads are not guaranteed to play on every feature phone.
+- The download queue can pair compatible adaptive video-only and audio-only streams and merge them with FFmpeg; it falls back to muxed streams when available. The selected quality depends on the source's available formats.
+- The 3GP export path converts an MP4 source to H.263 video and AMR-NB audio. Codec availability and compatibility vary by device, so test on the target feature phone; no export can guarantee playback on every model.
 - Audio-only downloads preserve the available source format. MP3 conversion is a separate local action after the file is downloaded.
 - Wi-Fi-only pausing depends on Android delivering connectivity changes; it cannot guarantee a mobile-data block while the app is suspended.
 - Ad/tracker classification is implemented, but it is not wired into YouTube's own player network traffic and does not remove YouTube ads.
