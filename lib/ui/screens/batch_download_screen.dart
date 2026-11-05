@@ -8,9 +8,9 @@ import '../../services/background_download_service.dart';
 import '../../services/youtube_extraction_service.dart';
 
 class BatchDownloadScreen extends StatefulWidget {
-  const BatchDownloadScreen({super.key, this.initialUrl});
+  const BatchDownloadScreen({super.key, this.initialUrls});
 
-  final String? initialUrl;
+  final List<String>? initialUrls;
 
   @override
   State<BatchDownloadScreen> createState() => _BatchDownloadScreenState();
@@ -33,10 +33,14 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     super.initState();
     _extractionService = YoutubeExtractionService();
     _wifiOnly = BackgroundDownloadService().wifiOnly;
-    final initialUrl = widget.initialUrl?.trim();
-    if (initialUrl != null && initialUrl.isNotEmpty) {
-      _urlsController.text = initialUrl;
-      _status = 'Selected video added. Check its available formats before downloading.';
+    final initialUrls = (widget.initialUrls ?? const <String>[])
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .toSet()
+        .toList();
+    if (initialUrls.isNotEmpty) {
+      _urlsController.text = initialUrls.join('\\n');
+      _status = '${initialUrls.length} selected video link(s) added. Check available formats before downloading.';
     }
   }
 
