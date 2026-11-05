@@ -103,25 +103,35 @@ class MediaSessionService {
   factory MediaSessionService() => _instance;
   MediaSessionService._internal();
 
-  Future<void> initialize() => _initialization ??= _initialize();
+  Future<void> initialize() {
+    if (_audioHandler != null) return Future<void>.value();
+    final existing = _initialization;
+    if (existing != null) return existing;
+
+    late final Future<void> attempt;
+    attempt = _initialize().catchError((Object error, StackTrace stackTrace) {
+      if (identical(_initialization, attempt)) {
+        _initialization = null;
+      }
+      _audioHandler = null;
+      logger.e('Error initializing media session', error: error, stackTrace: stackTrace);
+    });
+    _initialization = attempt;
+    return attempt;
+  }
 
   Future<void> _initialize() async {
-    try {
-      logger.i('Initializing MediaSessionService...');
-      _audioHandler = await AudioService.init(
-        builder: () => TubeArenaAudioHandler(),
-        config: const AudioServiceConfig(
-          androidNotificationChannelId: 'com.tubearena.audio',
-          androidNotificationChannelName: 'Tube Arena Playback',
-          androidNotificationOngoing: false,
-          androidStopForegroundOnPause: true,
-        ),
-      );
-      logger.i('MediaSessionService initialized successfully');
-    } catch (error, stackTrace) {
-      _initialization = null;
-      logger.e('Error initializing media session', error: error, stackTrace: stackTrace);
-    }
+    logger.i('Initializing MediaSessionService...');
+    _audioHandler = await AudioService.init(
+      builder: () => TubeArenaAudioHandler(),
+      config: const AudioServiceConfig(
+        androidNotificationChannelId: 'com.tubearena.audio',
+        androidNotificationChannelName: 'Tube Arena Playback',
+        androidNotificationOngoing: false,
+        androidStopForegroundOnPause: true,
+      ),
+    );
+    logger.i('MediaSessionService initialized successfully');
   }
 
   TubeArenaAudioHandler? get audioHandler => _audioHandler;
