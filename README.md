@@ -24,7 +24,7 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - YouTube watch pages open in the official YouTube app/browser rather than playing inside Tube Arena. Fullscreen and lock-screen controls apply to direct media sources played inside Tube Arena.
 - YouTube stream extraction can fail when the source changes or does not expose a compatible stream. Only download content you own or have permission to save.
 - The download queue can pair compatible adaptive video-only and audio-only streams and merge them with FFmpeg; it falls back to muxed streams when available. The selected quality depends on the source's available formats.
-- The 3GP export path converts an MP4 source to H.263 video and AMR-NB audio. Codec availability and compatibility vary by device, so test on the target feature phone; no export can guarantee playback on every model.
+- The 3GP export path converts an MP4 source to H.263 video and AMR-NB audio. It defaults to a 240p-or-lower source when available to avoid downloading unnecessary HD data, and lets the user choose another available resolution. Codec availability and compatibility vary by device, so test on the target feature phone; no export can guarantee playback on every model.
 - Audio-only downloads preserve the available source format. MP3 conversion is a separate local action after the file is downloaded.
 - Wi-Fi-only pausing depends on Android delivering connectivity changes; it cannot guarantee a mobile-data block while the app is suspended.
 - Ad/tracker URL classification is implemented, but it is not a network interceptor and does not remove YouTube ads.
@@ -33,6 +33,6 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 
 ## Android build and verification
 
-The Android project scaffold is generated from Flutter's current template by `bash tool/bootstrap_android.sh`; CI runs the same script before formatting Dart files, static analysis, tests, APK builds, and the emulator smoke test. Run the script locally after installing Flutter if you want a complete Android Studio project in your checkout.
+The Android project scaffold is generated from Flutter's current template by `bash tool/bootstrap_android.sh`; CI runs the same script before formatting Dart files, static analysis, tests, APK builds, and the emulator smoke test. Run `bash tool/bootstrap_android.sh` locally after installing Flutter to generate the complete Android Studio project in your checkout; the script also applies the required Android SDK levels, so local setup no longer depends on a separate CI-only configuration step.
 
 A successful build does not prove every network or device-specific feature works. Check each CI job and test the APK on a real Android device before treating the app as release-ready.
