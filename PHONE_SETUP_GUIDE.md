@@ -17,6 +17,7 @@ The emulator job is separate. Check that it passed before assuming CI has verifi
 
 - Demo feed, category filtering, and local feed search
 - Live YouTube search; selected results open in the official YouTube app/browser
+- Watch-screen handoff to the batch downloader, with supported YouTube URLs prefilled
 - Batch URL download queue for content the user owns or is authorized to save
 - Download history, progress, pause/resume/cancel/retry, and file deletion
 - Wi-Fi-only preference with network-aware pausing while the app is active
@@ -29,8 +30,8 @@ The emulator job is separate. Check that it passed before assuming CI has verifi
 - The Home recommendations remain demo data.
 - YouTube search results do not play inside Tube Arena.
 - Stream extraction may fail when YouTube changes its delivery behavior.
-- The download queue uses muxed streams to preserve audio and video in one file; quality is typically limited to 360p30.
-- A dedicated 3GP/button-phone compatibility export option is not implemented yet.
+- Compatible adaptive video/audio streams can be downloaded separately and merged with FFmpeg; muxed streams are used as a fallback when available. Actual quality depends on each source.
+- A 3GP export preset converts MP4 sources to H.263/AMR-NB, but older phone compatibility varies and must be tested on the target device.
 - Wi-Fi-only mode cannot guarantee a mobile-data block while Android has suspended the app.
 - Ad/tracker URL classification is not connected to YouTube's own network traffic and does not remove YouTube ads.
 - Media-session controls currently apply to local audio, not video playback.
