@@ -25,7 +25,8 @@ class YouTubeRepository {
         views: '${video.engagement.viewCount} views',
         duration: durationLabel,
         thumbnailUrl: video.thumbnails.highResUrl,
-        channelAvatar: video.thumbnails.highResUrl,
+        // Search results expose video thumbnails, not channel avatars.
+        channelAvatar: '',
         isVerified: false,
         category: 'Search',
         playbackUrl: video.url,

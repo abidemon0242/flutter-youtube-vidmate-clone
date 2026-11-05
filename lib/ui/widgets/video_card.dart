@@ -99,7 +99,12 @@ class VideoCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundImage: CachedNetworkImageProvider(video.channelAvatar),
+                    backgroundImage: video.channelAvatar.isEmpty
+                        ? null
+                        : CachedNetworkImageProvider(video.channelAvatar),
+                    child: video.channelAvatar.isEmpty
+                        ? const Icon(Icons.person_outline, size: 20)
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

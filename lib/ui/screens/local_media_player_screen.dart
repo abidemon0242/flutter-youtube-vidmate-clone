@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:ffmpeg_kit_flutter_new_full/ffprobe_kit.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
@@ -23,6 +24,7 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
   bool _isConverting = false;
   late final Future<void> _initialization;
   bool _isAudio = false;
+  bool _isFullscreen = false;
 
   @override
   void initState() {
@@ -70,6 +72,23 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
 
   String get _fileName => widget.filePath.split(Platform.pathSeparator).last;
 
+  Future<void> _toggleFullscreen() async {
+    final entering = !_isFullscreen;
+    if (mounted) setState(() => _isFullscreen = entering);
+    try {
+      if (entering) {
+        await SystemChrome.setPreferredOrientations(const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+        await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        await SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+      }
+    } catch (error) {
+      if (mounted) setState(() => _isFullscreen = !entering);
+      debugPrint('Could not change fullscreen mode: $error');
+    }
+  }
+
   void _refresh() {
     if (mounted) setState(() {});
   }
@@ -99,14 +118,19 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
     _videoController?.removeListener(_refresh);
     _videoController?.dispose();
     if (_ownsAudioPlayer) _audioPlayer?.dispose();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      backgroundColor: _isFullscreen ? Colors.black : null,
+      appBar: _isFullscreen ? null : AppBar(
         title: Text(_fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+        actions: [
+          if (!_isAudio) IconButton(tooltip: 'Fullscreen', onPressed: _toggleFullscreen, icon: const Icon(Icons.fullscreen)),
         actions: [
           if (_isAudio && !widget.filePath.toLowerCase().endsWith('.mp3'))
             IconButton(
@@ -138,9 +162,12 @@ class _LocalMediaPlayerScreenState extends State<LocalMediaPlayerScreen> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         AspectRatio(aspectRatio: controller.value.aspectRatio > 0 ? controller.value.aspectRatio : 16 / 9, child: VideoPlayer(controller)),
         Row(children: [
+          IconButton(tooltip: 'Back 10 seconds', onPressed: () => controller.seekTo(Duration(milliseconds: (controller.value.position - const Duration(seconds: 10)).inMilliseconds.clamp(0, duration.inMilliseconds))), icon: const Icon(Icons.replay_10)),
           IconButton(onPressed: () => controller.value.isPlaying ? controller.pause() : controller.play(), icon: Icon(controller.value.isPlaying ? Icons.pause : Icons.play_arrow)),
+          IconButton(tooltip: 'Forward 10 seconds', onPressed: () => controller.seekTo(Duration(milliseconds: (controller.value.position + const Duration(seconds: 10)).inMilliseconds.clamp(0, duration.inMilliseconds))), icon: const Icon(Icons.forward_10)),
           Expanded(child: Slider(value: max <= 0 ? 0 : value, max: max <= 0 ? 1 : max, onChanged: (next) => controller.seekTo(Duration(milliseconds: next.round())))),
-          Text(_formatDuration(duration)),
+          Text('${_formatDuration(position)} / ${_formatDuration(duration)}'),
+          IconButton(tooltip: 'Exit fullscreen', onPressed: _toggleFullscreen, icon: Icon(_isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen)),
         ]),
       ]),
     ));
