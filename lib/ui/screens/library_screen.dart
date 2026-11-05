@@ -135,7 +135,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
       appBar: AppBar(title: const Text('My Library'), actions: [
         IconButton(onPressed: _createNewFolder, icon: const Icon(Icons.add_rounded), tooltip: 'Create folder'),
       ]),
-      body: folders.isEmpty
+      body: !fileManager.isReady
+          ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.folder_off_outlined, size: 48),
+              const SizedBox(height: 12),
+              const Text('The local library could not be initialized.'),
+              if (fileManager.initializationError != null) Text(fileManager.initializationError!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton.icon(onPressed: () async { try { await fileManager.initialize(); await _loadFolders(); } catch (_) { if (mounted) setState(() {}); } }, icon: const Icon(Icons.refresh), label: const Text('Retry')),
+            ])))
+          : folders.isEmpty
           ? const Center(child: Text('No folders yet. Create one with +.'))
           : Padding(
               padding: const EdgeInsets.all(16),

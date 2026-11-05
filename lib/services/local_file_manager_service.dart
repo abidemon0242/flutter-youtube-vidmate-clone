@@ -35,6 +35,11 @@ class LocalFileManagerService {
   final logger = Logger();
 
   late Directory _baseDirectory;
+  bool _initialized = false;
+  String? _initializationError;
+
+  bool get isReady => _initialized;
+  String? get initializationError => _initializationError;
 
   factory LocalFileManagerService() {
     return _instance;
@@ -50,14 +55,20 @@ class LocalFileManagerService {
       final tubeArenaDir = Directory('${documentsDirectory.path}/TubeArena');
       await tubeArenaDir.create(recursive: true);
       _baseDirectory = tubeArenaDir;
+      _initialized = true;
+      _initializationError = null;
       logger.i('Tube Arena base directory is ready');
       logger.i('File manager initialized at: ${_baseDirectory.path}');
     } catch (e) {
+      _initialized = false;
+      _initializationError = e.toString();
       logger.e('Error initializing file manager: $e');
+      rethrow;
     }
   }
 
   Future<bool> _isManagedDirectory(Directory directory) async {
+    if (!_initialized) return false;
     final basePath = await _baseDirectory.resolveSymbolicLinks();
     final targetPath = await directory.resolveSymbolicLinks();
     return targetPath.startsWith('$basePath${Platform.pathSeparator}');
