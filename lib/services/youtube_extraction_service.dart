@@ -96,7 +96,7 @@ class YoutubeExtractionService {
       }
 
       logger.i('Fetching video qualities for: $videoId');
-      final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
+      final manifest = await _youtube.videos.streamsClient.getManifest(videoId).timeout(const Duration(seconds: 30));
       final available = <VideoQualityOption>[];
       final seen = <String>{};
 
