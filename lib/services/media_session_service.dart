@@ -63,6 +63,10 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
     if (!_externalMode) return;
     _externalPlaying = playing;
     _externalPosition = position;
+    final current = mediaItem.value;
+    if (current != null && current.duration != duration) {
+      mediaItem.add(current.copyWith(duration: duration));
+    }
     _broadcastPlaybackState();
   }
 
@@ -152,9 +156,7 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
-  Future<void> skipToPrevious() async {
-    await _player.seek(Duration.zero);
-  }
+  Future<void> skipToPrevious() => seek(Duration.zero);
 }
 
 class MediaSessionService {
