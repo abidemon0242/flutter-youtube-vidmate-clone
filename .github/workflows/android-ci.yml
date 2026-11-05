@@ -38,46 +38,6 @@ jobs:
       - name: Generate missing Android project scaffolding
         run: bash tool/bootstrap_android.sh
 
-      - name: Configure Android SDK levels for plugin compatibility
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-
-          paths = [Path("android/app/build.gradle"), Path("android/app/build.gradle.kts")]
-          min_replacements = [
-              ("minSdkVersion flutter.minSdkVersion", "minSdkVersion 24"),
-              ("minSdkVersion = flutter.minSdkVersion", "minSdkVersion = 24"),
-              ("minSdk = flutter.minSdkVersion", "minSdk = 24"),
-          ]
-          min_updated = False
-          compile_updated = False
-          for path in paths:
-              if not path.exists():
-                  continue
-              content = path.read_text()
-              original = content
-              for old, new in min_replacements:
-                  content = content.replace(old, new)
-              if content != original:
-                  min_updated = True
-              content, count = re.subn(
-                  r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*)?)(?:flutter\.compileSdkVersion|\d+)(\s*(?://.*)?$)",
-                  r"\g<1>36\g<2>",
-                  content,
-              )
-              if count:
-                  compile_updated = True
-              if content != original:
-                  path.write_text(content)
-          if not min_updated:
-              raise SystemExit("Could not set Android minSdk to 24 in generated Gradle configuration.")
-          if not compile_updated:
-              raise SystemExit("Could not set Android compileSdk to 36 in generated Gradle configuration.")
-          PY
-
       - name: Ensure declared asset directories exist
         run: mkdir -p assets/images assets/icons
 
@@ -138,46 +98,6 @@ jobs:
 
       - name: Generate missing Android project scaffolding
         run: bash tool/bootstrap_android.sh
-
-      - name: Configure Android SDK levels for plugin compatibility
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-
-          paths = [Path("android/app/build.gradle"), Path("android/app/build.gradle.kts")]
-          min_replacements = [
-              ("minSdkVersion flutter.minSdkVersion", "minSdkVersion 24"),
-              ("minSdkVersion = flutter.minSdkVersion", "minSdkVersion = 24"),
-              ("minSdk = flutter.minSdkVersion", "minSdk = 24"),
-          ]
-          min_updated = False
-          compile_updated = False
-          for path in paths:
-              if not path.exists():
-                  continue
-              content = path.read_text()
-              original = content
-              for old, new in min_replacements:
-                  content = content.replace(old, new)
-              if content != original:
-                  min_updated = True
-              content, count = re.subn(
-                  r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*)?)(?:flutter\.compileSdkVersion|\d+)(\s*(?://.*)?$)",
-                  r"\g<1>36\g<2>",
-                  content,
-              )
-              if count:
-                  compile_updated = True
-              if content != original:
-                  path.write_text(content)
-          if not min_updated:
-              raise SystemExit("Could not set Android minSdk to 24 in generated Gradle configuration.")
-          if not compile_updated:
-              raise SystemExit("Could not set Android compileSdk to 36 in generated Gradle configuration.")
-          PY
 
       - name: Ensure declared asset directories exist
         run: mkdir -p assets/images assets/icons
