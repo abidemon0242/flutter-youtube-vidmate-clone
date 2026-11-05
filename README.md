@@ -1,38 +1,48 @@
 # Tube Arena
 
-Tube Arena is an Android-first Flutter media browser and private offline media library prototype.
+Tube Arena is an Android-first Flutter media browser and private offline media library.
 
 ## Implemented app features
 
-- Live YouTube search-based Explore feed by category; this is public search discovery, not YouTube's official Trending API
-- Selected YouTube results open through the official YouTube app or browser; direct media URLs can play inside Tube Arena
-- Category filtering, live search, and local recommendation ranking
-- Watch-screen handoff to the batch downloader, with supported YouTube URLs prefilled
-- Batch URL input for media the user owns or is authorized to save
-- Batch download queue with persistent task metadata and history, native background callbacks, live progress, pause, resume, cancel, retry, and file deletion
-- Wi-Fi-only preference with network-aware pausing while the app is active
-- Private local media library with folder creation, browsing, file rename, move, and safe deletion
-- Local video and audio playback
-- Local audio-to-MP3 conversion
-- Local video/audio merge workflow using FFmpeg
-- Android media notification / lock-screen controls for local audio and the in-app direct-video player
-- Safe ad/tracker URL classification
+- Live public YouTube search-based Explore feed by category (not the official YouTube Trending API)
+- YouTube watch-page handoff to the official YouTube app/browser; supported direct media URLs can play inside Tube Arena
+- Category filtering, live search, and on-device recommendation ranking with local consent controls
+- Batch download queue for media the user owns or is authorized to save
+- Available video/audio quality selection, adaptive stream pairing, FFmpeg merge, progress, pause/resume/cancel/retry
+- YouTube stream URL refresh when retrying downloads created by the current version
+- Persistent download task metadata and history
+- Wi-Fi-only preference with best-effort network-aware pausing
+- Private local media library with folder creation, browsing, rename, move and safe deletion
+- Local audio/video playback, MP3 extraction and local video/audio merge
+- 3GP conversion preset using H.263 video and AMR-NB audio
+- Share/export of completed downloads through Android's system share sheet
+- Android notification permission request when a batch is started
+- Media notification / lock-screen controls for local audio and the in-app direct-video player
+- Ad/tracker URL classification
 
-## Known limitations
+## Known limitations and external dependencies
 
-- The Explore feed is built from live public search results; it is not a personalized or official YouTube Trending feed.
-- YouTube watch pages open in the official YouTube app/browser rather than playing inside Tube Arena. Fullscreen and lock-screen controls apply to direct media sources played inside Tube Arena.
-- YouTube stream extraction can fail when the source changes or does not expose a compatible stream. Only download content you own or have permission to save.
-- The download queue can pair compatible adaptive video-only and audio-only streams and merge them with FFmpeg; it falls back to muxed streams when available. The selected quality depends on the source's available formats.
-- The 3GP export path converts an MP4 source to H.263 video and AMR-NB audio. It defaults to a 240p-or-lower source when available to avoid downloading unnecessary HD data, and lets the user choose another available resolution. Codec availability and compatibility vary by device, so test on the target feature phone; no export can guarantee playback on every model.
-- Audio-only downloads preserve the available source format. MP3 conversion is a separate local action after the file is downloaded.
-- Wi-Fi-only pausing depends on Android delivering connectivity changes; it cannot guarantee a mobile-data block while the app is suspended.
-- Ad/tracker URL classification is implemented, but it is not a network interceptor and does not remove YouTube ads.
-- The in-app player uses the quality of its supplied direct media URL; multi-quality switching is not available unless a source provides selectable variants.
-- Emulator launch and real-device behavior still need verification.
+- Explore uses live public search queries. It is not the official YouTube Trending feed or a personalized YouTube account feed.
+- YouTube watch pages open in the official YouTube app/browser. In-app playback is for supported direct media URLs and local files.
+- YouTube stream extraction depends on a third-party library and can stop working when YouTube changes its delivery system.
+- Retry can refresh YouTube streams only when the original YouTube URL was saved. Older task records and generic direct media URLs cannot be re-extracted automatically.
+- The selected quality depends on source availability. Adaptive streams require successful FFmpeg merging; muxed sources may be used when compatible.
+- During adaptive merging the task displays **Merging**. Pause/cancel are unavailable while FFmpeg is processing; delete is disabled to protect files in use.
+- 3GP conversion uses H.263 video and AMR-NB audio. The FFmpeg build must include the required encoders. Older-phone compatibility varies, so test on the exact receiving phone.
+- Downloaded files remain in app-private storage. **Share / export file** opens Android's share sheet; the destination app or transfer method determines whether a feature phone can receive it.
+- Audio-only downloads preserve the available source format. MP3 conversion is a separate local operation.
+- Notification permission is requested when a batch starts on Android. If denied, downloads may still run but notifications can be hidden.
+- Wi-Fi-only behavior is best-effort network-aware pausing, not a system-level mobile-data firewall. Android may delay connectivity events while the app is suspended.
+- Ad/tracker URL classification is not a network interceptor and does not remove YouTube ads.
+- The in-app player cannot switch quality unless the supplied source exposes selectable variants.
+- Public playlist import requires a YouTube Data API key. A key embedded in a client app can be extracted; restrict it to the Android application/package and relevant API, or use a trusted backend. Private playlist access is not implemented.
+- No production signing key is included. Release builds must be signed with a key controlled by the app owner before distribution.
+- A successful build does not prove every network, codec, notification or device-specific workflow. Real-device testing remains necessary.
 
 ## Android build and verification
 
-The Android project scaffold is generated from Flutter's current template by `bash tool/bootstrap_android.sh`; CI runs the same script before formatting Dart files, static analysis, tests, APK builds, and the emulator smoke test. Run `bash tool/bootstrap_android.sh` locally after installing Flutter to generate the complete Android Studio project in your checkout; the script also applies the required Android SDK levels, so local setup no longer depends on a separate CI-only configuration step.
+The Android project scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI uses the same bootstrap script before formatting verification, static analysis, tests, APK builds and an emulator install/launch smoke test.
 
-A successful build does not prove every network or device-specific feature works. Check each CI job and test the APK on a real Android device before treating the app as release-ready.
+The bootstrap-generated Android project is not currently committed as a complete native scaffold. The generated files are local build output. The repository does not yet pin the complete dependency graph with a committed `pubspec.lock`; dependency resolution may therefore change between builds.
+
+The emulator smoke test checks installation and launch only. It does not exercise real YouTube extraction, background recovery, FFmpeg encoders, share-sheet transfer or feature-phone compatibility.

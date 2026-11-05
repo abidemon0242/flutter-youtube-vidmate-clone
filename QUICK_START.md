@@ -1,24 +1,28 @@
 # Tube Arena — Quick Start
 
-Tube Arena is an Android-first Flutter prototype. GitHub Actions currently generates the missing Android native scaffold during CI, then builds the APKs.
+Tube Arena is an Android-first Flutter app. The Android scaffold is generated locally or in CI with `bash tool/bootstrap_android.sh`.
 
-## Get an Android build
+## Build and install
 
-1. Open the repository's **Actions** tab.
-2. Open the latest **Tube Arena Android CI** run for the branch you want to test.
-3. Check the **Flutter analyze, tests and Android build** job.
-4. Download the `tube-arena-debug-apk` artifact for device testing, or `tube-arena-release-apks` for per-ABI release builds.
-5. Install the APK on an Android device and test the actual workflows.
+1. Install Flutter stable and Android SDK tools.
+2. Run `bash tool/bootstrap_android.sh` from the repository root.
+3. Run `flutter pub get`.
+4. Build with `flutter build apk --debug`, or download a debug APK artifact from GitHub Actions.
+5. Install on Android and test downloads, background behavior, playback, 3GP conversion and file sharing.
 
-The separate emulator smoke-test job must also pass before treating installation and launch as CI-verified. A successful build alone does not prove every device-specific or network feature works.
+Check both the Flutter build/test job and the separate emulator smoke-test job. The emulator job verifies install and launch, not all app workflows.
 
 ## Current feature boundaries
 
-- Live YouTube search is available; search results open in the official YouTube app/browser.
-- The Home recommendations are demo data; sample demo playback is in-app.
-- The batch download queue uses single-file muxed streams so downloaded videos include audio; quality is typically limited to 360p30.
-- Local audio playback, MP3 conversion, local video/audio merge, and audio media-session controls are implemented.
-- Ad/tracker URL classification is not a network interceptor and does not remove YouTube ads.
-- A dedicated button-phone/3GP compatibility export option is not implemented yet.
+- Explore uses live public YouTube search results, not official Trending.
+- YouTube watch pages open in the official YouTube app/browser.
+- Batch downloads use available stream qualities and FFmpeg for adaptive stream merging.
+- Retry refreshes YouTube stream URLs for tasks that saved the original source URL. Older records and generic direct URLs cannot be refreshed.
+- The Downloads screen provides **Share / export file** for completed files. Files are stored privately and shared through Android's share sheet.
+- 3GP conversion uses H.263/AMR-NB; codec and feature-phone compatibility vary.
+- The app requests notification permission when starting a batch. Downloads may continue if permission is denied, but notifications can be hidden.
+- FFmpeg merge is shown as a separate processing state. Pause/cancel are unavailable during processing.
+- Wi-Fi-only is best-effort pausing, not a system-level data block.
+- Ad/tracker URL classification does not intercept traffic or remove YouTube ads.
 
-See README.md for the full limitations and safety notes.
+See README.md for full limitations and release requirements.
