@@ -386,6 +386,13 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
 
     if (queued > 0 && failures.isEmpty) {
       _urlsController.clear();
+      setState(() {
+        _previewRequest++;
+        _previewOptions = const [];
+        _previewAudioOptions = const [];
+        _preferredAudioBitrate = '';
+        _preferredAudioFormat = '';
+      });
     }
 
     if (failures.isNotEmpty) {
