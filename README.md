@@ -13,11 +13,11 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - Persistent download task metadata and history
 - Wi-Fi-only preference with best-effort network-aware pausing
 - Private local media library with folder creation, browsing, rename, move and safe deletion
-- Local audio/video playback, MP3 extraction and local video/audio merge (local merges normalize to H.264/AAC MP4)
+- Local audio/video playback, MP3 extraction and local video/audio merge with H.264/AAC normalization for MP4 compatibility (local merges normalize to H.264/AAC MP4)
 - 3GP conversion preset using H.263 video and AMR-NB audio
 - Share/export of completed downloads through Android's system share sheet
 - Android notification permission request when a batch is started
-- Media notification / lock-screen controls for local audio and the in-app direct-video player
+- Media notification / lock-screen controls for local audio, local video and the in-app direct-video player
 - Ad/tracker URL classification
 
 ## Known limitations and external dependencies

@@ -589,6 +589,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
               _previewOptions = const [];
               _previewAudioOptions = const [];
               _preferredAudioBitrate = '';
+              _preferredAudioFormat = '';
             }),
             decoration: const InputDecoration(
               hintText: 'https://www.youtube.com/watch?v=…',
