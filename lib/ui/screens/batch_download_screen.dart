@@ -140,7 +140,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
               ? matching.firstWhere(
                   (option) {
                     final height = int.tryParse(
-                      RegExp(r'(\\d+)p').firstMatch(option.quality)?.group(1) ?? '',
+                      RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ?? '',
                     );
                     return height != null && height <= 240;
                   },
