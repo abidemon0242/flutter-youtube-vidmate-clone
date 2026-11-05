@@ -39,7 +39,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         .toSet()
         .toList();
     if (initialUrls.isNotEmpty) {
-      _urlsController.text = initialUrls.join('\\n');
+      _urlsController.text = initialUrls.join('\n');
       _status = '${initialUrls.length} selected video link(s) added. Check available formats before downloading.';
     }
   }
