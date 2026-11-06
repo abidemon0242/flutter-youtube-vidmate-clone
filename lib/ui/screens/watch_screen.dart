@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
@@ -23,6 +24,7 @@ class WatchScreen extends StatefulWidget {
 class _WatchScreenState extends State<WatchScreen>
     with WidgetsBindingObserver {
   late final VideoPlayerController controller;
+  YoutubePlayerController? youtubeController;
   late final PersonalizationService profile;
   late final MediaSessionService mediaSession;
 
@@ -46,12 +48,30 @@ class _WatchScreenState extends State<WatchScreen>
     mediaSession = context.read<MediaSessionService>();
     record('open');
 
-    final uri = Uri.tryParse(widget.video.playbackUrl);
-    controller = VideoPlayerController.networkUrl(
-      uri != null && uri.hasScheme && uri.host.isNotEmpty
-          ? uri
-          : Uri.parse(VideoModel.demoPlaybackUrl),
-    );
+    final videoId = _extractYouTubeVideoId(widget.video.playbackUrl);
+    if (videoId != null) {
+      youtubeController = YoutubePlayerController.fromVideoId(
+        videoId: videoId,
+        autoPlay: false,
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+          privacyEnhancedMode: true,
+          strictRelatedVideos: true,
+          interfaceLanguage: 'en',
+        ),
+      );
+      controller = VideoPlayerController.networkUrl(
+        Uri.parse(VideoModel.demoPlaybackUrl),
+      );
+    } else {
+      final uri = Uri.tryParse(widget.video.playbackUrl);
+      controller = VideoPlayerController.networkUrl(
+        uri != null && uri.hasScheme && uri.host.isNotEmpty
+            ? uri
+            : Uri.parse(VideoModel.demoPlaybackUrl),
+      );
+    }
     controller.addListener(track);
     initialize();
   }
@@ -191,6 +211,37 @@ class _WatchScreenState extends State<WatchScreen>
     }
   }
 
+  String? _extractYouTubeVideoId(String value) {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null || !{'http', 'https'}.contains(uri.scheme)) return null;
+    final host = uri.host.toLowerCase();
+    const hosts = {
+      'youtube.com',
+      'www.youtube.com',
+      'm.youtube.com',
+      'music.youtube.com',
+      'youtu.be',
+      'www.youtu.be',
+    };
+    if (!hosts.contains(host)) return null;
+    String? id;
+    if (host == 'youtu.be' || host == 'www.youtu.be') {
+      id = uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
+    } else {
+      id = uri.queryParameters['v'];
+      if (id == null || id.isEmpty) {
+        final segments = uri.pathSegments;
+        if (segments.length >= 2 &&
+            {'shorts', 'embed', 'live'}.contains(segments.first)) {
+          id = segments[1];
+        }
+      }
+    }
+    return id != null && RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(id)
+        ? id
+        : null;
+  }
+
   String? _downloadUrlFor(VideoModel video) {
     final uri = Uri.tryParse(video.playbackUrl);
     const youtubeHosts = {
@@ -215,6 +266,10 @@ class _WatchScreenState extends State<WatchScreen>
   }
 
   Future<void> initialize() async {
+    if (youtubeController != null) {
+      if (mounted) setState(() => ready = true);
+      return;
+    }
     final uri = Uri.tryParse(widget.video.playbackUrl);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
       if (mounted) setState(() => failed = true);
@@ -280,6 +335,7 @@ class _WatchScreenState extends State<WatchScreen>
     flushWatchTime();
     controller.removeListener(track);
     mediaSession.clearExternalVideoSession();
+    youtubeController?.close();
     controller.dispose();
     super.dispose();
   }
@@ -295,10 +351,17 @@ class _WatchScreenState extends State<WatchScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             AspectRatio(
-              aspectRatio: ready && controller.value.aspectRatio > 0
-                  ? controller.value.aspectRatio
-                  : 16 / 9,
-              child: Container(
+              aspectRatio: youtubeController != null
+                  ? 16 / 9
+                  : ready && controller.value.aspectRatio > 0
+                      ? controller.value.aspectRatio
+                      : 16 / 9,
+              child: youtubeController != null
+                  ? YoutubePlayer(
+                      controller: youtubeController!,
+                      aspectRatio: 16 / 9,
+                    )
+                  : Container(
                 color: Colors.black,
                 child: failed
                     ? Center(
@@ -383,7 +446,7 @@ class _WatchScreenState extends State<WatchScreen>
                           ),
               ),
             ),
-            if (ready)
+            if (ready && youtubeController == null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Row(
@@ -441,9 +504,10 @@ class _WatchScreenState extends State<WatchScreen>
               ],
             ),
             const SizedBox(height: 20),
-            const Text(
-              'YouTube videos open in the official YouTube app or browser. '
-              'Watch duration is tracked only for videos played inside Tube Arena.',
+            Text(
+              youtubeController != null
+                  ? 'Playing through YouTube’s official embedded player. YouTube manages playback quality; the app cannot force a specific YouTube stream.'
+                  : 'Direct media playback is handled by Tube Arena. Watch duration is tracked locally when personalization is enabled.',
             ),
           ],
         ),
