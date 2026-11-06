@@ -90,10 +90,8 @@ class _WatchScreenState extends State<WatchScreen>
     _youtubeValueSubscription = youtube.listen((value) {
       unawaited(_syncYoutubeMediaSession(value));
     });
-    _youtubePositionSubscription = youtube
-        .getCurrentPositionStream(period: const Duration(seconds: 1))
-        .listen((position) {
-      unawaited(_syncYoutubePosition(position));
+    _youtubePositionSubscription = youtube.videoStateStream.listen((state) {
+      unawaited(_syncYoutubePosition(state.position));
     });
   }
 
