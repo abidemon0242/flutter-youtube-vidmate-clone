@@ -17,7 +17,6 @@ class FFmpegMergeService {
 
   FFmpegMergeService._internal();
 
-
   bool _samePath(String first, String second) =>
       File(first).absolute.path == File(second).absolute.path;
 
@@ -27,7 +26,11 @@ class FFmpegMergeService {
       await Directory(File(path).parent.path).create(recursive: true);
       return true;
     } catch (error, stackTrace) {
-      logger.e('Could not prepare media output', error: error, stackTrace: stackTrace);
+      logger.e(
+        'Could not prepare media output',
+        error: error,
+        stackTrace: stackTrace,
+      );
       return false;
     }
   }
@@ -61,13 +64,34 @@ class FFmpegMergeService {
     }
     logger.i('Merging streams at $quality to $outputPath');
     final codecArguments = normalizeForMp4
-        ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart']
+        ? [
+            '-c:v',
+            'libx264',
+            '-preset',
+            'ultrafast',
+            '-crf',
+            '23',
+            '-c:a',
+            'aac',
+            '-b:a',
+            '192k',
+            '-movflags',
+            '+faststart',
+          ]
         : ['-c:v', 'copy', '-c:a', 'copy'];
     return _run([
-      '-n', '-i', videoPath, '-i', audioPath,
-      '-map', '0:v:0', '-map', '1:a:0',
+      '-n',
+      '-i',
+      videoPath,
+      '-i',
+      audioPath,
+      '-map',
+      '0:v:0',
+      '-map',
+      '1:a:0',
       ...codecArguments,
-      '-shortest', outputPath,
+      '-shortest',
+      outputPath,
     ]);
   }
 
@@ -79,10 +103,21 @@ class FFmpegMergeService {
   }) async {
     if (_samePath(inputPath, outputPath) ||
         !await File(inputPath).exists() ||
-        !await _prepareOutput(outputPath)) return false;
+        !await _prepareOutput(outputPath))
+      return false;
     return _run([
-      '-n', '-i', inputPath, '-c:v', codec, '-b:v', bitrate,
-      '-c:a', 'aac', '-b:a', '128k', outputPath,
+      '-n',
+      '-i',
+      inputPath,
+      '-c:v',
+      codec,
+      '-b:v',
+      bitrate,
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128k',
+      outputPath,
     ]);
   }
 
@@ -95,13 +130,33 @@ class FFmpegMergeService {
   }) async {
     if (_samePath(inputPath, outputPath) ||
         !await File(inputPath).exists() ||
-        !await _prepareOutput(outputPath)) return false;
+        !await _prepareOutput(outputPath))
+      return false;
     return _run([
-      '-n', '-i', inputPath,
-      '-vf', 'scale=176:144:force_original_aspect_ratio=decrease,pad=176:144:(ow-iw)/2:(oh-ih)/2',
-      '-r', '15', '-c:v', 'h263', '-pix_fmt', 'yuv420p', '-b:v', '128k',
-      '-c:a', 'libopencore_amrnb', '-ar', '8000', '-ac', '1', '-b:a', '12.2k',
-      '-f', '3gp', outputPath,
+      '-n',
+      '-i',
+      inputPath,
+      '-vf',
+      'scale=176:144:force_original_aspect_ratio=decrease,pad=176:144:(ow-iw)/2:(oh-ih)/2',
+      '-r',
+      '15',
+      '-c:v',
+      'h263',
+      '-pix_fmt',
+      'yuv420p',
+      '-b:v',
+      '128k',
+      '-c:a',
+      'libopencore_amrnb',
+      '-ar',
+      '8000',
+      '-ac',
+      '1',
+      '-b:a',
+      '12.2k',
+      '-f',
+      '3gp',
+      outputPath,
     ]);
   }
 
@@ -111,7 +166,8 @@ class FFmpegMergeService {
     required String format,
   }) async {
     if (_samePath(videoPath, audioOutputPath) ||
-        !await File(videoPath).exists()) return false;
+        !await File(videoPath).exists())
+      return false;
     final normalizedFormat = format.toLowerCase();
     if (normalizedFormat != 'mp3' && normalizedFormat != 'm4a') {
       logger.e('Unsupported audio format: $format');
@@ -119,9 +175,15 @@ class FFmpegMergeService {
     }
     if (!await _prepareOutput(audioOutputPath)) return false;
     return _run([
-      '-n', '-i', videoPath, '-vn', '-codec:a',
+      '-n',
+      '-i',
+      videoPath,
+      '-vn',
+      '-codec:a',
       normalizedFormat == 'mp3' ? 'libmp3lame' : 'aac',
-      '-b:a', '320k', audioOutputPath,
+      '-b:a',
+      '320k',
+      audioOutputPath,
     ]);
   }
 }

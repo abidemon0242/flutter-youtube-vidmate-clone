@@ -81,13 +81,17 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         feedVideos = results;
         feedLoading = false;
-        feedError = results.isEmpty ? 'YouTube returned no videos for this category. Try another category or refresh.' : null;
+        feedError = results.isEmpty
+            ? 'YouTube returned no videos for this category. Try another category or refresh.'
+            : null;
       });
     } catch (error) {
       if (!mounted || request != _feedRequest) return;
       setState(() {
         feedLoading = false;
-        feedError = error is YouTubeApiException ? error.message : 'Could not load YouTube videos. Check your connection and try again.';
+        feedError = error is YouTubeApiException
+            ? error.message
+            : 'Could not load YouTube videos. Check your connection and try again.';
       });
     }
   }
@@ -145,9 +149,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final term = query.trim();
     final request = ++_searchRequest;
     await context.read<PersonalizationService>().record(
-          type: 'search',
-          query: term,
-        );
+      type: 'search',
+      query: term,
+    );
     setState(() {
       searchQuery = term;
       selectedCategory = 0;
@@ -162,17 +166,21 @@ class _HomeScreenState extends State<HomeScreen> {
       final found = await repository.searchVideos(term);
       if (!mounted || request != _searchRequest || term != searchQuery) return;
       setState(() {
-        searchResults =
-            context.read<PersonalizationService>().rankVideos(found);
+        searchResults = context.read<PersonalizationService>().rankVideos(
+          found,
+        );
       });
     } catch (error) {
       if (mounted && request == _searchRequest && term == searchQuery) {
         setState(() {
-          searchError = error is YouTubeApiException ? error.message : 'Search is temporarily unavailable. Check your connection.';
+          searchError = error is YouTubeApiException
+              ? error.message
+              : 'Search is temporarily unavailable. Check your connection.';
         });
       }
     } finally {
-      if (mounted && request == _searchRequest) setState(() => searching = false);
+      if (mounted && request == _searchRequest)
+        setState(() => searching = false);
     }
   }
 
@@ -289,10 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 54,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: categories.length,
               itemBuilder: (context, index) => ChoiceChip(
                 label: Text(categories[index]),
@@ -318,34 +323,47 @@ class _HomeScreenState extends State<HomeScreen> {
             child: searching
                 ? const Center(child: CircularProgressIndicator())
                 : searchError != null
-                    ? Center(child: Text(searchError!))
-                    : feedLoading && searchQuery.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
-                    : feedError != null && visibleVideos.isEmpty
-                        ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Text(feedError!), const SizedBox(height: 12), FilledButton.icon(onPressed: _loadFeed, icon: const Icon(Icons.refresh), label: const Text('Retry'))]))
-                    : visibleVideos.isEmpty
-                        ? const Center(child: Text('No videos available'))
-                        : ListView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                            itemCount: visibleVideos.length,
-                            itemBuilder: (context, index) {
-                              final video = visibleVideos[index];
-                              return VideoCard(
-                                video: video,
-                                multiSelectMode: multiSelectMode,
-                                isSelected: selectedIds.contains(video.id),
-                                onLongPress: () => toggle(video.id),
-                                onCheckboxTap: () => toggle(video.id),
-                                onTap: () {
-                                  if (multiSelectMode) {
-                                    toggle(video.id);
-                                    return;
-                                  }
-                                  context.push('/watch', extra: video);
-                                },
-                              );
-                            },
-                          ),
+                ? Center(child: Text(searchError!))
+                : feedLoading && searchQuery.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : feedError != null && visibleVideos.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(feedError!),
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: _loadFeed,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : visibleVideos.isEmpty
+                ? const Center(child: Text('No videos available'))
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                    itemCount: visibleVideos.length,
+                    itemBuilder: (context, index) {
+                      final video = visibleVideos[index];
+                      return VideoCard(
+                        video: video,
+                        multiSelectMode: multiSelectMode,
+                        isSelected: selectedIds.contains(video.id),
+                        onLongPress: () => toggle(video.id),
+                        onCheckboxTap: () => toggle(video.id),
+                        onTap: () {
+                          if (multiSelectMode) {
+                            toggle(video.id);
+                            return;
+                          }
+                          context.push('/watch', extra: video);
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -360,10 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (index == 2) context.go('/library');
         },
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
             icon: Icon(Icons.download),
             label: 'Downloads',

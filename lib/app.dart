@@ -26,14 +26,23 @@ class TubeArenaApp extends StatelessWidget {
           final urls = extra is String
               ? [extra]
               : extra is List
-                  ? extra.whereType<String>().toList()
-                  : null;
+              ? extra.whereType<String>().toList()
+              : null;
           return BatchDownloadScreen(initialUrls: urls);
         },
       ),
-      GoRoute(path: '/playlists', builder: (c, s) => const PlaylistImportScreen()),
-      GoRoute(path: '/personalization', builder: (c, s) => const PersonalizationSettingsScreen()),
-      GoRoute(path: '/local-player', builder: (c, s) => LocalMediaPlayerScreen(filePath: s.extra as String)),
+      GoRoute(
+        path: '/playlists',
+        builder: (c, s) => const PlaylistImportScreen(),
+      ),
+      GoRoute(
+        path: '/personalization',
+        builder: (c, s) => const PersonalizationSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/local-player',
+        builder: (c, s) => LocalMediaPlayerScreen(filePath: s.extra as String),
+      ),
       GoRoute(
         path: '/watch',
         builder: (c, s) {
@@ -48,7 +57,8 @@ class TubeArenaApp extends StatelessWidget {
         routes: [
           GoRoute(
             path: ':folder',
-            builder: (c, s) => FolderContentsScreen(folderName: s.pathParameters['folder']!),
+            builder: (c, s) =>
+                FolderContentsScreen(folderName: s.pathParameters['folder']!),
           ),
         ],
       ),
@@ -57,9 +67,9 @@ class TubeArenaApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp.router(
-        title: 'Tube Arena',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        routerConfig: _router,
-      );
+    title: 'Tube Arena',
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.lightTheme,
+    routerConfig: _router,
+  );
 }

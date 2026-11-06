@@ -16,8 +16,8 @@ class YouTubeApiException implements Exception {
 /// in Google Cloud to this Android package and the YouTube Data API.
 class YouTubeDataApiService {
   YouTubeDataApiService({String? apiKey, HttpClient Function()? clientFactory})
-      : _apiKey = apiKey ?? const String.fromEnvironment('YOUTUBE_DATA_API_KEY'),
-        _clientFactory = clientFactory ?? HttpClient.new;
+    : _apiKey = apiKey ?? const String.fromEnvironment('YOUTUBE_DATA_API_KEY'),
+      _clientFactory = clientFactory ?? HttpClient.new;
 
   final String _apiKey;
   final HttpClient Function() _clientFactory;
@@ -103,17 +103,20 @@ class YouTubeDataApiService {
     String resource,
     Map<String, String> parameters,
   ) async {
-    final uri = Uri.https(
-      'youtube.googleapis.com',
-      '/youtube/v3/$resource',
-      {...parameters, 'key': _apiKey},
-    );
+    final uri = Uri.https('youtube.googleapis.com', '/youtube/v3/$resource', {
+      ...parameters,
+      'key': _apiKey,
+    });
     final client = _clientFactory()
       ..connectionTimeout = const Duration(seconds: 15);
     try {
-      final request = await client.getUrl(uri).timeout(const Duration(seconds: 15));
+      final request = await client
+          .getUrl(uri)
+          .timeout(const Duration(seconds: 15));
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      final response = await request.close().timeout(const Duration(seconds: 25));
+      final response = await request.close().timeout(
+        const Duration(seconds: 25),
+      );
       final body = await response.transform(utf8.decoder).join();
       final decoded = jsonDecode(body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -131,9 +134,13 @@ class YouTubeDataApiService {
       }
       return decoded;
     } on SocketException {
-      throw const YouTubeApiException('Network unavailable. Check your connection.');
+      throw const YouTubeApiException(
+        'Network unavailable. Check your connection.',
+      );
     } on TimeoutException {
-      throw const YouTubeApiException('YouTube request timed out. Please retry.');
+      throw const YouTubeApiException(
+        'YouTube request timed out. Please retry.',
+      );
     } finally {
       client.close(force: true);
     }
@@ -156,8 +163,8 @@ class YouTubeDataApiService {
   VideoModel? _videoFromSearch(Map<String, dynamic> item) {
     final idData = item['id'];
     final snippet = item['snippet'];
-    if (idData is! Map<String, dynamic> ||
-        snippet is! Map<String, dynamic>) return null;
+    if (idData is! Map<String, dynamic> || snippet is! Map<String, dynamic>)
+      return null;
     final id = idData['videoId'];
     if (id is! String || id.isEmpty) return null;
     return _makeVideo(
@@ -174,10 +181,11 @@ class YouTubeDataApiService {
     required String views,
     required String duration,
   }) {
-    final thumbnails = snippet['thumbnails'] as Map<String, dynamic>? ?? const {};
-    final thumbnail = (thumbnails['high'] ??
-            thumbnails['medium'] ??
-            thumbnails['default']) as Map<String, dynamic>? ??
+    final thumbnails =
+        snippet['thumbnails'] as Map<String, dynamic>? ?? const {};
+    final thumbnail =
+        (thumbnails['high'] ?? thumbnails['medium'] ?? thumbnails['default'])
+            as Map<String, dynamic>? ??
         const {};
     final channel = snippet['channelTitle'] as String? ?? 'YouTube channel';
     final title = snippet['title'] as String? ?? 'Untitled video';
@@ -187,7 +195,8 @@ class YouTubeDataApiService {
       channelName: channel,
       views: views,
       duration: duration,
-      thumbnailUrl: thumbnail['url'] as String? ??
+      thumbnailUrl:
+          thumbnail['url'] as String? ??
           'https://i.ytimg.com/vi/$id/hqdefault.jpg',
       channelAvatar: '',
       isVerified: false,
@@ -199,15 +208,19 @@ class YouTubeDataApiService {
   String _formatViews(dynamic raw) {
     final count = int.tryParse(raw?.toString() ?? '');
     if (count == null) return 'Views unavailable';
-    if (count >= 1000000000) return '${(count / 1000000000).toStringAsFixed(1)}B views';
-    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M views';
+    if (count >= 1000000000)
+      return '${(count / 1000000000).toStringAsFixed(1)}B views';
+    if (count >= 1000000)
+      return '${(count / 1000000).toStringAsFixed(1)}M views';
     if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K views';
     return '$count views';
   }
 
   String _formatIsoDuration(String? value) {
     if (value == null) return '—';
-    final match = RegExp(r'^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$').firstMatch(value);
+    final match = RegExp(
+      r'^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$',
+    ).firstMatch(value);
     if (match == null) return '—';
     final hours = int.tryParse(match.group(1) ?? '') ?? 0;
     final minutes = int.tryParse(match.group(2) ?? '') ?? 0;

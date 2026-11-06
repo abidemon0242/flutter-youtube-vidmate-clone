@@ -11,8 +11,9 @@ import 'package:tube_arena/ui/widgets/video_card.dart';
 import 'package:tube_arena/data/repositories/youtube_repository.dart';
 
 void main() {
-
-  testWidgets('VideoCard renders video metadata and responds to tap', (tester) async {
+  testWidgets('VideoCard renders video metadata and responds to tap', (
+    tester,
+  ) async {
     var tapped = false;
     const video = VideoModel(
       id: 'widget-video',
@@ -24,11 +25,13 @@ void main() {
       channelAvatar: '',
       isVerified: false,
     );
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: VideoCard(video: video, onTap: () => tapped = true),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: VideoCard(video: video, onTap: () => tapped = true),
+        ),
       ),
-    ));
+    );
     expect(find.text('Widget test video'), findsOneWidget);
     expect(find.text('Test channel'), findsOneWidget);
     await tester.tap(find.text('Widget test video'));
@@ -38,9 +41,20 @@ void main() {
   group('YouTubeRepository', () {
     test('provides supported live-feed categories', () {
       final repository = YouTubeRepository();
-      expect(repository.getCategories(), containsAll([
-        'All', 'Music', 'Tech', 'Movies', 'Tutorials', 'Live', 'News', 'Gaming', 'Design',
-      ]));
+      expect(
+        repository.getCategories(),
+        containsAll([
+          'All',
+          'Music',
+          'Tech',
+          'Movies',
+          'Tutorials',
+          'Live',
+          'News',
+          'Gaming',
+          'Design',
+        ]),
+      );
       repository.dispose();
     });
   });
@@ -51,20 +65,23 @@ void main() {
       expect(VideoModel.demo.title, contains('Tube Arena'));
     });
 
-    test('existing video data can omit playbackUrl and gets sample default', () {
-      const video = VideoModel(
-        id: 'test',
-        title: 'Test video',
-        channelName: 'Test channel',
-        views: '1 view',
-        duration: '00:01',
-        thumbnailUrl: 'https://example.com/thumb.jpg',
-        channelAvatar: 'https://example.com/avatar.jpg',
-        isVerified: false,
-      );
-      expect(video.playbackUrl, VideoModel.demoPlaybackUrl);
-      expect(video.category, 'Tech');
-    });
+    test(
+      'existing video data can omit playbackUrl and gets sample default',
+      () {
+        const video = VideoModel(
+          id: 'test',
+          title: 'Test video',
+          channelName: 'Test channel',
+          views: '1 view',
+          duration: '00:01',
+          thumbnailUrl: 'https://example.com/thumb.jpg',
+          channelAvatar: 'https://example.com/avatar.jpg',
+          isVerified: false,
+        );
+        expect(video.playbackUrl, VideoModel.demoPlaybackUrl);
+        expect(video.category, 'Tech');
+      },
+    );
   });
 
   group('DownloadEntry persistence', () {
@@ -143,40 +160,66 @@ void main() {
       provider.dispose();
     });
 
-    test('refuses to delete files outside the managed downloads folder', () async {
-      final directory = await Directory.systemTemp.createTemp('tube-arena-test-');
-      final downloadsDirectory = Directory('${directory.path}/TubeArena/Downloads');
-      await downloadsDirectory.create(recursive: true);
-      final file = File('${directory.path}/unmanaged.mp4');
-      await file.writeAsString('keep');
-      final provider = DownloadsProvider(downloadsDirectoryResolver: () async => downloadsDirectory)
-        ..addDownload(DownloadEntry(id: 'external', title: 'External', url: 'https://example.com/a.mp4', size: '4 B', format: 'mp4', progress: 100, savedPath: file.path));
-      expect(await provider.deleteFileFor(provider.items.single), isFalse);
-      expect(await file.exists(), isTrue);
-      expect(provider.items, hasLength(1));
-      provider.dispose();
-      await directory.delete(recursive: true);
-    });
+    test(
+      'refuses to delete files outside the managed downloads folder',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'tube-arena-test-',
+        );
+        final downloadsDirectory = Directory(
+          '${directory.path}/TubeArena/Downloads',
+        );
+        await downloadsDirectory.create(recursive: true);
+        final file = File('${directory.path}/unmanaged.mp4');
+        await file.writeAsString('keep');
+        final provider =
+            DownloadsProvider(
+              downloadsDirectoryResolver: () async => downloadsDirectory,
+            )..addDownload(
+              DownloadEntry(
+                id: 'external',
+                title: 'External',
+                url: 'https://example.com/a.mp4',
+                size: '4 B',
+                format: 'mp4',
+                progress: 100,
+                savedPath: file.path,
+              ),
+            );
+        expect(await provider.deleteFileFor(provider.items.single), isFalse);
+        expect(await file.exists(), isTrue);
+        expect(provider.items, hasLength(1));
+        provider.dispose();
+        await directory.delete(recursive: true);
+      },
+    );
 
     test('deletes selected file before removing its record', () async {
-      final directory = await Directory.systemTemp.createTemp('tube-arena-test-');
-      final downloadsDirectory = Directory('${directory.path}/TubeArena/Downloads');
+      final directory = await Directory.systemTemp.createTemp(
+        'tube-arena-test-',
+      );
+      final downloadsDirectory = Directory(
+        '${directory.path}/TubeArena/Downloads',
+      );
       await downloadsDirectory.create(recursive: true);
       final file = File('${downloadsDirectory.path}/sample.mp4');
       await file.writeAsString('sample');
-      final provider = DownloadsProvider(downloadsDirectoryResolver: () async => downloadsDirectory)
-        ..addDownload(
-          DownloadEntry(
-            id: 'file-one',
-            title: 'Sample',
-            url: 'https://example.com/sample.mp4',
-            size: '6 B',
-            format: 'mp4',
-            progress: 100,
-            savedPath: file.path,
-          ),
-        )
-        ..toggleSelection('file-one');
+      final provider =
+          DownloadsProvider(
+              downloadsDirectoryResolver: () async => downloadsDirectory,
+            )
+            ..addDownload(
+              DownloadEntry(
+                id: 'file-one',
+                title: 'Sample',
+                url: 'https://example.com/sample.mp4',
+                size: '6 B',
+                format: 'mp4',
+                progress: 100,
+                savedPath: file.path,
+              ),
+            )
+            ..toggleSelection('file-one');
 
       expect(await provider.deleteSelectedFiles(), 1);
       expect(await file.exists(), isFalse);
@@ -195,7 +238,10 @@ void main() {
     });
 
     test('does not classify YouTube privacy-enhanced host as advertising', () {
-      expect(blocker.isAdDomain('https://www.youtube-nocookie.com/embed/demo'), isFalse);
+      expect(
+        blocker.isAdDomain('https://www.youtube-nocookie.com/embed/demo'),
+        isFalse,
+      );
     });
 
     test('matches known tracking URL paths', () {
@@ -210,10 +256,10 @@ void main() {
       ]);
 
       expect(stats['blocked_requests'], 3);
-      expect(
-        stats['blocked_domains'],
-        ['ads.doubleclick.net', 'pagead2.googlesyndication.com'],
-      );
+      expect(stats['blocked_domains'], [
+        'ads.doubleclick.net',
+        'pagead2.googlesyndication.com',
+      ]);
       expect(stats['blocked_urls'], hasLength(3));
     });
   });

@@ -3,7 +3,7 @@ import '../../services/youtube_data_api_service.dart';
 
 class YouTubeRepository {
   YouTubeRepository({YouTubeDataApiService? api})
-      : _api = api ?? YouTubeDataApiService();
+    : _api = api ?? YouTubeDataApiService();
 
   final YouTubeDataApiService _api;
 
@@ -20,14 +20,14 @@ class YouTubeRepository {
       _api.getMostPopular(category: category, regionCode: 'BD');
 
   List<String> getCategories() => const [
-        'All',
-        'Music',
-        'Tech',
-        'Movies',
-        'Tutorials',
-        'Live',
-        'News',
-        'Gaming',
-        'Design',
-      ];
+    'All',
+    'Music',
+    'Tech',
+    'Movies',
+    'Tutorials',
+    'Live',
+    'News',
+    'Gaming',
+    'Design',
+  ];
 }

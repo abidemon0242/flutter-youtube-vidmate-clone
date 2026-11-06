@@ -30,7 +30,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   String _preferredAudioBitrate = '';
   String _preferredAudioFormat = '';
 
-  String get _preferredAudioOption => '$_preferredAudioFormat|$_preferredAudioBitrate';
+  String get _preferredAudioOption =>
+      '$_preferredAudioFormat|$_preferredAudioBitrate';
   bool _isPreviewLoading = false;
   int _previewRequest = 0;
   bool _audioOnly = false;
@@ -50,7 +51,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         .toList();
     if (initialUrls.isNotEmpty) {
       _urlsController.text = initialUrls.join('\n');
-      _status = '${initialUrls.length} selected video link(s) added. Check available formats before downloading.';
+      _status =
+          '${initialUrls.length} selected video link(s) added. Check available formats before downloading.';
     }
   }
 
@@ -70,49 +72,79 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         .toList();
   }
 
-  String get _sourceFormat => _preferredFormat == '3GP' ? 'MP4' : _preferredFormat;
+  String get _sourceFormat =>
+      _preferredFormat == '3GP' ? 'MP4' : _preferredFormat;
 
   VideoQualityOption _chooseQuality(List<VideoQualityOption> options) {
     final matchingFormat = options.where((option) {
       final matchesSource = option.format.toUpperCase() == _sourceFormat;
       // Button-phone output needs a muxable MP4 source, not a video-only
       // fallback, so the 3GP conversion always receives both streams.
-      return matchesSource && (_preferredFormat != '3GP' || option.audioUrl.isNotEmpty);
+      return matchesSource &&
+          (_preferredFormat != '3GP' || option.audioUrl.isNotEmpty);
     }).toList();
     if (matchingFormat.isEmpty) {
-      throw Exception('No $_preferredFormat stream is available for the selected video.');
+      throw Exception(
+        'No $_preferredFormat stream is available for the selected video.',
+      );
     }
 
-    final exact = matchingFormat.where((option) => option.quality == _preferredQuality);
+    final exact = matchingFormat.where(
+      (option) => option.quality == _preferredQuality,
+    );
     if (exact.isNotEmpty) return exact.first;
 
     // For other links in a batch, use the highest real stream no higher than
     // the selected resolution. Never silently exceed the user's limit.
     final targetHeight =
-        int.tryParse(RegExp(r'(\d+)p').firstMatch(_preferredQuality)?.group(1) ?? '') ?? 1080;
-    final atOrBelowTarget = matchingFormat.where((option) {
-      final height =
-          int.tryParse(RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ?? '');
-      return height != null && height <= targetHeight;
-    }).toList()
-      ..sort((a, b) {
-        final aHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
-        final bHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
-        if (aHeight != bHeight) return bHeight.compareTo(aHeight);
-        return b.fps.compareTo(a.fps);
-      });
+        int.tryParse(
+          RegExp(r'(\d+)p').firstMatch(_preferredQuality)?.group(1) ?? '',
+        ) ??
+        1080;
+    final atOrBelowTarget =
+        matchingFormat.where((option) {
+          final height = int.tryParse(
+            RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ?? '',
+          );
+          return height != null && height <= targetHeight;
+        }).toList()..sort((a, b) {
+          final aHeight =
+              int.tryParse(
+                RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '',
+              ) ??
+              0;
+          final bHeight =
+              int.tryParse(
+                RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '',
+              ) ??
+              0;
+          if (aHeight != bHeight) return bHeight.compareTo(aHeight);
+          return b.fps.compareTo(a.fps);
+        });
 
     if (atOrBelowTarget.isEmpty) {
-      throw Exception('No $_preferredFormat stream is available at or below $_preferredQuality.');
+      throw Exception(
+        'No $_preferredFormat stream is available at or below $_preferredQuality.',
+      );
     }
     return atOrBelowTarget.first;
   }
 
-  List<VideoQualityOption> _sortedPreviewOptions(List<VideoQualityOption> options) {
+  List<VideoQualityOption> _sortedPreviewOptions(
+    List<VideoQualityOption> options,
+  ) {
     final sorted = [...options];
     sorted.sort((a, b) {
-      final aHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '') ?? 0;
-      final bHeight = int.tryParse(RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '') ?? 0;
+      final aHeight =
+          int.tryParse(
+            RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '',
+          ) ??
+          0;
+      final bHeight =
+          int.tryParse(
+            RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '',
+          ) ??
+          0;
       if (aHeight != bHeight) return bHeight.compareTo(aHeight);
       return b.fps.compareTo(a.fps);
     });
@@ -124,7 +156,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     final request = ++_previewRequest;
     final urls = _readUrls();
     if (urls.isEmpty) {
-      setState(() => _status = 'Add a video URL first to check available formats and sizes.');
+      setState(
+        () => _status =
+            'Add a video URL first to check available formats and sizes.',
+      );
       return;
     }
     setState(() {
@@ -137,7 +172,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     });
     try {
       if (_audioOnly) {
-        final audioOptions = await _extractionService.getAudioQualities(urls.first);
+        final audioOptions = await _extractionService.getAudioQualities(
+          urls.first,
+        );
         if (!mounted || request != _previewRequest) return;
         setState(() {
           _previewAudioOptions = audioOptions;
@@ -147,22 +184,32 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             _preferredAudioFormat = '';
             _status = 'This video does not provide a compatible audio stream.';
           } else {
-            if (!audioOptions.any((option) => '${option.format}|${option.bitrate}' == _preferredAudioOption)) {
+            if (!audioOptions.any(
+              (option) =>
+                  '${option.format}|${option.bitrate}' == _preferredAudioOption,
+            )) {
               _preferredAudioFormat = audioOptions.first.format;
               _preferredAudioBitrate = audioOptions.first.bitrate;
             }
-            final selected = audioOptions.firstWhere((option) => '${option.format}|${option.bitrate}' == _preferredAudioOption);
-            _status = 'Available audio: ${selected.bitrate} ${selected.format} • ${selected.fileSize}';
+            final selected = audioOptions.firstWhere(
+              (option) =>
+                  '${option.format}|${option.bitrate}' == _preferredAudioOption,
+            );
+            _status =
+                'Available audio: ${selected.bitrate} ${selected.format} • ${selected.fileSize}';
           }
         });
         return;
       }
       final options = await _extractionService.getVideoQualities(urls.first);
       if (!mounted || request != _previewRequest) return;
-      final matching = _sortedPreviewOptions(options.where((option) {
-        final matchesSource = option.format.toUpperCase() == _sourceFormat;
-        return matchesSource && (_preferredFormat != '3GP' || option.audioUrl.isNotEmpty);
-      }).toList());
+      final matching = _sortedPreviewOptions(
+        options.where((option) {
+          final matchesSource = option.format.toUpperCase() == _sourceFormat;
+          return matchesSource &&
+              (_preferredFormat != '3GP' || option.audioUrl.isNotEmpty);
+        }).toList(),
+      );
       setState(() {
         _previewOptions = matching;
         _isPreviewLoading = false;
@@ -173,18 +220,17 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           // only to shrink it to CIF during 3GP conversion. Prefer 240p, or
           // the lowest available stream if the source has no 240p-or-lower option.
           final selected = _preferredFormat == '3GP'
-              ? matching.firstWhere(
-                  (option) {
-                    final height = int.tryParse(
-                      RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ?? '',
-                    );
-                    return height != null && height <= 240;
-                  },
-                  orElse: () => matching.last,
-                )
+              ? matching.firstWhere((option) {
+                  final height = int.tryParse(
+                    RegExp(r'(\d+)p').firstMatch(option.quality)?.group(1) ??
+                        '',
+                  );
+                  return height != null && height <= 240;
+                }, orElse: () => matching.last)
               : matching.first;
           _preferredQuality = selected.quality;
-          _status = 'Available selection: ${selected.quality} ${selected.format} • ${selected.fileSize}';
+          _status =
+              'Available selection: ${selected.quality} ${selected.format} • ${selected.fileSize}';
         }
       });
     } catch (error) {
@@ -236,7 +282,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       final item = existing.first;
       final canRequeue = item.status == 'failed' || item.status == 'cancelled';
       if (canRequeue && await downloads.deleteFileFor(item)) return true;
-      failures.add('$title: a download with this ID is already queued or could not be safely cleared');
+      failures.add(
+        '$title: a download with this ID is already queued or could not be safely cleared',
+      );
       return false;
     }
 
@@ -256,7 +304,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           continue;
         }
 
-        final normalizedSafeTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
+        final normalizedSafeTitle = title
+            .replaceAll(RegExp(r'[^\w\s-]'), '')
+            .trim();
         // Keep the UI's expected path identical to BackgroundDownloadService,
         // which caps sanitized titles at 80 characters.
         final safeTitle = normalizedSafeTitle.length > 80
@@ -268,28 +318,45 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             failures.add('$title: no compatible audio stream');
             continue;
           }
-          final targetBitrate = int.tryParse(
-                RegExp(r'(\\d+)').firstMatch(_preferredAudioBitrate)?.group(1) ?? '',
-              ) ?? 0;
+          final targetBitrate =
+              int.tryParse(
+                RegExp(
+                      r'(\\d+)',
+                    ).firstMatch(_preferredAudioBitrate)?.group(1) ??
+                    '',
+              ) ??
+              0;
           final formatOptions = _preferredAudioFormat.isEmpty
               ? audioOptions
-              : audioOptions.where((option) => option.format == _preferredAudioFormat).toList();
+              : audioOptions
+                    .where((option) => option.format == _preferredAudioFormat)
+                    .toList();
           if (formatOptions.isEmpty) {
-            failures.add('$title: selected audio format $_preferredAudioFormat is unavailable');
+            failures.add(
+              '$title: selected audio format $_preferredAudioFormat is unavailable',
+            );
             continue;
           }
           final atOrBelowTarget = formatOptions.where((option) {
-            final bitrate = int.tryParse(
+            final bitrate =
+                int.tryParse(
                   RegExp(r'(\\d+)').firstMatch(option.bitrate)?.group(1) ?? '',
-                ) ?? 0;
+                ) ??
+                0;
             return _preferredAudioBitrate.isEmpty || bitrate <= targetBitrate;
           }).toList();
           if (atOrBelowTarget.isEmpty) {
-            failures.add('$title: no audio stream is available at or below $_preferredAudioBitrate');
+            failures.add(
+              '$title: no audio stream is available at or below $_preferredAudioBitrate',
+            );
             continue;
           }
-          final exactAudio = formatOptions.where((option) => option.bitrate == _preferredAudioBitrate);
-          final audio = exactAudio.isNotEmpty ? exactAudio.first : atOrBelowTarget.first;
+          final exactAudio = formatOptions.where(
+            (option) => option.bitrate == _preferredAudioBitrate,
+          );
+          final audio = exactAudio.isNotEmpty
+              ? exactAudio.first
+              : atOrBelowTarget.first;
           final downloadId = 'youtube-audio-$videoId';
           if (!await prepareExistingRecord(downloadId, title)) continue;
           final safeId = downloadId.replaceAll(RegExp(r'[^\w-]'), '');
@@ -297,8 +364,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           final extension = audio.format.toLowerCase().contains('webm')
               ? 'webm'
               : audio.format.toLowerCase().contains('aac')
-                  ? 'aac'
-                  : 'm4a';
+              ? 'aac'
+              : 'm4a';
           final fileName = '$fileBase.$extension';
           final savePath = '${documentsPath}/TubeArena/Downloads/$fileName';
           final taskId = await downloadService.startDownload(
@@ -312,7 +379,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             isAudioOnly: true,
           );
           if (taskId == null) {
-            failures.add('$title: ${downloadService.initializationError ?? 'audio download could not be queued'}');
+            failures.add(
+              '$title: ${downloadService.initializationError ?? 'audio download could not be queued'}',
+            );
             continue;
           }
           downloads.addDownload(
@@ -358,7 +427,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           isAudioOnly: false,
         );
         if (taskId == null) {
-          failures.add('$title: ${downloadService.initializationError ?? 'download could not be queued'}');
+          failures.add(
+            '$title: ${downloadService.initializationError ?? 'download could not be queued'}',
+          );
           continue;
         }
         downloads.addDownload(
@@ -385,9 +456,11 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       final permissionNote = _notificationsDenied
           ? ' Android notification permission is off; downloads may run without visible notifications.'
           : '';
-      _status = (failures.isEmpty
-          ? '$queued download(s) queued successfully.'
-          : '$queued queued; ${failures.length} link(s) could not be queued.') + permissionNote;
+      _status =
+          (failures.isEmpty
+              ? '$queued download(s) queued successfully.'
+              : '$queued queued; ${failures.length} link(s) could not be queued.') +
+          permissionNote;
     });
 
     if (queued > 0 && failures.isEmpty) {
@@ -406,9 +479,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Some links were skipped'),
-          content: SingleChildScrollView(
-            child: Text(failures.join('\n\n')),
-          ),
+          content: SingleChildScrollView(child: Text(failures.join('\n\n'))),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
@@ -445,7 +516,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
               border: OutlineInputBorder(),
             ),
             items: const ['MP4', 'WEBM', '3GP']
-                .map((format) => DropdownMenuItem(value: format, child: Text(format)))
+                .map(
+                  (format) =>
+                      DropdownMenuItem(value: format, child: Text(format)),
+                )
                 .toList(),
             onChanged: _isProcessing || _audioOnly
                 ? null
@@ -463,46 +537,68 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           const SizedBox(height: 12),
           if (_audioOnly && _previewAudioOptions.isNotEmpty)
             DropdownButtonFormField<String>(
-              initialValue: _previewAudioOptions.any((option) => '${option.format}|${option.bitrate}' == _preferredAudioOption)
+              initialValue:
+                  _previewAudioOptions.any(
+                    (option) =>
+                        '${option.format}|${option.bitrate}' ==
+                        _preferredAudioOption,
+                  )
                   ? _preferredAudioOption
                   : null,
               decoration: const InputDecoration(
                 labelText: 'Audio bitrate',
-                helperText: 'The selected bitrate is an upper limit for every link in this batch.',
+                helperText:
+                    'The selected bitrate is an upper limit for every link in this batch.',
                 border: OutlineInputBorder(),
               ),
               items: _previewAudioOptions
-                  .map((option) => DropdownMenuItem(
-                        value: '${option.format}|${option.bitrate}',
-                        child: Text('${option.bitrate} • ${option.format} • ${option.fileSize}'),
-                      ))
+                  .map(
+                    (option) => DropdownMenuItem(
+                      value: '${option.format}|${option.bitrate}',
+                      child: Text(
+                        '${option.bitrate} • ${option.format} • ${option.fileSize}',
+                      ),
+                    ),
+                  )
                   .toList(),
               onChanged: _isProcessing
                   ? null
                   : (value) {
                       if (value == null) return;
                       setState(() {
-                        final selected = _previewAudioOptions.firstWhere((option) => '${option.format}|${option.bitrate}' == value);
+                        final selected = _previewAudioOptions.firstWhere(
+                          (option) =>
+                              '${option.format}|${option.bitrate}' == value,
+                        );
                         _preferredAudioFormat = selected.format;
                         _preferredAudioBitrate = selected.bitrate;
-                        _status = 'Selected audio: ${selected.bitrate} ${selected.format} • ${selected.fileSize}';
+                        _status =
+                            'Selected audio: ${selected.bitrate} ${selected.format} • ${selected.fileSize}';
                       });
                     },
             ),
           DropdownButtonFormField<String>(
-            initialValue: _previewOptions.any((option) => option.quality == _preferredQuality)
+            initialValue:
+                _previewOptions.any(
+                  (option) => option.quality == _preferredQuality,
+                )
                 ? _preferredQuality
                 : null,
             decoration: const InputDecoration(
               labelText: 'Available resolution',
-              helperText: 'Check available sizes first. Only resolutions found for this video are listed.',
+              helperText:
+                  'Check available sizes first. Only resolutions found for this video are listed.',
               border: OutlineInputBorder(),
             ),
             items: _previewOptions
-                .map((option) => DropdownMenuItem(
-                      value: option.quality,
-                      child: Text('${option.quality} • ${option.fileSize} • ${option.fps} FPS'),
-                    ))
+                .map(
+                  (option) => DropdownMenuItem(
+                    value: option.quality,
+                    child: Text(
+                      '${option.quality} • ${option.fileSize} • ${option.fps} FPS',
+                    ),
+                  ),
+                )
                 .toList(),
             onChanged: _isProcessing || _audioOnly || _previewOptions.isEmpty
                 ? null
@@ -510,77 +606,115 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                     if (value != null) {
                       setState(() {
                         _preferredQuality = value;
-                        final selected = _previewOptions.firstWhere((option) => option.quality == value);
-                        _status = 'Selected: ${selected.quality} ${selected.format} • ${selected.fileSize}';
+                        final selected = _previewOptions.firstWhere(
+                          (option) => option.quality == value,
+                        );
+                        _status =
+                            'Selected: ${selected.quality} ${selected.format} • ${selected.fileSize}';
                       });
                     }
                   },
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: _isProcessing || _isPreviewLoading ? null : _previewQualities,
+            onPressed: _isProcessing || _isPreviewLoading
+                ? null
+                : _previewQualities,
             icon: _isPreviewLoading
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.data_usage),
-            label: Text(_isPreviewLoading
-                ? 'Checking formats…'
-                : _audioOnly ? 'Check audio bitrates' : 'Check available sizes'),
+            label: Text(
+              _isPreviewLoading
+                  ? 'Checking formats…'
+                  : _audioOnly
+                  ? 'Check audio bitrates'
+                  : 'Check available sizes',
+            ),
           ),
           if (_audioOnly && _previewAudioOptions.isNotEmpty)
-            Builder(builder: (context) {
-              final selected = _previewAudioOptions.firstWhere((option) => '${option.format}|${option.bitrate}' == _preferredAudioOption);
-              return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(12)),
-                child: Text('Selected audio: ${selected.bitrate} ${selected.format} • ${selected.fileSize}'),
-              );
-            }),
+            Builder(
+              builder: (context) {
+                final selected = _previewAudioOptions.firstWhere(
+                  (option) =>
+                      '${option.format}|${option.bitrate}' ==
+                      _preferredAudioOption,
+                );
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Selected audio: ${selected.bitrate} ${selected.format} • ${selected.fileSize}',
+                  ),
+                );
+              },
+            ),
           if (_previewOptions.isNotEmpty) ...[
-            Builder(builder: (context) {
-              final selected = _chooseQuality(_previewOptions);
-              return Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Selected: ${selected.quality} • $_preferredFormat',
-                        style: const TextStyle(fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 4),
-                    Text(_preferredFormat == '3GP'
-                        ? 'Source stream size: ${selected.fileSize} • converted 3GP size will differ'
-                        : 'Estimated download size: ${selected.fileSize}',
-                        style: const TextStyle(color: AppColors.textSecondary)),
-                    Text('Frame rate: ${selected.fps} FPS',
-                        style: const TextStyle(color: AppColors.textSecondary)),
-                  ],
-                ),
-              );
-            }),
+            Builder(
+              builder: (context) {
+                final selected = _chooseQuality(_previewOptions);
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Selected: ${selected.quality} • $_preferredFormat',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _preferredFormat == '3GP'
+                            ? 'Source stream size: ${selected.fileSize} • converted 3GP size will differ'
+                            : 'Estimated download size: ${selected.fileSize}',
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
+                      Text(
+                        'Frame rate: ${selected.fps} FPS',
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ],
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _audioOnly,
             title: const Text('Audio only'),
-            subtitle: const Text('Save the original audio format; this does not convert to MP3 or another audio format.'),
-            onChanged: _isProcessing ? null : (value) => setState(() {
-              _previewRequest++;
-              _isPreviewLoading = false;
-              _audioOnly = value;
-              _previewOptions = const [];
-              _previewAudioOptions = const [];
-              _preferredAudioBitrate = '';
-              _preferredAudioFormat = '';
-            }),
+            subtitle: const Text(
+              'Save the original audio format; this does not convert to MP3 or another audio format.',
+            ),
+            onChanged: _isProcessing
+                ? null
+                : (value) => setState(() {
+                    _previewRequest++;
+                    _isPreviewLoading = false;
+                    _audioOnly = value;
+                    _previewOptions = const [];
+                    _previewAudioOptions = const [];
+                    _preferredAudioBitrate = '';
+                    _preferredAudioFormat = '';
+                  }),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _wifiOnly,
             title: const Text('Wi-Fi only downloads'),
-            subtitle: const Text('Pause or block downloads on mobile data while Tube Arena is active. Android may not report network changes while the app is in the background.'),
+            subtitle: const Text(
+              'Pause or block downloads on mobile data while Tube Arena is active. Android may not report network changes while the app is in the background.',
+            ),
             onChanged: _isProcessing
                 ? null
                 : (value) async {
@@ -638,7 +772,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.download_rounded),
-            label: Text(_isProcessing ? 'Checking links…' : 'Check and download'),
+            label: Text(
+              _isProcessing ? 'Checking links…' : 'Check and download',
+            ),
           ),
           const SizedBox(height: 16),
           Text(_status, style: const TextStyle(color: AppColors.textSecondary)),

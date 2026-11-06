@@ -31,7 +31,8 @@ class LocalFile {
 }
 
 class LocalFileManagerService {
-  static final LocalFileManagerService _instance = LocalFileManagerService._internal();
+  static final LocalFileManagerService _instance =
+      LocalFileManagerService._internal();
   final logger = Logger();
 
   late Directory _baseDirectory;
@@ -91,7 +92,8 @@ class LocalFileManagerService {
   Future<bool> createFolder(String folderName) async {
     try {
       final safeName = _validatedFolderName(folderName);
-      if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
+      if (safeName == null || safeName.toLowerCase() == 'downloads')
+        return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
       if (!folder.existsSync()) {
         await folder.create(recursive: true);
@@ -109,7 +111,8 @@ class LocalFileManagerService {
   Future<bool> deleteFolder(String folderName) async {
     try {
       final safeName = _validatedFolderName(folderName);
-      if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
+      if (safeName == null || safeName.toLowerCase() == 'downloads')
+        return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
       if (folder.existsSync() && await _isManagedDirectory(folder)) {
         await folder.delete(recursive: true);
@@ -128,8 +131,12 @@ class LocalFileManagerService {
     try {
       final safeOldName = _validatedFolderName(oldName);
       final safeNewName = _validatedFolderName(newName);
-      if (safeOldName == null || safeNewName == null || safeOldName == safeNewName ||
-          safeOldName.toLowerCase() == 'downloads' || safeNewName.toLowerCase() == 'downloads') return false;
+      if (safeOldName == null ||
+          safeNewName == null ||
+          safeOldName == safeNewName ||
+          safeOldName.toLowerCase() == 'downloads' ||
+          safeNewName.toLowerCase() == 'downloads')
+        return false;
       final oldFolder = Directory('${_baseDirectory.path}/$safeOldName');
       final newFolder = Directory('${_baseDirectory.path}/$safeNewName');
 
@@ -153,16 +160,20 @@ class LocalFileManagerService {
       final items = _baseDirectory.listSync(followLinks: false);
       final folders = <LocalFile>[];
       for (final item in items.whereType<Directory>()) {
-        if (item.path.split(Platform.pathSeparator).last.toLowerCase() == 'downloads') continue;
+        if (item.path.split(Platform.pathSeparator).last.toLowerCase() ==
+            'downloads')
+          continue;
         if (!await _isManagedDirectory(item)) continue;
         final stat = item.statSync();
-        folders.add(LocalFile(
-          path: item.path,
-          name: item.path.split(Platform.pathSeparator).last,
-          size: 0,
-          createdAt: stat.modified,
-          isDirectory: true,
-        ));
+        folders.add(
+          LocalFile(
+            path: item.path,
+            name: item.path.split(Platform.pathSeparator).last,
+            size: 0,
+            createdAt: stat.modified,
+            isDirectory: true,
+          ),
+        );
       }
 
       logger.i('Found ${folders.length} folders');
@@ -184,19 +195,16 @@ class LocalFileManagerService {
       }
 
       final items = folder.listSync(followLinks: false);
-      final files = items
-          .where((item) => item is File)
-          .map((item) {
-            final stat = item.statSync();
-            return LocalFile(
-              path: item.path,
-              name: item.path.split('/').last,
-              size: stat.size,
-              createdAt: stat.modified,
-              isDirectory: false,
-            );
-          })
-          .toList();
+      final files = items.where((item) => item is File).map((item) {
+        final stat = item.statSync();
+        return LocalFile(
+          path: item.path,
+          name: item.path.split('/').last,
+          size: stat.size,
+          createdAt: stat.modified,
+          isDirectory: false,
+        );
+      }).toList();
 
       logger.i('Found ${files.length} files in $folderName');
       return files;
@@ -266,7 +274,10 @@ class LocalFileManagerService {
   }
 
   /// Move multiple files to folder
-  Future<bool> moveFilesInBatch(List<String> filePaths, String targetFolder) async {
+  Future<bool> moveFilesInBatch(
+    List<String> filePaths,
+    String targetFolder,
+  ) async {
     try {
       bool allSuccessful = true;
       for (final filePath in filePaths) {
@@ -338,7 +349,9 @@ class LocalFileManagerService {
           totalSize += item.lengthSync();
         }
       }
-      logger.i('Total storage size: ${(totalSize / (1024 * 1024)).toStringAsFixed(2)} MB');
+      logger.i(
+        'Total storage size: ${(totalSize / (1024 * 1024)).toStringAsFixed(2)} MB',
+      );
       return totalSize;
     } catch (e) {
       logger.e('Error calculating storage size: $e');

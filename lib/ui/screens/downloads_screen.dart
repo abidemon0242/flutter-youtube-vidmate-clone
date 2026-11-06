@@ -16,9 +16,11 @@ class DownloadsScreen extends StatelessWidget {
     final downloads = context.watch<DownloadsProvider>();
     return Scaffold(
       appBar: AppBar(
-        title: Text(downloads.hasSelection
-            ? '${downloads.selectedIds.length} selected'
-            : 'Downloads'),
+        title: Text(
+          downloads.hasSelection
+              ? '${downloads.selectedIds.length} selected'
+              : 'Downloads',
+        ),
         actions: [
           if (downloads.hasSelection)
             IconButton(
@@ -38,18 +40,26 @@ class DownloadsScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.download_outlined,
-                      size: 64, color: AppColors.textSecondary),
+                  Icon(
+                    Icons.download_outlined,
+                    size: 64,
+                    color: AppColors.textSecondary,
+                  ),
                   SizedBox(height: 16),
-                  Text('No downloads yet',
-                      style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600)),
+                  Text(
+                    'No downloads yet',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   SizedBox(height: 8),
-                  Text('Add an authorized video or audio link to get started.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary)),
+                  Text(
+                    'Add an authorized video or audio link to get started.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
                 ],
               ),
             )
@@ -67,8 +77,11 @@ class DownloadsScreen extends StatelessWidget {
                       value: selected,
                       onChanged: (_) => downloads.toggleSelection(item.id),
                     ),
-                    title: Text(item.title,
-                        maxLines: 2, overflow: TextOverflow.ellipsis),
+                    title: Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -87,7 +100,9 @@ class DownloadsScreen extends StatelessWidget {
                               ? 'Merging file…'
                               : '${item.status} • ${item.progress.toStringAsFixed(0)}%',
                           style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 12),
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -95,11 +110,17 @@ class DownloadsScreen extends StatelessWidget {
                         ? () async {
                             final file = File(item.savedPath);
                             if (await file.exists() && context.mounted) {
-                              context.push('/local-player', extra: item.savedPath);
+                              context.push(
+                                '/local-player',
+                                extra: item.savedPath,
+                              );
                             } else if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                    content: Text('The downloaded file is missing.')),
+                                  content: Text(
+                                    'The downloaded file is missing.',
+                                  ),
+                                ),
                               );
                             }
                           }
@@ -130,12 +151,27 @@ class DownloadsScreen extends StatelessWidget {
                             try {
                               final file = File(item.savedPath);
                               if (await file.exists()) {
-                                await Share.shareXFiles([XFile(item.savedPath)], text: item.title);
+                                await Share.shareXFiles([
+                                  XFile(item.savedPath),
+                                ], text: item.title);
                               } else if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('The downloaded file is missing.')));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'The downloaded file is missing.',
+                                    ),
+                                  ),
+                                );
                               }
                             } catch (error) {
-                              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not export this file: $error')));
+                              if (context.mounted)
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Could not export this file: $error',
+                                    ),
+                                  ),
+                                );
                             }
                             return;
                           case 'delete':
@@ -143,9 +179,11 @@ class DownloadsScreen extends StatelessWidget {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(success
-                                      ? 'Download and file removed.'
-                                      : 'Could not safely remove this download.'),
+                                  content: Text(
+                                    success
+                                        ? 'Download and file removed.'
+                                        : 'Could not safely remove this download.',
+                                  ),
                                 ),
                               );
                             }
@@ -156,39 +194,63 @@ class DownloadsScreen extends StatelessWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(success
-                                  ? 'Download action completed.'
-                                  : 'Could not perform that download action.'),
+                              content: Text(
+                                success
+                                    ? 'Download action completed.'
+                                    : 'Could not perform that download action.',
+                              ),
                             ),
                           );
                         }
                       },
                       itemBuilder: (_) => [
                         if (item.status == 'processing')
-                          const PopupMenuItem(enabled: false, child: Text('Merging — actions unavailable')),
+                          const PopupMenuItem(
+                            enabled: false,
+                            child: Text('Merging — actions unavailable'),
+                          ),
                         if (item.status == 'downloading')
                           const PopupMenuItem(
-                              value: 'pause', child: Text('Pause')),
+                            value: 'pause',
+                            child: Text('Pause'),
+                          ),
                         if (item.status == 'paused')
                           const PopupMenuItem(
-                              value: 'resume', child: Text('Resume')),
+                            value: 'resume',
+                            child: Text('Resume'),
+                          ),
                         if (item.status == 'pending' ||
                             item.status == 'downloading' ||
                             item.status == 'paused')
                           const PopupMenuItem(
-                              value: 'cancel', child: Text('Cancel')),
-                        if ((item.status == 'failed' || item.status == 'cancelled') && downloads.hasServiceTask(item.id))
+                            value: 'cancel',
+                            child: Text('Cancel'),
+                          ),
+                        if ((item.status == 'failed' ||
+                                item.status == 'cancelled') &&
+                            downloads.hasServiceTask(item.id))
                           const PopupMenuItem(
-                              value: 'retry', child: Text('Retry')),
-                        if ((item.status == 'failed' || item.status == 'cancelled') && item.sourceUrl != null && item.sourceUrl!.isNotEmpty)
+                            value: 'retry',
+                            child: Text('Retry'),
+                          ),
+                        if ((item.status == 'failed' ||
+                                item.status == 'cancelled') &&
+                            item.sourceUrl != null &&
+                            item.sourceUrl!.isNotEmpty)
                           const PopupMenuItem(
-                              value: 'readd', child: Text('Re-add source link')),
+                            value: 'readd',
+                            child: Text('Re-add source link'),
+                          ),
                         if (completed)
                           const PopupMenuItem(
-                              value: 'share', child: Text('Share / export file')),
+                            value: 'share',
+                            child: Text('Share / export file'),
+                          ),
                         if (item.status != 'processing')
                           const PopupMenuItem(
-                              value: 'delete', child: Text('Delete file and record')),
+                            value: 'delete',
+                            child: Text('Delete file and record'),
+                          ),
                       ],
                     ),
                   ),
@@ -207,11 +269,17 @@ class DownloadsScreen extends StatelessWidget {
         },
         items: const [
           BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded), label: 'Home'),
+            icon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.download_rounded), label: 'Downloads'),
+            icon: Icon(Icons.download_rounded),
+            label: 'Downloads',
+          ),
           BottomNavigationBarItem(
-              icon: Icon(Icons.library_books_rounded), label: 'Library'),
+            icon: Icon(Icons.library_books_rounded),
+            label: 'Library',
+          ),
         ],
       ),
       floatingActionButton: downloads.hasSelection

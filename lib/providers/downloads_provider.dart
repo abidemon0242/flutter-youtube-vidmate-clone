@@ -44,56 +44,61 @@ class DownloadEntry {
     bool? isAudioOnly,
     String? status,
   }) => DownloadEntry(
-        id: id ?? this.id,
-        title: title ?? this.title,
-        url: url ?? this.url,
-        sourceUrl: sourceUrl ?? this.sourceUrl,
-        size: size ?? this.size,
-        format: format ?? this.format,
-        progress: progress ?? this.progress,
-        savedPath: savedPath ?? this.savedPath,
-        isAudioOnly: isAudioOnly ?? this.isAudioOnly,
-        status: status ?? this.status,
-      );
+    id: id ?? this.id,
+    title: title ?? this.title,
+    url: url ?? this.url,
+    sourceUrl: sourceUrl ?? this.sourceUrl,
+    size: size ?? this.size,
+    format: format ?? this.format,
+    progress: progress ?? this.progress,
+    savedPath: savedPath ?? this.savedPath,
+    isAudioOnly: isAudioOnly ?? this.isAudioOnly,
+    status: status ?? this.status,
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'url': url,
-        'sourceUrl': sourceUrl,
-        'size': size,
-        'format': format,
-        'progress': progress,
-        'savedPath': savedPath,
-        'isAudioOnly': isAudioOnly,
-        'status': status,
-      };
+    'id': id,
+    'title': title,
+    'url': url,
+    'sourceUrl': sourceUrl,
+    'size': size,
+    'format': format,
+    'progress': progress,
+    'savedPath': savedPath,
+    'isAudioOnly': isAudioOnly,
+    'status': status,
+  };
 
   factory DownloadEntry.fromJson(Map<String, dynamic> json) => DownloadEntry(
-        id: json['id'] as String,
-        title: json['title'] as String? ?? 'Download',
-        url: json['url'] as String? ?? '',
-        sourceUrl: json['sourceUrl'] as String?,
-        size: json['size'] as String? ?? 'Unknown',
-        format: json['format'] as String? ?? '',
-        progress: ((json['progress'] as num?)?.toDouble() ?? 0).clamp(0, 100).toDouble(),
-        savedPath: json['savedPath'] as String? ?? '',
-        isAudioOnly: json['isAudioOnly'] as bool? ?? false,
-        status: json['status'] as String? ?? 'pending',
-      );
+    id: json['id'] as String,
+    title: json['title'] as String? ?? 'Download',
+    url: json['url'] as String? ?? '',
+    sourceUrl: json['sourceUrl'] as String?,
+    size: json['size'] as String? ?? 'Unknown',
+    format: json['format'] as String? ?? '',
+    progress: ((json['progress'] as num?)?.toDouble() ?? 0)
+        .clamp(0, 100)
+        .toDouble(),
+    savedPath: json['savedPath'] as String? ?? '',
+    isAudioOnly: json['isAudioOnly'] as bool? ?? false,
+    status: json['status'] as String? ?? 'pending',
+  );
 }
 
 class DownloadsProvider extends ChangeNotifier {
   DownloadsProvider({Future<Directory> Function()? downloadsDirectoryResolver})
-      : _downloadsDirectoryResolver =
-            downloadsDirectoryResolver ?? _defaultDownloadsDirectory {
-    _serviceSubscription = _downloadService.statusStream.listen(_syncFromService);
+    : _downloadsDirectoryResolver =
+          downloadsDirectoryResolver ?? _defaultDownloadsDirectory {
+    _serviceSubscription = _downloadService.statusStream.listen(
+      _syncFromService,
+    );
   }
 
   final Future<Directory> Function() _downloadsDirectoryResolver;
   final List<DownloadEntry> _items = [];
   final Set<String> _selectedIds = {};
-  final BackgroundDownloadService _downloadService = BackgroundDownloadService();
+  final BackgroundDownloadService _downloadService =
+      BackgroundDownloadService();
 
   StreamSubscription<Map<String, AppDownloadTask>>? _serviceSubscription;
   late final Future<File> _storageFile = _createStorageFile();
@@ -151,9 +156,16 @@ class DownloadsProvider extends ChangeNotifier {
     for (var index = 0; index < _items.length; index++) {
       final item = _items[index];
       if (activeIds.contains(item.id)) continue;
-      final wasActive = {'pending', 'downloading', 'paused', 'processing'}.contains(item.status);
-      final completedFileMissing = item.status == 'completed' &&
-          (item.savedPath.trim().isEmpty || !await File(item.savedPath).exists());
+      final wasActive = {
+        'pending',
+        'downloading',
+        'paused',
+        'processing',
+      }.contains(item.status);
+      final completedFileMissing =
+          item.status == 'completed' &&
+          (item.savedPath.trim().isEmpty ||
+              !await File(item.savedPath).exists());
       if (wasActive || completedFileMissing) {
         _items[index] = item.copyWith(status: 'failed', progress: 0);
         changed = true;
@@ -162,7 +174,8 @@ class DownloadsProvider extends ChangeNotifier {
     if (changed) await _persist();
   }
 
-  bool hasServiceTask(String id) => _downloadService.getActiveTasks().containsKey(id);
+  bool hasServiceTask(String id) =>
+      _downloadService.getActiveTasks().containsKey(id);
 
   void _syncFromService(Map<String, AppDownloadTask> tasks) {
     if (!_initialized) return;
@@ -176,7 +189,9 @@ class DownloadsProvider extends ChangeNotifier {
         url: task.isAudioOnly ? task.audioUrl : task.videoUrl,
         sourceUrl: task.sourceUrl ?? current?.sourceUrl,
         size: current?.size ?? 'Unknown',
-        format: '${task.quality} ${task.outputFormat.isEmpty ? task.format : task.outputFormat}'.trim(),
+        format:
+            '${task.quality} ${task.outputFormat.isEmpty ? task.format : task.outputFormat}'
+                .trim(),
         progress: task.progress.clamp(0, 100).toDouble(),
         savedPath: task.savePath,
         isAudioOnly: task.isAudioOnly,
@@ -240,7 +255,8 @@ class DownloadsProvider extends ChangeNotifier {
   Future<bool> resumeDownload(String id) => _downloadService.resumeDownload(id);
   Future<bool> cancelDownload(String id) => _downloadService.cancelDownload(id);
   Future<bool> retryDownload(String id) {
-    if (!_downloadService.getActiveTasks().containsKey(id)) return Future<bool>.value(false);
+    if (!_downloadService.getActiveTasks().containsKey(id))
+      return Future<bool>.value(false);
     return _downloadService.retryDownload(id);
   }
 

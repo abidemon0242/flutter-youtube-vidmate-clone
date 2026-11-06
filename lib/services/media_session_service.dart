@@ -9,7 +9,11 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
     _player.playbackEventStream.listen(
       (_) => _broadcastPlaybackState(),
       onError: (Object error, StackTrace stackTrace) {
-        _logger.e('Audio playback stream error', error: error, stackTrace: stackTrace);
+        _logger.e(
+          'Audio playback stream error',
+          error: error,
+          stackTrace: stackTrace,
+        );
       },
     );
     _player.playerStateStream.listen((_) => _broadcastPlaybackState());
@@ -46,12 +50,14 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
     _externalSeek = onSeek;
     _externalPlaying = playing;
     _externalPosition = position;
-    mediaItem.add(MediaItem(
-      id: 'tube-arena-video:$title',
-      title: title,
-      artist: 'Tube Arena',
-      duration: duration,
-    ));
+    mediaItem.add(
+      MediaItem(
+        id: 'tube-arena-video:$title',
+        title: title,
+        artist: 'Tube Arena',
+        duration: duration,
+      ),
+    );
     _broadcastPlaybackState();
   }
 
@@ -86,12 +92,14 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> setFilePath(String path, {String? title, String? artist}) async {
     final fileTitle = title ?? path.split('/').last;
     final duration = await _player.setFilePath(path);
-    mediaItem.add(MediaItem(
-      id: path,
-      title: fileTitle,
-      artist: artist ?? 'Tube Arena Library',
-      duration: duration,
-    ));
+    mediaItem.add(
+      MediaItem(
+        id: path,
+        title: fileTitle,
+        artist: artist ?? 'Tube Arena Library',
+        duration: duration,
+      ),
+    );
     _broadcastPlaybackState();
   }
 
@@ -107,20 +115,24 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
             ProcessingState.completed => AudioProcessingState.completed,
           };
     final playing = _externalMode ? _externalPlaying : state.playing;
-    playbackState.add(PlaybackState(
-      controls: [
-        playing ? MediaControl.pause : MediaControl.play,
-        MediaControl.stop,
-      ],
-      systemActions: const {MediaAction.seek},
-      androidCompactActionIndices: const [0, 1],
-      processingState: processingState,
-      playing: playing,
-      updatePosition: _externalMode ? _externalPosition : _player.position,
-      bufferedPosition: _externalMode ? _externalPosition : _player.bufferedPosition,
-      speed: _player.speed,
-      queueIndex: 0,
-    ));
+    playbackState.add(
+      PlaybackState(
+        controls: [
+          playing ? MediaControl.pause : MediaControl.play,
+          MediaControl.stop,
+        ],
+        systemActions: const {MediaAction.seek},
+        androidCompactActionIndices: const [0, 1],
+        processingState: processingState,
+        playing: playing,
+        updatePosition: _externalMode ? _externalPosition : _player.position,
+        bufferedPosition: _externalMode
+            ? _externalPosition
+            : _player.bufferedPosition,
+        speed: _player.speed,
+        queueIndex: 0,
+      ),
+    );
   }
 
   @override
@@ -179,7 +191,11 @@ class MediaSessionService {
         _initialization = null;
       }
       _audioHandler = null;
-      logger.e('Error initializing media session', error: error, stackTrace: stackTrace);
+      logger.e(
+        'Error initializing media session',
+        error: error,
+        stackTrace: stackTrace,
+      );
     });
     _initialization = attempt;
     return attempt;
@@ -246,5 +262,6 @@ class MediaSessionService {
     );
   }
 
-  void clearExternalVideoSession() => _audioHandler?.clearExternalVideoSession();
+  void clearExternalVideoSession() =>
+      _audioHandler?.clearExternalVideoSession();
 }

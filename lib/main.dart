@@ -21,7 +21,9 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => DownloadsProvider()..initialize()),
+        ChangeNotifierProvider(
+          create: (_) => DownloadsProvider()..initialize(),
+        ),
         ChangeNotifierProvider<PersonalizationService>.value(value: profile),
         Provider(
           create: (_) => YouTubeRepository(api: YouTubeDataApiService()),
@@ -43,7 +45,9 @@ Future<void> _initializeServices() async {
   try {
     await BackgroundDownloadService().initialize();
   } catch (error, stackTrace) {
-    debugPrint('Background download initialization failed: $error\n$stackTrace');
+    debugPrint(
+      'Background download initialization failed: $error\n$stackTrace',
+    );
   }
 
   try {
