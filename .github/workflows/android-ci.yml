@@ -86,18 +86,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Rebase before staging: Flutter/Gradle may leave generated changes
-          # in the working tree after APK builds.
-          git fetch origin feature/complete-tube-arena
-          git rebase --autostash origin/feature/complete-tube-arena
-
-          git add -A android pubspec.lock
+          # Stage and commit every intentional build output first. This includes
+          # the generated Android scaffold, pubspec.lock, and any Dart files
+          # normalized by dart format. Rebase only after the tree is clean.
+          git add -A
           if git diff --cached --quiet; then
-            echo "Android scaffold and dependency lockfile are already committed."
+            echo "No generated or formatting changes to commit."
             exit 0
           fi
 
-          git commit -m "build(android): commit generated scaffold and dependency lockfile"
+          git commit -m "build(android): commit generated scaffold and lockfile"
+          git pull --rebase origin feature/complete-tube-arena
           git push origin "HEAD:feature/complete-tube-arena"
 
   android-emulator-smoke-test:
