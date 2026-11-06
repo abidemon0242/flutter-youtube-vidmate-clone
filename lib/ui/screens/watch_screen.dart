@@ -28,7 +28,7 @@ class _WatchScreenState extends State<WatchScreen>
   late final VideoPlayerController controller;
   YoutubePlayerController? youtubeController;
   StreamSubscription<YoutubePlayerValue>? _youtubeValueSubscription;
-  StreamSubscription<Duration>? _youtubePositionSubscription;
+  StreamSubscription<YoutubeVideoState>? _youtubePositionSubscription;
   bool _youtubeMediaSessionReady = false;
   bool _youtubeMediaSessionStarting = false;
   late final PersonalizationService profile;
