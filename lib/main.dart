@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'app.dart';
 import 'data/repositories/youtube_repository.dart';
+import 'services/youtube_data_api_service.dart';
 import 'providers/downloads_provider.dart';
 import 'services/ad_blocker_service.dart';
 import 'services/background_download_service.dart';
@@ -22,10 +23,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => DownloadsProvider()..initialize()),
         ChangeNotifierProvider<PersonalizationService>.value(value: profile),
-        Provider(
-          create: (_) => YouTubeRepository(),
-          dispose: (_, repository) => repository.dispose(),
-        ),
+        Provider(create: (_) => YouTubeRepository(api: YouTubeDataApiService())),
         Provider(create: (_) => AdBlockerService()),
         Provider(create: (_) => BackgroundDownloadService()),
         Provider(create: (_) => LocalFileManagerService()),
