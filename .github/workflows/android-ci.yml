@@ -82,17 +82,23 @@ jobs:
       - name: Commit generated Android scaffold and dependency lockfile
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/feature/complete-tube-arena'
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add android pubspec.lock
+
+          # Rebase before staging: Flutter/Gradle may leave generated changes
+          # in the working tree after APK builds.
+          git fetch origin feature/complete-tube-arena
+          git rebase --autostash origin/feature/complete-tube-arena
+
+          git add -A android pubspec.lock
           if git diff --cached --quiet; then
             echo "Android scaffold and dependency lockfile are already committed."
-          else
-            git commit -m "build(android): commit generated scaffold and dependency lockfile"
-            git fetch origin feature/complete-tube-arena
-            git rebase origin/feature/complete-tube-arena
-            git push origin "HEAD:feature/complete-tube-arena"
+            exit 0
           fi
+
+          git commit -m "build(android): commit generated scaffold and dependency lockfile"
+          git push origin "HEAD:feature/complete-tube-arena"
 
   android-emulator-smoke-test:
     name: Install and launch on Android emulator
