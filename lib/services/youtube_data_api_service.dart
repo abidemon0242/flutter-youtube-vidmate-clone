@@ -29,7 +29,7 @@ class YouTubeDataApiService {
     String regionCode = 'BD',
   }) async {
     _requireKey();
-    if (category == 'Live' || category == 'Design' || category == 'Tutorials') {
+    if (category == 'Live' || category == 'Design') {
       final query = switch (category) {
         'Live' => 'live stream',
         'Design' => 'graphic design',
