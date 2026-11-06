@@ -9,6 +9,10 @@ class YouTubeRepository {
 
   bool get isConfigured => _api.isConfigured;
 
+  /// Kept for provider and test lifecycle compatibility. The API service
+  /// creates and closes an HttpClient per request, so there is no open client.
+  void dispose() {}
+
   Future<List<VideoModel>> searchVideos(String query) =>
       _api.searchVideos(query);
 
