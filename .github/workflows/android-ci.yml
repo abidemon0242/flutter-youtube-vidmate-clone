@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   flutter-checks:
@@ -54,7 +54,9 @@ jobs:
         run: flutter test --no-pub --reporter expanded
 
       - name: Build debug APK
-        run: flutter build apk --debug --no-pub
+        run: flutter build apk --debug --no-pub --dart-define=YOUTUBE_DATA_API_KEY="$YOUTUBE_DATA_API_KEY"
+        env:
+          YOUTUBE_DATA_API_KEY: ${{ secrets.YOUTUBE_DATA_API_KEY }}
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -65,7 +67,9 @@ jobs:
           retention-days: 7
 
       - name: Build optimized split release APKs
-        run: flutter build apk --release --split-per-abi --no-pub
+        run: flutter build apk --release --split-per-abi --no-pub --dart-define=YOUTUBE_DATA_API_KEY="$YOUTUBE_DATA_API_KEY"
+        env:
+          YOUTUBE_DATA_API_KEY: ${{ secrets.YOUTUBE_DATA_API_KEY }}
 
       - name: Upload split release APKs
         uses: actions/upload-artifact@v4
@@ -74,6 +78,21 @@ jobs:
           path: build/app/outputs/flutter-apk/*-release.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Commit generated Android scaffold and dependency lockfile
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/feature/complete-tube-arena'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android pubspec.lock
+          if git diff --cached --quiet; then
+            echo "Android scaffold and dependency lockfile are already committed."
+          else
+            git commit -m "build(android): commit generated scaffold and dependency lockfile"
+            git push origin "HEAD:feature/complete-tube-arena"
+          fi
 
   android-emulator-smoke-test:
     name: Install and launch on Android emulator
@@ -163,7 +182,7 @@ jobs:
       - name: Boot emulator, install and launch app
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_2
