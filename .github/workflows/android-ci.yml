@@ -81,8 +81,6 @@ jobs:
 
       - name: Commit generated Android scaffold and dependency lockfile
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/feature/complete-tube-arena'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -124,8 +122,10 @@ jobs:
       - name: Build debug APK for emulator
         run: |
           flutter pub get
-          flutter build apk --debug
+          flutter build apk --debug --dart-define=YOUTUBE_DATA_API_KEY="$YOUTUBE_DATA_API_KEY"
           (cd android && ./gradlew --stop)
+        env:
+          YOUTUBE_DATA_API_KEY: ${{ secrets.YOUTUBE_DATA_API_KEY }}
 
       - name: Prepare emulator smoke-test script
         shell: bash
