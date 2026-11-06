@@ -22,8 +22,8 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 
 ## Known limitations and external dependencies
 
-- Explore uses live public search queries. It is not the official YouTube Trending feed or a personalized YouTube account feed.
-- YouTube watch pages open in the official YouTube app/browser. In-app playback is for supported direct media URLs and local files.
+- The Bangladesh Explore feed uses the official regional YouTube `mostPopular` chart for All, Music, Tech, Movies, Tutorials, News and Gaming. Live and Design use official YouTube search queries, not the most-popular chart. This is not a personalized YouTube account feed.
+- YouTube videos play inside Tube Arena through the official YouTube IFrame Player API. The embedded player is subject to YouTube's availability, playback rules and ad experience.
 - Legacy YouTube stream extraction still depends on a third-party library and can stop working when YouTube changes its delivery system; use only content you are authorized to save and do not treat this as an official YouTube download API.
 - Retry can refresh YouTube streams only when the original YouTube URL was saved. Older task records and generic direct media URLs cannot be re-extracted automatically.
 - The selected quality depends on source availability. Adaptive streams require successful FFmpeg merging; muxed sources may be used when compatible.
@@ -43,6 +43,6 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 
 The Android project scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI uses the same bootstrap script before formatting verification, static analysis, tests, APK builds and an emulator install/launch smoke test. The bootstrap script preserves `android/key.properties` and configures an owner-managed release keystore when present; see [Release signing](docs/RELEASE_SIGNING.md). CI artifacts use debug signing when no publisher key is supplied.
 
-The Android CI job now generates and commits the complete Flutter Android scaffold and resolved `pubspec.lock` back to `feature/complete-tube-arena` after successful build checks. Until that automation commit appears, the scaffold and lockfile are pending.
+The Android CI job generates and commits the complete Flutter Android scaffold and resolved `pubspec.lock` back to `feature/complete-tube-arena` after successful build checks. The API key setup is documented in [YouTube API setup](docs/YOUTUBE_API_SETUP.md).
 
 The emulator smoke test checks installation and launch only. It does not exercise real YouTube extraction, background recovery, FFmpeg encoders, share-sheet transfer or feature-phone compatibility.
