@@ -81,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         feedVideos = results;
         feedLoading = false;
-        feedError = results.isEmpty ? 'No live results were returned. Try another category or refresh.' : null;
+        feedError = results.isEmpty ? 'YouTube returned no videos for this category. Try another category or refresh.' : null;
       });
     } catch (error) {
       if (!mounted || request != _feedRequest) return;
@@ -165,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
         searchResults =
             context.read<PersonalizationService>().rankVideos(found);
       });
-    } catch (_) {
+    } catch (error) {
       if (mounted && request == _searchRequest && term == searchQuery) {
         setState(() {
           searchError = error is YouTubeApiException ? error.message : 'Search is temporarily unavailable. Check your connection.';
