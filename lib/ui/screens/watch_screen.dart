@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -25,6 +27,10 @@ class _WatchScreenState extends State<WatchScreen>
     with WidgetsBindingObserver {
   late final VideoPlayerController controller;
   YoutubePlayerController? youtubeController;
+  StreamSubscription<YoutubePlayerValue>? _youtubeValueSubscription;
+  StreamSubscription<Duration>? _youtubePositionSubscription;
+  bool _youtubeMediaSessionReady = false;
+  bool _youtubeMediaSessionStarting = false;
   late final PersonalizationService profile;
   late final MediaSessionService mediaSession;
 
@@ -61,6 +67,7 @@ class _WatchScreenState extends State<WatchScreen>
           interfaceLanguage: 'en',
         ),
       );
+      _attachYoutubeMediaSession();
       controller = VideoPlayerController.networkUrl(
         Uri.parse(VideoModel.demoPlaybackUrl),
       );
@@ -74,6 +81,77 @@ class _WatchScreenState extends State<WatchScreen>
     }
     controller.addListener(track);
     initialize();
+  }
+
+  void _attachYoutubeMediaSession() {
+    final youtube = youtubeController;
+    if (youtube == null) return;
+
+    _youtubeValueSubscription = youtube.listen((value) {
+      unawaited(_syncYoutubeMediaSession(value));
+    });
+    _youtubePositionSubscription = youtube
+        .getCurrentPositionStream(period: const Duration(seconds: 1))
+        .listen((position) {
+      unawaited(_syncYoutubePosition(position));
+    });
+  }
+
+  Future<void> _syncYoutubeMediaSession(YoutubePlayerValue value) async {
+    final youtube = youtubeController;
+    if (!mounted || youtube == null) return;
+
+    final durationSeconds = await youtube.duration;
+    final currentSeconds = await youtube.currentTime;
+    final duration = Duration(milliseconds: (durationSeconds * 1000).round());
+    final position = Duration(milliseconds: (currentSeconds * 1000).round());
+    final isPlaying = value.playerState == PlayerState.playing;
+
+    if (!_youtubeMediaSessionReady && !_youtubeMediaSessionStarting) {
+      _youtubeMediaSessionStarting = true;
+      try {
+        await mediaSession.setExternalVideoSession(
+          title: widget.video.title,
+          onPlay: () => youtube.playVideo(),
+          onPause: () => youtube.pauseVideo(),
+          onSeek: (target) => youtube.seekTo(
+            seconds: target.inMilliseconds / 1000,
+            allowSeekAhead: true,
+          ),
+          playing: isPlaying,
+          position: position,
+          duration: duration,
+        );
+        _youtubeMediaSessionReady = true;
+      } catch (error) {
+        debugPrint('YouTube media session connection failed: $error');
+      } finally {
+        _youtubeMediaSessionStarting = false;
+      }
+    } else if (_youtubeMediaSessionReady) {
+      mediaSession.updateExternalVideoState(
+        playing: isPlaying,
+        position: position,
+        duration: duration,
+      );
+    }
+
+    if (mounted && playing != isPlaying) {
+      setState(() => playing = isPlaying);
+    }
+  }
+
+  Future<void> _syncYoutubePosition(Duration position) async {
+    final youtube = youtubeController;
+    if (!mounted || youtube == null || !_youtubeMediaSessionReady) return;
+
+    final durationSeconds = await youtube.duration;
+    final state = await youtube.playerState;
+    mediaSession.updateExternalVideoState(
+      playing: state == PlayerState.playing,
+      position: position,
+      duration: Duration(milliseconds: (durationSeconds * 1000).round()),
+    );
   }
 
   void track() {
@@ -335,6 +413,8 @@ class _WatchScreenState extends State<WatchScreen>
     flushWatchTime();
     controller.removeListener(track);
     mediaSession.clearExternalVideoSession();
+    unawaited(_youtubeValueSubscription?.cancel() ?? Future<void>.value());
+    unawaited(_youtubePositionSubscription?.cancel() ?? Future<void>.value());
     youtubeController?.close();
     controller.dispose();
     super.dispose();
