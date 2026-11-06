@@ -276,8 +276,8 @@ class _WatchScreenState extends State<WatchScreen>
       return;
     }
 
-    // YouTube results are handed to the official app/browser. The in-app
-    // player is reserved for direct media URLs such as the bundled demo.
+    // YouTube URLs are rendered by the official iframe player above. The
+    // native Flutter player handles direct media URLs and local files.
     if (_downloadUrlFor(widget.video) != null) {
       if (mounted) setState(() => failed = true);
       return;
