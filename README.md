@@ -14,7 +14,7 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - Wi-Fi-only preference with best-effort network-aware pausing
 - Private local media library with folder creation, browsing, rename, move and safe deletion
 - Local audio/video playback, MP3 extraction and local video/audio merge with H.264/AAC normalization for MP4 compatibility (local merges normalize to H.264/AAC MP4)
-- 3GP conversion preset using H.263 video and AMR-NB audio
+- 3GP conversion preset using QCIF 176×144 H.263 video and AMR-NB audio
 - Share/export of completed downloads through Android's system share sheet
 - Android notification permission request when a batch is started
 - Media notification / lock-screen controls for local audio, local video and the in-app direct-video player
@@ -28,7 +28,7 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - Retry can refresh YouTube streams only when the original YouTube URL was saved. Older task records and generic direct media URLs cannot be re-extracted automatically.
 - The selected quality depends on source availability. Adaptive streams require successful FFmpeg merging; muxed sources may be used when compatible.
 - During adaptive merging the task displays **Merging**. Pause/cancel are unavailable while FFmpeg is processing; delete is disabled to protect files in use.
-- 3GP conversion uses H.263 video and AMR-NB audio. The FFmpeg build must include the required encoders. Older-phone compatibility varies, so test on the exact receiving phone.
+- 3GP conversion uses QCIF 176×144 H.263 video at 15 fps and AMR-NB mono audio. The FFmpeg build must include the required encoders. Older-phone compatibility varies, so test on the exact receiving phone.
 - Downloaded files remain in app-private storage. **Share / export file** opens Android's share sheet; the destination app or transfer method determines whether a feature phone can receive it.
 - Audio-only downloads preserve the available source format. MP3 conversion is a separate local operation.
 - Notification permission is requested when a batch starts on Android. If denied, downloads may still run but notifications can be hidden.
