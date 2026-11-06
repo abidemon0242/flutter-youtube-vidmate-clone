@@ -60,8 +60,12 @@ class YoutubeExtractionService {
       }
 
       logger.i('Extracting metadata from YouTube video: $videoId');
-      final video = await _youtube.videos.get(videoId);
-      final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
+      final video = await _youtube.videos
+          .get(videoId)
+          .timeout(const Duration(seconds: 30));
+      final manifest = await _youtube.videos.streamsClient
+          .getManifest(videoId)
+          .timeout(const Duration(seconds: 30));
       final audioStream = manifest.audioOnly.isNotEmpty
           ? manifest.audioOnly.withHighestBitrate()
           : null;
@@ -94,33 +98,96 @@ class YoutubeExtractionService {
       }
 
       logger.i('Fetching video qualities for: $videoId');
-      final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
-      final audioFallbackUrl = manifest.audioOnly.isNotEmpty
-          ? manifest.audioOnly.withHighestBitrate().url.toString()
-          : '';
-
-      // The package exposes muxed and video-only streams together as manifest.video.
-      final videoStreams = manifest.video.toList()
-        ..sort((a, b) => b.bitrate.compareTo(a.bitrate));
+      final manifest = await _youtube.videos.streamsClient
+          .getManifest(videoId)
+          .timeout(const Duration(seconds: 30));
       final available = <VideoQualityOption>[];
       final seen = <String>{};
 
-      for (final stream in videoStreams) {
-        final quality = stream.qualityLabel.trim();
-        if (quality.isEmpty || !seen.add(quality)) continue;
+      // Adaptive video-only streams provide the higher resolutions. Pair each
+      // with an audio-only stream in the same container so FFmpeg can mux them
+      // without silently changing the requested output format.
+      final videoOnly = manifest.videoOnly.toList()
+        ..sort((a, b) {
+          final height = b.videoResolution.height.compareTo(
+            a.videoResolution.height,
+          );
+          if (height != 0) return height;
+          return b.bitrate.compareTo(a.bitrate);
+        });
 
-        available.add(VideoQualityOption(
-          quality: quality,
-          format: stream.container.name.toUpperCase(),
-          fileSize: _formatBytes(stream.size.totalBytes),
-          videoUrl: stream.url.toString(),
-          audioUrl: audioFallbackUrl,
-          fps: stream.framerate.framesPerSecond.toInt(),
-          bitrate: _formatBitrate(stream.bitrate),
-        ));
+      for (final stream in videoOnly) {
+        final quality = stream.qualityLabel.trim();
+        final format = stream.container.name.toUpperCase();
+        if (quality.isEmpty) continue;
+
+        final compatibleAudio =
+            manifest.audioOnly
+                .where((audio) => audio.container == stream.container)
+                .toList()
+              ..sort((a, b) => b.bitrate.compareTo(a.bitrate));
+        if (compatibleAudio.isEmpty) continue;
+        final audio = compatibleAudio.first;
+        final key = '$format-$quality';
+        if (!seen.add(key)) continue;
+
+        final videoBytes = stream.size.totalBytes;
+        final audioBytes = audio.size.totalBytes;
+        available.add(
+          VideoQualityOption(
+            quality: quality,
+            format: format,
+            fileSize: _formatBytes(videoBytes + audioBytes),
+            videoUrl: stream.url.toString(),
+            audioUrl: audio.url.toString(),
+            fps: stream.framerate.framesPerSecond.toInt(),
+            bitrate: _formatBitrate(stream.bitrate),
+          ),
+        );
       }
 
-      logger.i('Found ${available.length} real video quality options');
+      // Retain muxed streams as a fallback for resolutions that have no
+      // compatible adaptive audio/video pair.
+      final muxedStreams = manifest.muxed.toList()
+        ..sort((a, b) {
+          final height = b.videoResolution.height.compareTo(
+            a.videoResolution.height,
+          );
+          if (height != 0) return height;
+          return b.bitrate.compareTo(a.bitrate);
+        });
+      for (final stream in muxedStreams) {
+        final quality = stream.qualityLabel.trim();
+        final format = stream.container.name.toUpperCase();
+        if (quality.isEmpty || !seen.add('$format-$quality')) continue;
+        available.add(
+          VideoQualityOption(
+            quality: quality,
+            format: format,
+            fileSize: _formatBytes(stream.size.totalBytes),
+            videoUrl: stream.url.toString(),
+            audioUrl: '',
+            fps: stream.framerate.framesPerSecond.toInt(),
+            bitrate: _formatBitrate(stream.bitrate),
+          ),
+        );
+      }
+
+      available.sort((a, b) {
+        final aHeight =
+            int.tryParse(
+              RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '',
+            ) ??
+            0;
+        final bHeight =
+            int.tryParse(
+              RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '',
+            ) ??
+            0;
+        if (aHeight != bHeight) return bHeight.compareTo(aHeight);
+        return b.fps.compareTo(a.fps);
+      });
+      logger.i('Found ${available.length} compatible video quality options');
       return available;
     } catch (e) {
       logger.e('Error fetching video qualities: $e');
@@ -136,7 +203,9 @@ class YoutubeExtractionService {
       }
 
       logger.i('Fetching audio qualities for: $videoId');
-      final manifest = await _youtube.videos.streamsClient.getManifest(videoId);
+      final manifest = await _youtube.videos.streamsClient
+          .getManifest(videoId)
+          .timeout(const Duration(seconds: 30));
       final audioStreams = manifest.audioOnly.toList();
       if (audioStreams.isEmpty) return const [];
 
@@ -150,12 +219,14 @@ class YoutubeExtractionService {
         final format = stream.container.name.toUpperCase();
         if (!seen.add('$format-$bitrateLabel')) continue;
 
-        options.add(AudioQualityOption(
-          format: format,
-          bitrate: bitrateLabel,
-          fileSize: _formatBytes(stream.size.totalBytes),
-          audioUrl: stream.url.toString(),
-        ));
+        options.add(
+          AudioQualityOption(
+            format: format,
+            bitrate: bitrateLabel,
+            fileSize: _formatBytes(stream.size.totalBytes),
+            audioUrl: stream.url.toString(),
+          ),
+        );
         if (options.length >= 5) break;
       }
 
@@ -170,11 +241,23 @@ class YoutubeExtractionService {
   String? _extractVideoId(String url) {
     final trimmed = url.trim();
     if (RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(trimmed)) return trimmed;
-    final normalized = trimmed.startsWith('http') ? trimmed : 'https://$trimmed';
+    final normalized = trimmed.startsWith('http')
+        ? trimmed
+        : 'https://$trimmed';
     final uri = Uri.tryParse(normalized);
-    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https') || uri.userInfo.isNotEmpty) return null;
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.userInfo.isNotEmpty)
+      return null;
     final host = uri.host.toLowerCase();
-    const hosts = {'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be', 'www.youtu.be'};
+    const hosts = {
+      'youtube.com',
+      'www.youtube.com',
+      'm.youtube.com',
+      'music.youtube.com',
+      'youtu.be',
+      'www.youtu.be',
+    };
     if (!hosts.contains(host)) return null;
     String? candidate;
     if (host == 'youtu.be' || host == 'www.youtu.be') {
@@ -183,10 +266,15 @@ class YoutubeExtractionService {
       candidate = uri.queryParameters['v'];
       if (candidate == null || candidate.isEmpty) {
         final segments = uri.pathSegments;
-        if (segments.length >= 2 && {'shorts', 'embed', 'live'}.contains(segments[0])) candidate = segments[1];
+        if (segments.length >= 2 &&
+            {'shorts', 'embed', 'live'}.contains(segments[0]))
+          candidate = segments[1];
       }
     }
-    return candidate != null && RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(candidate) ? candidate : null;
+    return candidate != null &&
+            RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(candidate)
+        ? candidate
+        : null;
   }
 
   String _formatDuration(Duration duration) {

@@ -9,6 +9,8 @@ class FolderCard extends StatelessWidget {
     required this.fileCount,
     required this.onTap,
     required this.onLongPress,
+    required this.onRename,
+    required this.onDelete,
     this.isSelected = false,
   });
 
@@ -16,6 +18,8 @@ class FolderCard extends StatelessWidget {
   final int fileCount;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
+  final VoidCallback onRename;
+  final VoidCallback onDelete;
   final bool isSelected;
 
   @override
@@ -25,7 +29,9 @@ class FolderCard extends StatelessWidget {
       onLongPress: onLongPress,
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryStart.withValues(alpha: 0.2) : AppColors.card,
+          color: isSelected
+              ? AppColors.primaryStart.withValues(alpha: 0.2)
+              : AppColors.card,
           borderRadius: BorderRadius.circular(18),
           border: isSelected
               ? Border.all(color: AppColors.primaryStart, width: 2)
@@ -44,7 +50,10 @@ class FolderCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   folderName,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
@@ -57,19 +66,27 @@ class FolderCard extends StatelessWidget {
                 ),
               ],
             ),
+            Positioned(
+              top: 0,
+              right: 0,
+              child: PopupMenuButton<String>(
+                tooltip: 'Folder actions',
+                onSelected: (action) {
+                  if (action == 'rename') onRename();
+                  if (action == 'delete') onDelete();
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'rename', child: Text('Rename')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                ],
+                icon: const Icon(Icons.more_vert, size: 20),
+              ),
+            ),
             if (isSelected)
               Positioned(
                 top: 8,
-                right: 8,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryStart,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.check, size: 14, color: Colors.white),
-                ),
+                left: 8,
+                child: Icon(Icons.check_circle, color: AppColors.primaryStart),
               ),
           ],
         ),

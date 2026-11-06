@@ -1,34 +1,28 @@
 # Tube Arena — Quick Start
 
-Tube Arena is currently an **Android-first Flutter prototype**. A browser/web preview is not a supported run target because the project includes native Android media plugins.
+Tube Arena is an Android-first Flutter app. The Android scaffold is generated locally or in CI with `bash tool/bootstrap_android.sh`.
 
-## Get an Android debug build
+## Build and install
 
-1. Open the repository's **Actions** tab.
-2. Open a completed **Tube Arena Android CI** run.
-3. In the **Flutter analyze, tests and Android build** job, check that analysis, tests and APK build passed.
-4. Download the `tube-arena-debug-apk` artifact if it is available.
-5. Transfer the APK to your Android device and install it.
+1. Install Flutter stable and Android SDK tools.
+2. Run `bash tool/bootstrap_android.sh` from the repository root.
+3. Run `flutter pub get`.
+4. Build with `flutter build apk --debug`, or download a debug APK artifact from GitHub Actions.
+5. Install on Android and test downloads, background behavior, playback, 3GP conversion and file sharing.
 
-The emulator smoke-test job is a separate check. An APK artifact may exist even if that later smoke test fails; check the individual job results.
+Check both the Flutter build/test job and the separate emulator smoke-test job. The emulator job verifies install and launch, not all app workflows.
 
-## Build locally
+## Current feature boundaries
 
-With Flutter and the Android SDK installed:
+- Explore uses live public YouTube search results, not official Trending.
+- YouTube watch pages open in the official YouTube app/browser.
+- Batch downloads use selectable video resolution and audio bitrate limits, and FFmpeg for adaptive stream merging.
+- Retry refreshes YouTube stream URLs for tasks that saved the original source URL. Older records and generic direct URLs cannot be refreshed.
+- The Downloads screen provides **Share / export file** for completed files. Files are stored privately and shared through Android's share sheet.
+- 3GP conversion uses H.263/AMR-NB; codec and feature-phone compatibility vary.
+- The app requests notification permission when starting a batch. Downloads may continue if permission is denied, but notifications can be hidden.
+- FFmpeg merge is shown as a separate processing state. Pause/cancel are unavailable during processing.
+- Wi-Fi-only is best-effort pausing, not a system-level data block.
+- Ad/tracker URL classification does not intercept traffic or remove YouTube ads.
 
-```bash
-flutter pub get
-dart format lib test
-flutter analyze
-flutter test
-flutter build apk --debug
-```
-
-## Current prototype scope
-
-- Mock video feed, local search and category filtering
-- Sample network video playback
-- Local folder creation and browsing
-- Downloads list UI and safe file-record deletion
-
-Real YouTube downloads, download progress callbacks, network ad interception, and player-connected lock-screen controls are **not yet integrated end-to-end**. See [README.md](README.md) for details.
+See README.md for full limitations and release requirements.

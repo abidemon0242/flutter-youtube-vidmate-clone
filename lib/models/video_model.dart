@@ -28,7 +28,8 @@ class VideoModel {
 
   static const demo = VideoModel(
     id: 'demo1',
-    title: 'Tube Arena Launch Demo - Build an app that feels exactly like YouTube',
+    title:
+        'Tube Arena Launch Demo - Build an app that feels exactly like YouTube',
     channelName: 'Tube Arena',
     views: '2.4M views',
     duration: '12:45',

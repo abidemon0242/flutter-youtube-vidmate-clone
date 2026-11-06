@@ -36,26 +36,34 @@ class VideoCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: CachedNetworkImage(
-                    imageUrl: video.thumbnailUrl,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: 220,
-                    placeholder: (context, url) => Container(
-                      color: AppColors.card,
-                      height: 220,
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppColors.card,
-                      child: const Icon(Icons.broken_image_outlined),
-                    ),
-                  ),
+                  child: video.thumbnailUrl.isEmpty
+                      ? Container(
+                          color: AppColors.card,
+                          width: double.infinity,
+                          height: 220,
+                          child: const Icon(Icons.video_library_outlined),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: video.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: 220,
+                          placeholder: (context, url) =>
+                              Container(color: AppColors.card, height: 220),
+                          errorWidget: (context, url, error) => Container(
+                            color: AppColors.card,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
+                        ),
                 ),
                 Positioned(
                   right: 10,
                   bottom: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(8),
@@ -80,12 +88,18 @@ class VideoCard extends StatelessWidget {
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primaryStart : Colors.black.withValues(alpha: 0.6),
+                          color: isSelected
+                              ? AppColors.primaryStart
+                              : Colors.black.withValues(alpha: 0.6),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: Colors.white, width: 2),
                         ),
                         child: isSelected
-                            ? const Icon(Icons.check, color: Colors.white, size: 18)
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 18,
+                              )
                             : null,
                       ),
                     ),
@@ -99,7 +113,12 @@ class VideoCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundImage: CachedNetworkImageProvider(video.channelAvatar),
+                    backgroundImage: video.channelAvatar.isEmpty
+                        ? null
+                        : CachedNetworkImageProvider(video.channelAvatar),
+                    child: video.channelAvatar.isEmpty
+                        ? const Icon(Icons.person_outline, size: 20)
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -128,7 +147,11 @@ class VideoCard extends StatelessWidget {
                             ),
                             if (video.isVerified) ...[
                               const SizedBox(width: 6),
-                              const Icon(Icons.verified, size: 12, color: AppColors.primaryStart),
+                              const Icon(
+                                Icons.verified,
+                                size: 12,
+                                color: AppColors.primaryStart,
+                              ),
                             ],
                           ],
                         ),

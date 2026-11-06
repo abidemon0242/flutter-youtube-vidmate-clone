@@ -1,48 +1,33 @@
 # Tube Arena — Android Setup Guide
 
-Tube Arena is an Android-first Flutter prototype. The repository does not currently provide a supported web build; native media plugins are part of the app.
+## Build and install
 
-## Option 1: Download the CI debug APK
+1. Install Flutter stable and Android SDK tools.
+2. Run `bash tool/bootstrap_android.sh` from the repository root to generate the Android Gradle project.
+3. Run `flutter pub get`.
+4. Build with `flutter build apk --debug`, or download a debug APK artifact from GitHub Actions.
+5. Install on the target Android phone and test downloads, background behavior, playback, conversion and file export.
 
-1. Open the repository on GitHub.
-2. Select **Actions** and open a recent **Tube Arena Android CI** run.
-3. Inspect the **Flutter analyze, tests and Android build** job.
-4. If the APK build step succeeded, download the `tube-arena-debug-apk` artifact.
-5. Move the APK to your Android device and install it.
+The CI emulator test verifies installation and launch only. It does not verify live YouTube extraction, FFmpeg codec availability, or feature-phone compatibility.
 
-The separate emulator smoke test checks whether the generated APK installs and launches. Review that job independently from the APK build.
+## Implemented workflows
 
-## Option 2: Build on a computer
+- Live public YouTube search; results open in the official YouTube app/browser.
+- Batch downloads for content you own or are authorized to save, with available quality selection, progress, pause/resume/cancel/retry and persistent history.
+- YouTube stream URLs are refreshed on retry for tasks that retain their original source URL. Older task records and direct media URLs cannot be refreshed automatically.
+- 3GP conversion uses H.263 video and AMR-NB audio.
+- Completed downloads can be shared/exported using **Share / export file** in Downloads.
+- Local folders, file browsing, rename, move and safe deletion.
+- Local audio/video playback, MP3 extraction, video/audio merge and media-session controls.
+- Android notification permission is requested when starting a batch. If denied, downloads may run without visible notifications.
 
-Install Flutter, Android Studio and the Android SDK, then run:
+## Known limitations
 
-```bash
-flutter doctor
-flutter pub get
-dart format lib test
-flutter analyze
-flutter test
-flutter build apk --debug
-```
+- Downloaded files are stored in app-private storage; the share sheet is the supported transfer route.
+- Actual 3GP compatibility depends on the FFmpeg encoders in the build and the receiving phone.
+- Adaptive merge is a processing state; pause/cancel are disabled during FFmpeg execution.
+- Wi-Fi-only behavior is best-effort; Android may suspend the app and delay connectivity events.
+- Ad/tracker URL classification does not intercept YouTube traffic or remove YouTube ads.
+- Production release signing must be configured with a private key owned by the app publisher. No signing key is included in this repository.
 
-The debug APK is written to:
-
-```
-build/app/outputs/flutter-apk/app-debug.apk
-```
-
-## What currently works
-
-- Mock video feed, category filtering and local search
-- Sample network video playback
-- Local folder creation and browsing
-- Basic Home, Watch, Downloads and Library navigation
-
-## Not yet connected end-to-end
-
-- Real YouTube downloading from the app UI
-- Automatic background-download progress/status callbacks
-- Ad/tracker network interception
-- Lock-screen media controls connected to the video player
-
-The extraction, FFmpeg, download and media-session classes are service foundations only. Do not treat them as complete user-facing features yet.
+See README.md for the full technical boundaries and release requirements.
