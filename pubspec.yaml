@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.10.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -25,6 +25,7 @@ dependencies:
   flutter_downloader: ^1.11.0
   ffmpeg_kit_flutter_new_full: ^2.5.7
   youtube_explode_dart: ^2.2.0
+  youtube_player_iframe: ^6.0.2
   logger: ^2.0.0
 
 dev_dependencies:
