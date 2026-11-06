@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../data/repositories/youtube_repository.dart';
 import '../../models/video_model.dart';
 import '../../services/personalization_service.dart';
+import '../../services/youtube_data_api_service.dart';
 import '../widgets/video_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -86,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted || request != _feedRequest) return;
       setState(() {
         feedLoading = false;
-        feedError = 'Could not load live videos. Check your connection and try again.';
+        feedError = error is YouTubeApiException ? error.message : 'Could not load YouTube videos. Check your connection and try again.';
       });
     }
   }
@@ -167,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       if (mounted && request == _searchRequest && term == searchQuery) {
         setState(() {
-          searchError = 'Search is temporarily unavailable. Check your connection.';
+          searchError = error is YouTubeApiException ? error.message : 'Search is temporarily unavailable. Check your connection.';
         });
       }
     } finally {
