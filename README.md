@@ -4,8 +4,8 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 
 ## Implemented app features
 
-- Live public YouTube search-based Explore feed by category (not the official YouTube Trending API)
-- YouTube watch-page handoff to the official YouTube app/browser; supported direct media URLs can play inside Tube Arena
+- Official YouTube Data API v3 regional `mostPopular` chart for Bangladesh, plus official YouTube Data API search for query and special categories (requires a restricted API key)
+- YouTube videos play inside Tube Arena through the official YouTube IFrame Player API; direct media URLs and local files use the native Flutter player
 - Category filtering, live search, and on-device recommendation ranking with local consent controls
 - Batch download queue for media the user owns or is authorized to save
 - Available video/audio quality selection, adaptive stream pairing, FFmpeg merge, progress, pause/resume/cancel/retry
@@ -24,7 +24,7 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 
 - Explore uses live public search queries. It is not the official YouTube Trending feed or a personalized YouTube account feed.
 - YouTube watch pages open in the official YouTube app/browser. In-app playback is for supported direct media URLs and local files.
-- YouTube stream extraction depends on a third-party library and can stop working when YouTube changes its delivery system.
+- Legacy YouTube stream extraction still depends on a third-party library and can stop working when YouTube changes its delivery system; use only content you are authorized to save and do not treat this as an official YouTube download API.
 - Retry can refresh YouTube streams only when the original YouTube URL was saved. Older task records and generic direct media URLs cannot be re-extracted automatically.
 - The selected quality depends on source availability. Adaptive streams require successful FFmpeg merging; muxed sources may be used when compatible.
 - During adaptive merging the task displays **Merging**. Pause/cancel are unavailable while FFmpeg is processing; delete is disabled to protect files in use.
@@ -33,9 +33,9 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - Audio-only downloads preserve the available source format. MP3 conversion is a separate local operation.
 - Notification permission is requested when a batch starts on Android. If denied, downloads may still run but notifications can be hidden.
 - Wi-Fi-only behavior is best-effort network-aware pausing, not a system-level mobile-data firewall. Android may delay connectivity events while the app is suspended.
-- Ad/tracker URL classification is not a network interceptor and does not remove YouTube ads.
-- The in-app player cannot switch quality unless the supplied source exposes selectable variants.
-- Public playlist import requires a YouTube Data API key. A key embedded in a client app can be extracted; restrict it to the Android application/package and relevant API, or use a trusted backend. Private playlist access is not implemented.
+- The app does not block YouTube ads or interfere with the official YouTube player. Ad/tracker URL classification is not a network interceptor; it must not be presented as network-level ad blocking.
+- The official YouTube embedded player manages quality itself and may expose YouTube's own quality menu when available; the IFrame API does not let Tube Arena force a fixed YouTube stream quality. Direct media playback cannot switch quality unless the source exposes selectable variants.
+- Official trending, search and public playlist import require a YouTube Data API key. A key embedded in an APK can be extracted; restrict it to Android package `com.tubearena.app`, its signing certificate SHA-1, and the YouTube Data API. Private playlists require a separate Google OAuth consent flow and are not enabled.
 - No production signing key is included. Release builds must be signed with a key controlled by the app owner before distribution.
 - A successful build does not prove every network, codec, notification or device-specific workflow. Real-device testing remains necessary.
 
@@ -43,6 +43,6 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 
 The Android project scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI uses the same bootstrap script before formatting verification, static analysis, tests, APK builds and an emulator install/launch smoke test. The bootstrap script preserves `android/key.properties` and configures an owner-managed release keystore when present; see [Release signing](docs/RELEASE_SIGNING.md). CI artifacts use debug signing when no publisher key is supplied.
 
-The bootstrap-generated Android project is not currently committed as a complete native scaffold. The generated files are local build output. The repository does not yet pin the complete dependency graph with a committed `pubspec.lock`; dependency resolution may therefore change between builds.
+The Android CI job now generates and commits the complete Flutter Android scaffold and resolved `pubspec.lock` back to `feature/complete-tube-arena` after successful build checks. Until that automation commit appears, the scaffold and lockfile are pending.
 
 The emulator smoke test checks installation and launch only. It does not exercise real YouTube extraction, background recovery, FFmpeg encoders, share-sheet transfer or feature-phone compatibility.
