@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import '../../models/video_model.dart';
+import '../models/video_model.dart';
 
 class YouTubeApiException implements Exception {
   const YouTubeApiException(this.message);
