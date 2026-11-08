@@ -41,20 +41,7 @@ void main() {
   group('YouTubeRepository', () {
     test('provides supported live-feed categories', () {
       final repository = YouTubeRepository();
-      expect(
-        repository.getCategories(),
-        containsAll([
-          'All',
-          'Music',
-          'Tech',
-          'Movies',
-          'Tutorials',
-          'Live',
-          'News',
-          'Gaming',
-          'Design',
-        ]),
-      );
+      expect(repository.getCategories(), ['All', 'Subscriptions']);
       repository.dispose();
     });
   });
