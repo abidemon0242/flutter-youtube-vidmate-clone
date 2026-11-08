@@ -6,7 +6,6 @@ import '../../core/constants/app_colors.dart';
 import '../../data/repositories/youtube_repository.dart';
 import '../../models/video_model.dart';
 import '../../services/personalization_service.dart';
-import '../../services/youtube_data_api_service.dart';
 import '../widgets/video_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -76,22 +75,25 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
     try {
-      final results = await repository.getFeedVideos(category: category);
+      final profile = context.read<PersonalizationService>();
+      final subscribed = await profile.refreshChannelFeeds();
+      final results = repository.getFeedVideos(
+        category: category,
+        subscribedVideos: subscribed,
+      );
       if (!mounted || request != _feedRequest) return;
       setState(() {
         feedVideos = results;
         feedLoading = false;
         feedError = results.isEmpty
-            ? 'YouTube returned no videos for this category. Try another category or refresh.'
+            ? 'No channel videos yet. Add a YouTube channel from the RSS button above.'
             : null;
       });
     } catch (error) {
       if (!mounted || request != _feedRequest) return;
       setState(() {
         feedLoading = false;
-        feedError = error is YouTubeApiException
-            ? error.message
-            : 'Could not load YouTube videos. Check your connection and try again.';
+        feedError = error.toString().replaceFirst('YouTubeRssException: ', '');
       });
     }
   }
@@ -163,7 +165,18 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final found = await repository.searchVideos(term);
+      final profile = context.read<PersonalizationService>();
+      final available = <String, VideoModel>{};
+      for (final video in [
+        ...feedVideos,
+        ...profile.playlists.expand((channel) => channel.videos),
+      ]) {
+        available.putIfAbsent(video.id, () => video);
+      }
+      final found = await repository.searchVideos(
+        term,
+        availableVideos: available.values.toList(),
+      );
       if (!mounted || request != _searchRequest || term != searchQuery) return;
       setState(() {
         searchResults = context.read<PersonalizationService>().rankVideos(
@@ -173,9 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       if (mounted && request == _searchRequest && term == searchQuery) {
         setState(() {
-          searchError = error is YouTubeApiException
-              ? error.message
-              : 'Search is temporarily unavailable. Check your connection.';
+          searchError = 'Search covers your subscribed channel videos only. Add or refresh channels to expand results.';
         });
       }
     } finally {
@@ -228,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'The selected demo items have no YouTube source URL. Select live search results or add links manually.',
+            'YouTube videos cannot be downloaded from their watch-page links. Add an authorized direct media-file URL instead.',
           ),
         ),
       );
@@ -254,9 +265,9 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Tube Arena'),
         actions: [
           IconButton(
-            tooltip: 'Import playlist',
+            tooltip: 'Add YouTube channel',
             onPressed: () => context.push('/playlists'),
-            icon: const Icon(Icons.playlist_add),
+            icon: const Icon(Icons.rss_feed),
           ),
           IconButton(
             tooltip: 'Personalization & privacy',
@@ -277,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
               PopupMenuItem(value: 'links', child: Text('Add media links')),
               PopupMenuItem(value: 'downloads', child: Text('Downloads')),
               PopupMenuItem(value: 'library', child: Text('Library')),
-              PopupMenuItem(value: 'playlists', child: Text('Import playlist')),
+              PopupMenuItem(value: 'playlists', child: Text('Add YouTube channel')),
               PopupMenuItem(
                 value: 'privacy',
                 child: Text('Personalization & privacy'),
