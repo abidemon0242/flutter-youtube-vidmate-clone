@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:xml/xml.dart';
@@ -57,38 +58,31 @@ class YouTubeChannelRssService {
     } on XmlException {
       throw const YouTubeRssException('YouTube returned an invalid channel feed.');
     }
-    final feedTitle = document
-        .findAllElements('title', namespace: _atom)
-        .firstOrNull
-        ?.innerText
-        .trim();
-    final author = document
-        .findAllElements('author', namespace: _atom)
-        .firstOrNull;
-    final channelName = author
-            ?.findElements('name', namespace: _atom)
-            .firstOrNull
+    final feedTitle = _firstElement(
+      document.findAllElements('title', namespace: _atom),
+    )?.innerText.trim();
+    final author = _firstElement(
+      document.findAllElements('author', namespace: _atom),
+    );
+    final channelName = _firstElement(
+              author?.findElements('name', namespace: _atom) ?? const <XmlElement>[],
+            )
             ?.innerText
             .trim() ??
         feedTitle ??
         'YouTube channel';
     final videos = <VideoModel>[];
     for (final entry in document.findAllElements('entry', namespace: _atom)) {
-      final id = entry
-          .findElements('videoId', namespace: _youtube)
-          .firstOrNull
-          ?.innerText
-          .trim();
+      final id = _firstElement(
+        entry.findElements('videoId', namespace: _youtube),
+      )?.innerText.trim();
       if (id == null || !RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(id)) continue;
-      final title = entry
-          .findElements('title', namespace: _atom)
-          .firstOrNull
-          ?.innerText
-          .trim();
-      final published = entry
-          .findElements('published', namespace: _atom)
-          .firstOrNull
-          ?.innerText;
+      final title = _firstElement(
+        entry.findElements('title', namespace: _atom),
+      )?.innerText.trim();
+      final published = _firstElement(
+        entry.findElements('published', namespace: _atom),
+      )?.innerText;
       videos.add(VideoModel(
         id: id,
         title: title?.isNotEmpty == true ? title! : 'YouTube video',
@@ -104,6 +98,9 @@ class YouTubeChannelRssService {
     }
     return videos;
   }
+
+  XmlElement? _firstElement(Iterable<XmlElement> elements) =>
+      elements.isEmpty ? null : elements.first;
 
   String _relativeDate(String value) {
     final date = DateTime.tryParse(value)?.toLocal();
@@ -122,7 +119,7 @@ class YouTubeChannelRssService {
       request.headers.set(HttpHeaders.acceptHeader, 'application/atom+xml, application/xml, text/xml');
       request.headers.set(HttpHeaders.userAgentHeader, 'TubeArena/1.0');
       final response = await request.close().timeout(const Duration(seconds: 18));
-      final body = await response.transform(const SystemEncoding().decoder).join();
+      final body = await response.transform(utf8.decoder).join();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw YouTubeRssException('Channel feed request failed (HTTP ${response.statusCode}).');
       }
