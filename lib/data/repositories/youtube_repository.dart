@@ -3,6 +3,8 @@ import '../../models/video_model.dart';
 class YouTubeRepository {
   const YouTubeRepository();
 
+  void dispose() {}
+
   List<VideoModel> getFeedVideos({
     required List<VideoModel> subscribedVideos,
     String category = 'All',
