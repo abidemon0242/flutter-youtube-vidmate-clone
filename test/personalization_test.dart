@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/services/personalization_service.dart';
+import 'package:tube_arena/services/youtube_rss_service.dart';
 
 void main() {
   late Directory temp;
@@ -18,6 +19,32 @@ void main() {
     profile.dispose();
     await temp.delete(recursive: true);
   });
+
+  test('channel subscriptions work without personalization consent', () async {
+    const xml = '''
+      <feed xmlns="http://www.w3.org/2005/Atom"
+            xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+        <title>Creator</title>
+        <author><name>Creator</name></author>
+        <entry><yt:videoId>abcdefghijk</yt:videoId><title>Upload</title></entry>
+      </feed>
+    ''';
+    profile.dispose();
+    profile = PersonalizationService(
+      directoryResolver: () async => temp,
+      rssService: YouTubeChannelRssService(loader: (_) async => xml),
+    );
+    await profile.initialize();
+    await profile.setConsent(false);
+    final channel = await profile.addChannelFeed(
+      'https://www.youtube.com/channel/UC0123456789012345678901',
+    );
+    expect(channel.videos.single.id, 'abcdefghijk');
+    expect(profile.playlists, hasLength(1));
+    await profile.clearActivity();
+    expect(profile.playlists, hasLength(1));
+  });
+
   test('search and likes improve ranking of related content', () async {
     await profile.record(type: 'search', query: 'Flutter programming');
     const liked = VideoModel(
