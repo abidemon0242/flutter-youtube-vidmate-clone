@@ -208,23 +208,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String? _downloadUrlFor(VideoModel video) {
-    final uri = Uri.tryParse(video.playbackUrl);
-    const hosts = {
-      'youtube.com',
-      'www.youtube.com',
-      'm.youtube.com',
-      'music.youtube.com',
-      'youtu.be',
-      'www.youtu.be',
-    };
-    if (uri != null &&
-        (uri.scheme == 'http' || uri.scheme == 'https') &&
-        hosts.contains(uri.host.toLowerCase())) {
-      return uri.toString();
-    }
-    if (RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(video.id)) {
-      return 'https://www.youtube.com/watch?v=' + video.id;
-    }
+    // YouTube watch pages are not direct downloadable media URLs.
+    // The download flow accepts only authorized direct media-file links.
     return null;
   }
 
