@@ -123,10 +123,17 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (dialog) => AlertDialog(
         title: const Text('Search videos'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          onSubmitted: (value) => Navigator.pop(dialog, value),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Search checks recent videos from your subscribed public channels only.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              onSubmitted: (value) => Navigator.pop(dialog, value),
+            ),
+          ],
         ),
         actions: [
           TextButton(
