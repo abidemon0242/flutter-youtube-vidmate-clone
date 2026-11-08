@@ -367,7 +367,6 @@ class PersonalizationService extends ChangeNotifier {
 
   Future<void> clearActivity() async {
     _events.clear();
-    _playlists.clear();
     notifyListeners();
     await _persist();
   }
