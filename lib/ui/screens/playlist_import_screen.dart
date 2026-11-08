@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../services/personalization_service.dart';
 
 class PlaylistImportScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
   final controller = TextEditingController();
   bool loading = false;
   String? error;
+
   Future<void> import() async {
     FocusScope.of(context).unfocus();
     setState(() {
@@ -19,18 +21,14 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
       error = null;
     });
     try {
-      final p = await context.read<PersonalizationService>().importPlaylist(
-        controller.text,
-      );
+      final channel = await context
+          .read<PersonalizationService>()
+          .addChannelFeed(controller.text);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Imported ' +
-                p.title +
-                ' (' +
-                p.videos.length.toString() +
-                ' videos)',
+            'Added ${channel.title} (${channel.videos.length} recent videos)',
           ),
         ),
       );
@@ -38,7 +36,7 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
     } on PlaylistImportException catch (e) {
       if (mounted) setState(() => error = e.message);
     } catch (_) {
-      if (mounted) setState(() => error = 'Playlist import failed. Try again.');
+      if (mounted) setState(() => error = 'Could not add this channel. Try again.');
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -52,29 +50,33 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.watch<PersonalizationService>();
+    final profile = context.watch<PersonalizationService>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Import YouTube playlist')),
+      appBar: AppBar(title: const Text('YouTube channel subscriptions')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Icon(Icons.playlist_add, size: 52),
+          const Icon(Icons.rss_feed, size: 52),
           const SizedBox(height: 12),
           Text(
-            'Personalize your feed',
+            'Build a live feed without an API key',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
           const Text(
-            'Paste a public YouTube playlist link. Tube Arena reads playlist and video metadata through the official YouTube Data API.',
+            'Add a public YouTube channel using its /channel/UC… address or its RSS feed URL. Tube Arena reads recent public uploads from YouTube channel RSS. Global YouTube search, trending, private channels and playlist import are not provided by this no-key method.',
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Supported examples:\nhttps://www.youtube.com/channel/UC…\nhttps://www.youtube.com/feeds/videos.xml?channel_id=UC…',
           ),
           const SizedBox(height: 20),
           TextField(
             controller: controller,
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
-              labelText: 'Playlist URL',
-              hintText: 'https://www.youtube.com/playlist?list=...',
+              labelText: 'Channel or RSS URL',
+              hintText: 'https://www.youtube.com/channel/UC…',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.link),
             ),
@@ -88,8 +90,8 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.download),
-            label: Text(loading ? 'Importing…' : 'Import playlist'),
+                : const Icon(Icons.add),
+            label: Text(loading ? 'Adding channel…' : 'Add channel'),
           ),
           if (error != null) ...[
             const SizedBox(height: 12),
@@ -100,30 +102,39 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
           ],
           const SizedBox(height: 24),
           Text(
-            'Imported playlists (' + p.playlists.length.toString() + ')',
+            'Your channels (${profile.playlists.length})',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          if (p.playlists.isEmpty)
-            const Text('No playlists imported yet.')
+          if (profile.playlists.isEmpty)
+            const Text('No channels added yet.')
           else
-            ...p.playlists.map(
-              (x) => Card(
+            ...profile.playlists.map(
+              (channel) => Card(
                 child: ListTile(
-                  leading: const Icon(Icons.queue_music),
-                  title: Text(x.title),
+                  leading: const Icon(Icons.subscriptions_outlined),
+                  title: Text(channel.title),
                   subtitle: Text(
-                    x.channel + ' • ' + x.videos.length.toString() + ' videos',
+                    '${channel.videos.length} recent videos',
                   ),
                   trailing: IconButton(
+                    tooltip: 'Remove channel',
                     icon: const Icon(Icons.delete_outline),
-                    onPressed: () => p.removePlaylist(x.id),
+                    onPressed: () => profile.removePlaylist(channel.id),
                   ),
                 ),
               ),
             ),
           const SizedBox(height: 16),
-          const Text(
-            'Only publicly accessible playlists are supported here. Private playlists need a separate approved Google authorization flow.',
+          OutlinedButton.icon(
+            onPressed: profile.playlists.isEmpty || loading
+                ? null
+                : () async {
+                    setState(() => loading = true);
+                    await profile.refreshChannelFeeds();
+                    if (mounted) setState(() => loading = false);
+                  },
+            icon: const Icon(Icons.refresh),
+            label: const Text('Refresh channel feeds'),
           ),
         ],
       ),
