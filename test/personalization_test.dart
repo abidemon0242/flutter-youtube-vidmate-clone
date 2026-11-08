@@ -10,7 +10,6 @@ void main() {
     temp = await Directory.systemTemp.createTemp('ta-profile-');
     profile = PersonalizationService(
       directoryResolver: () async => temp,
-      apiKey: '',
     );
     await profile.initialize();
     await profile.setConsent(true);
@@ -64,7 +63,7 @@ void main() {
       throwsA(isA<PlaylistImportException>()),
     );
   });
-  test('reports missing API key for valid playlist URL', () async {
+  test('explains playlist import limitation in no-key mode', () async {
     await expectLater(
       profile.importPlaylist('https://youtube.com/playlist?list=PL1234567890'),
       throwsA(isA<PlaylistImportException>()),
@@ -100,7 +99,6 @@ void main() {
     profile.dispose();
     profile = PersonalizationService(
       directoryResolver: () async => temp,
-      apiKey: '',
     );
     await profile.initialize();
     expect(profile.activityCount, 1);
