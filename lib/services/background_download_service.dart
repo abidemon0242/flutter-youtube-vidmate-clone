@@ -11,7 +11,6 @@ import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'ffmpeg_merge_service.dart';
-import 'youtube_extraction_service.dart';
 
 class AppDownloadTask {
   AppDownloadTask({
@@ -900,122 +899,13 @@ class BackgroundDownloadService {
   }
 
   Future<bool> _refreshYoutubeStreams(AppDownloadTask task) async {
-    final source = task.sourceUrl?.trim() ?? '';
-    if (source.isEmpty) return true;
-    final extractor = YoutubeExtractionService();
-    try {
-      if (task.isAudioOnly) {
-        final options = await extractor.getAudioQualities(source);
-        if (options.isEmpty) return false;
-        final requested =
-            int.tryParse(
-              RegExp(r'(\d+)').firstMatch(task.quality)?.group(1) ?? '',
-            ) ??
-            0;
-        final candidates = options
-            .where(
-              (option) =>
-                  option.format.toUpperCase() == task.format.toUpperCase(),
-            )
-            .toList();
-        if (candidates.isEmpty) return false;
-        candidates.sort((a, b) {
-          final aBitrate =
-              int.tryParse(
-                RegExp(r'(\d+)').firstMatch(a.bitrate)?.group(1) ?? '',
-              ) ??
-              0;
-          final bBitrate =
-              int.tryParse(
-                RegExp(r'(\d+)').firstMatch(b.bitrate)?.group(1) ?? '',
-              ) ??
-              0;
-          return aBitrate.compareTo(bBitrate);
-        });
-        final below = candidates.where((option) {
-          final bitrate =
-              int.tryParse(
-                RegExp(r'(\d+)').firstMatch(option.bitrate)?.group(1) ?? '',
-              ) ??
-              0;
-          return bitrate <= requested;
-        }).toList();
-        if (requested > 0 && below.isEmpty) return false;
-        final chosen = below.isNotEmpty ? below.last : candidates.first;
-        task.audioUrl = chosen.audioUrl;
-        task.format = chosen.format;
-        task.quality = chosen.bitrate;
-        return true;
-      }
-      final options = await extractor.getVideoQualities(source);
-      final expectedFormat = task.outputFormat.toUpperCase() == '3GP'
-          ? 'MP4'
-          : task.format.toUpperCase();
-      final compatible = options
-          .where(
-            (o) =>
-                o.format.toUpperCase() == expectedFormat &&
-                (task.outputFormat.toUpperCase() != '3GP' ||
-                    o.audioUrl.isNotEmpty),
-          )
-          .toList();
-      if (compatible.isEmpty) return false;
-      final targetHeight =
-          int.tryParse(
-            RegExp(r'(\d+)p').firstMatch(task.quality)?.group(1) ?? '',
-          ) ??
-          0;
-      compatible.sort((a, b) {
-        final ah =
-            int.tryParse(
-              RegExp(r'(\d+)p').firstMatch(a.quality)?.group(1) ?? '',
-            ) ??
-            0;
-        final bh =
-            int.tryParse(
-              RegExp(r'(\d+)p').firstMatch(b.quality)?.group(1) ?? '',
-            ) ??
-            0;
-        if (ah != bh) return ah.compareTo(bh);
-        return a.fps.compareTo(b.fps);
-      });
-      final exact = compatible.where((o) => o.quality == task.quality).toList();
-      final below = compatible
-          .where(
-            (o) =>
-                (int.tryParse(
-                      RegExp(r'(\d+)p').firstMatch(o.quality)?.group(1) ?? '',
-                    ) ??
-                    0) <=
-                targetHeight,
-          )
-          .toList();
-      if (exact.isEmpty && below.isEmpty) return false;
-      final chosen = exact.isNotEmpty ? exact.first : below.last;
-      task.videoUrl = chosen.videoUrl;
-      task.audioUrl = chosen.audioUrl;
-      task.quality = chosen.quality;
-      task.format = chosen.format;
-      task.requiresMerge = chosen.audioUrl.isNotEmpty;
-      if (task.requiresMerge) {
-        final output = File(task.savePath);
-        final dot = output.path.lastIndexOf('.');
-        final base = dot > output.path.lastIndexOf(Platform.pathSeparator)
-            ? output.path.substring(0, dot)
-            : output.path;
-        final ext = chosen.format.toLowerCase().contains('webm')
-            ? '.webm'
-            : '.mp4';
-        task.videoTempPath = '$base.video$ext';
-        task.audioTempPath = '$base.audio${ext == '.webm' ? '.webm' : '.m4a'}';
-      }
-      return true;
-    } catch (error) {
-      logger.e('Could not refresh YouTube stream URLs for retry: $error');
-      return false;
-    } finally {
-      await extractor.dispose();
-    }
+    // Downloads now store direct, user-authorized media URLs. Do not attempt
+    // to extract or refresh streams from a YouTube page during retry.
+    final candidate = task.isAudioOnly ? task.audioUrl : task.videoUrl;
+    final uri = Uri.tryParse(candidate);
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
   }
 
   Future<bool> retryDownload(String downloadId) async {
