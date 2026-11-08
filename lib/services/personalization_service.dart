@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/video_model.dart';
+import 'youtube_rss_service.dart';
 
 class ActivityRecord {
   const ActivityRecord(
@@ -95,12 +96,12 @@ class PlaylistImportException implements Exception {
 class PersonalizationService extends ChangeNotifier {
   PersonalizationService({
     Future<Directory> Function()? directoryResolver,
-    String? apiKey,
+    YouTubeChannelRssService? rssService,
   }) : _directoryResolver =
            directoryResolver ?? getApplicationDocumentsDirectory,
-       _apiKey = apiKey ?? const String.fromEnvironment('YOUTUBE_DATA_API_KEY');
+       _rssService = rssService ?? YouTubeChannelRssService();
   final Future<Directory> Function() _directoryResolver;
-  final String _apiKey;
+  final YouTubeChannelRssService _rssService;
   final List<ActivityRecord> _events = [];
   final List<ImportedPlaylist> _playlists = [];
   bool _ready = false;
@@ -175,139 +176,77 @@ class PersonalizationService extends ChangeNotifier {
     await _persist();
   }
 
-  Future<ImportedPlaylist> importPlaylist(String input) async {
+  Future<ImportedPlaylist> addChannelFeed(String input) async {
     if (!_ready) await initialize();
-    if (!_personalizationEnabled)
+    if (!_personalizationEnabled) {
       throw const PlaylistImportException(
-        'Enable personalization in the privacy settings before importing a playlist.',
+        'Enable personalization in privacy settings before adding channel subscriptions.',
       );
-    final u = Uri.tryParse(
-      input.trim().startsWith('http')
-          ? input.trim()
-          : 'https://' + input.trim(),
-    );
-    const hosts = {
-      'youtube.com',
-      'www.youtube.com',
-      'm.youtube.com',
-      'music.youtube.com',
-    };
-    final id = u != null && hosts.contains(u.host.toLowerCase())
-        ? u.queryParameters['list']
-        : null;
-    if (id == null || !RegExp(r'^[A-Za-z0-9_-]{10,}$').hasMatch(id))
-      throw const PlaylistImportException(
-        'Enter a valid YouTube playlist URL.',
+    }
+    try {
+      final channelId = _rssService.channelIdFromInput(input);
+      final videos = await _rssService.fetchChannel(
+        'https://www.youtube.com/channel/$channelId',
       );
-    if (_apiKey.isEmpty)
-      throw const PlaylistImportException(
-        'Playlist link recognized. Public playlist lookup requires a restricted YouTube Data API key supplied at build time.',
+      if (videos.isEmpty) {
+        throw const PlaylistImportException(
+          'No recent public uploads were found for this channel.',
+        );
+      }
+      final channelName = videos.first.channelName;
+      final channel = ImportedPlaylist(
+        channelId,
+        channelName,
+        channelName,
+        videos,
       );
-    final meta = await _get(
-      Uri.https('youtube.googleapis.com', '/youtube/v3/playlists', {
-        'part': 'snippet',
-        'id': id,
-        'key': _apiKey,
-      }),
-    );
-    final rows = meta['items'];
-    if (rows is! List || rows.isEmpty)
-      throw const PlaylistImportException(
-        'Playlist not found or not publicly accessible.',
-      );
-    final s =
-        (rows.first as Map<String, dynamic>)['snippet']
-            as Map<String, dynamic>? ??
-        const {};
-    final title = s['title'] as String? ?? 'YouTube playlist',
-        channel = s['channelTitle'] as String? ?? '';
-    final videos = <VideoModel>[];
-    String? token;
-    do {
-      final q = <String, String>{
-        'part': 'snippet,contentDetails',
-        'playlistId': id,
-        'maxResults': '50',
-        'key': _apiKey,
-      };
-      if (token != null) q['pageToken'] = token;
-      final page = await _get(
-        Uri.https('youtube.googleapis.com', '/youtube/v3/playlistItems', q),
-      );
-      if (page['items'] is List)
-        for (final item
-            in (page['items'] as List).whereType<Map<String, dynamic>>()) {
-          final sn = item['snippet'] as Map<String, dynamic>? ?? const {},
-              cd = item['contentDetails'] as Map<String, dynamic>? ?? const {},
-              r = sn['resourceId'] as Map<String, dynamic>? ?? const {};
-          final vid = (cd['videoId'] ?? r['videoId']) as String?;
-          if (vid == null || vid.isEmpty) continue;
-          final ts = sn['thumbnails'] as Map<String, dynamic>? ?? const {},
-              th =
-                  (ts['high'] ?? ts['medium'] ?? ts['default'])
-                      as Map<String, dynamic>? ??
-                  const {},
-              img =
-                  th['url'] as String? ??
-                  'https://i.ytimg.com/vi/' + vid + '/hqdefault.jpg';
-          videos.add(
-            VideoModel(
-              id: vid,
-              title: sn['title'] as String? ?? 'Video',
-              channelName:
-                  sn['videoOwnerChannelTitle'] as String? ??
-                  sn['channelTitle'] as String? ??
-                  channel,
-              views: 'Playlist',
-              duration: '—',
-              thumbnailUrl: img,
-              channelAvatar: img,
-              isVerified: false,
-              category: 'Imported playlist',
-              playbackUrl: 'https://www.youtube.com/watch?v=' + vid,
-            ),
-          );
-        }
-      token = page['nextPageToken'] as String?;
-    } while (token != null && videos.length < 500);
-    final p = ImportedPlaylist(id, title, channel, videos);
-    _playlists.removeWhere((x) => x.id == id);
-    _playlists.insert(0, p);
-    await record(type: 'playlist_import', query: title);
-    await _persist();
-    notifyListeners();
-    return p;
+      _playlists.removeWhere((item) => item.id == channelId);
+      _playlists.insert(0, channel);
+      await _persist();
+      notifyListeners();
+      return channel;
+    } on YouTubeRssException catch (error) {
+      throw PlaylistImportException(error.message);
+    }
   }
 
-  Future<Map<String, dynamic>> _get(Uri uri) async {
-    final c = HttpClient()..connectionTimeout = const Duration(seconds: 15);
-    try {
-      final req = await c.getUrl(uri);
-      req.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      final res = await req.close().timeout(const Duration(seconds: 20));
-      final body = await res.transform(utf8.decoder).join();
-      if (res.statusCode < 200 || res.statusCode >= 300) {
-        var msg = 'YouTube API error ' + res.statusCode.toString();
-        try {
-          msg =
-              ((jsonDecode(body) as Map<String, dynamic>)['error']
-                      as Map<String, dynamic>)['message']
-                  as String? ??
-              msg;
-        } catch (_) {}
-        throw PlaylistImportException(msg);
+  Future<List<VideoModel>> refreshChannelFeeds() async {
+    if (!_ready) await initialize();
+    final refreshed = <ImportedPlaylist>[];
+    for (final channel in _playlists) {
+      if (!RegExp(r'^UC[A-Za-z0-9_-]{22}$').hasMatch(channel.id)) {
+        refreshed.add(channel);
+        continue;
       }
-      final data = jsonDecode(body);
-      if (data is! Map<String, dynamic>)
-        throw const PlaylistImportException('Unexpected YouTube response.');
-      return data;
-    } on SocketException {
-      throw const PlaylistImportException(
-        'Network error. Check your connection.',
-      );
-    } finally {
-      c.close(force: true);
+      try {
+        final videos = await _rssService.fetchChannel(
+          'https://www.youtube.com/channel/${channel.id}',
+        );
+        refreshed.add(
+          ImportedPlaylist(
+            channel.id,
+            videos.isEmpty ? channel.title : videos.first.channelName,
+            videos.isEmpty ? channel.channel : videos.first.channelName,
+            videos.isEmpty ? channel.videos : videos,
+          ),
+        );
+      } on YouTubeRssException catch (error) {
+        debugPrint('Channel feed refresh failed for ${channel.id}: ${error.message}');
+        refreshed.add(channel);
+      }
     }
+    _playlists
+      ..clear()
+      ..addAll(refreshed);
+    await _persist();
+    notifyListeners();
+    return _playlists.expand((channel) => channel.videos).toList();
+  }
+
+  Future<ImportedPlaylist> importPlaylist(String input) async {
+    throw const PlaylistImportException(
+      'Playlist URL import is not available in no-key mode. Add the playlist owner’s public channel RSS feed instead.',
+    );
   }
 
   Map<String, double> get interestProfile {
