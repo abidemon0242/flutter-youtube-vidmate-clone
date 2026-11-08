@@ -178,11 +178,6 @@ class PersonalizationService extends ChangeNotifier {
 
   Future<ImportedPlaylist> addChannelFeed(String input) async {
     if (!_ready) await initialize();
-    if (!_personalizationEnabled) {
-      throw const PlaylistImportException(
-        'Enable personalization in privacy settings before adding channel subscriptions.',
-      );
-    }
     try {
       final channelId = _rssService.channelIdFromInput(input);
       final videos = await _rssService.fetchChannel(
@@ -359,7 +354,6 @@ class PersonalizationService extends ChangeNotifier {
     _personalizationEnabled = enabled;
     if (!enabled) {
       _events.clear();
-      _playlists.clear();
     }
     notifyListeners();
     await _persist();
