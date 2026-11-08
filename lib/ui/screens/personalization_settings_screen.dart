@@ -23,7 +23,7 @@ class PersonalizationSettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Tube Arena uses in-app searches, likes, saves, watch activity and imported public playlist metadata to rank recommendations. This prototype stores personalization data locally.',
+            'Tube Arena uses in-app searches, likes, saves and watch activity to rank recommendations. This prototype stores personalization data locally.',
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -45,7 +45,7 @@ class PersonalizationSettingsScreen extends StatelessWidget {
           Card(
             child: ListTile(
               leading: const Icon(Icons.playlist_play),
-              title: const Text('Imported playlists'),
+              title: const Text('Channel subscriptions'),
               trailing: Text(p.playlists.length.toString()),
             ),
           ),
@@ -66,15 +66,15 @@ class PersonalizationSettingsScreen extends StatelessWidget {
             ),
           const SizedBox(height: 24),
           OutlinedButton.icon(
-            onPressed: p.activityCount == 0 && p.playlists.isEmpty
+            onPressed: p.activityCount == 0
                 ? null
                 : () async {
                     final ok = await showDialog<bool>(
                       context: context,
                       builder: (c) => AlertDialog(
-                        title: const Text('Clear personalization data?'),
+                        title: const Text('Clear activity records?'),
                         content: const Text(
-                          'This removes locally stored activity and imported playlists.',
+                          'This removes locally stored activity records. Your channel subscriptions remain saved.',
                         ),
                         actions: [
                           TextButton(
@@ -94,7 +94,7 @@ class PersonalizationSettingsScreen extends StatelessWidget {
                           .clearActivity();
                   },
             icon: const Icon(Icons.delete_sweep),
-            label: const Text('Clear activity and imported data'),
+            label: const Text('Clear activity records'),
           ),
         ],
       ),
