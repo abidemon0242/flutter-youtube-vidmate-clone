@@ -1,33 +1,37 @@
 import '../../models/video_model.dart';
-import '../../services/youtube_data_api_service.dart';
 
 class YouTubeRepository {
-  YouTubeRepository({YouTubeDataApiService? api})
-    : _api = api ?? YouTubeDataApiService();
+  const YouTubeRepository();
 
-  final YouTubeDataApiService _api;
+  List<VideoModel> getFeedVideos({
+    required List<VideoModel> subscribedVideos,
+    String category = 'All',
+  }) {
+    final unique = <String, VideoModel>{};
+    for (final video in subscribedVideos) {
+      if (category == 'All' || category == 'Subscriptions') {
+        unique.putIfAbsent(video.id, () => video);
+      }
+    }
+    final result = unique.values.toList()
+      ..sort((a, b) => b.views.compareTo(a.views));
+    return List.unmodifiable(result);
+  }
 
-  bool get isConfigured => _api.isConfigured;
+  Future<List<VideoModel>> searchVideos(
+    String query, {
+    required List<VideoModel> availableVideos,
+  }) async {
+    final terms = query.toLowerCase().trim().split(RegExp(r'\s+'));
+    if (terms.isEmpty || terms.every((term) => term.isEmpty)) return const [];
+    final matches = availableVideos.where((video) {
+      final haystack =
+          '${video.title} ${video.channelName} ${video.category}'.toLowerCase();
+      return terms.every(haystack.contains);
+    }).toList()
+      ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    return List.unmodifiable(matches);
+  }
 
-  /// Kept for provider and test lifecycle compatibility. The API service
-  /// creates and closes an HttpClient per request, so there is no open client.
-  void dispose() {}
-
-  Future<List<VideoModel>> searchVideos(String query) =>
-      _api.searchVideos(query);
-
-  Future<List<VideoModel>> getFeedVideos({String category = 'All'}) =>
-      _api.getMostPopular(category: category, regionCode: 'BD');
-
-  List<String> getCategories() => const [
-    'All',
-    'Music',
-    'Tech',
-    'Movies',
-    'Tutorials',
-    'Live',
-    'News',
-    'Gaming',
-    'Design',
-  ];
+  List<String> getCategories() => const ['All', 'Subscriptions'];
 }
