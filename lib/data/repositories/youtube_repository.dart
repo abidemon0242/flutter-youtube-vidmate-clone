@@ -13,8 +13,7 @@ class YouTubeRepository {
         unique.putIfAbsent(video.id, () => video);
       }
     }
-    final result = unique.values.toList()
-      ..sort((a, b) => b.views.compareTo(a.views));
+    final result = unique.values.toList();
     return List.unmodifiable(result);
   }
 
@@ -28,8 +27,7 @@ class YouTubeRepository {
       final haystack =
           '${video.title} ${video.channelName} ${video.category}'.toLowerCase();
       return terms.every(haystack.contains);
-    }).toList()
-      ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+    }).toList();
     return List.unmodifiable(matches);
   }
 
