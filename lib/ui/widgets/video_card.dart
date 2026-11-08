@@ -56,7 +56,8 @@ class VideoCard extends StatelessWidget {
                           ),
                         ),
                 ),
-                Positioned(
+                if (video.duration.isNotEmpty && video.duration != '—')
+                  Positioned(
                   right: 10,
                   bottom: 10,
                   child: Container(
@@ -156,7 +157,7 @@ class VideoCard extends StatelessWidget {
                           ],
                         ),
                         Text(
-                          '${video.views} · 4 days ago',
+                          video.views,
                           style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
