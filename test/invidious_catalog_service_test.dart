@@ -101,5 +101,87 @@ void main() {
       expect(requestedHosts, ['first.example.test', 'second.example.test']);
       expect(videos, hasLength(1));
     });
+
+    test('resolves a public @handle URL to a channel ID', () async {
+      Uri? requested;
+      final service = InvidiousCatalogService(
+        instanceUris: [Uri.https('catalog.example.test', '')],
+        loader: (uri) async {
+          requested = uri;
+          return jsonEncode({'ucid': 'UC0123456789012345678901'});
+        },
+      );
+
+      final resolved = await service.resolveYoutubeUrl(
+        'https://www.youtube.com/@examplecreator',
+      );
+
+      expect(requested?.path, '/api/v1/resolveurl');
+      expect(
+        requested?.queryParameters['url'],
+        'https://www.youtube.com/@examplecreator',
+      );
+      expect(resolved.channelId, 'UC0123456789012345678901');
+      expect(resolved.playlistId, isNull);
+    });
+
+    test('imports public playlist metadata and maps its videos', () async {
+      final requested = <Uri>[];
+      final service = InvidiousCatalogService(
+        instanceUris: [Uri.https('catalog.example.test', '')],
+        loader: (uri) async {
+          requested.add(uri);
+          if (uri.path == '/api/v1/resolveurl') {
+            return jsonEncode({'playlistId': 'PL1234567890'});
+          }
+          return jsonEncode({
+            'title': 'Public playlist',
+            'author': 'Playlist owner',
+            'videoCount': 1,
+            'videos': [
+              {
+                'videoId': videoId,
+                'title': 'Playlist video',
+                'author': 'Example channel',
+                'lengthSeconds': 90,
+                'videoThumbnails': [
+                  {'url': 'https://img.example.test/playlist.jpg'},
+                ],
+              },
+            ],
+          });
+        },
+      );
+
+      final resolved = await service.resolveYoutubeUrl(
+        'https://www.youtube.com/playlist?list=PL1234567890',
+      );
+      final playlist = await service.fetchPlaylist(resolved.playlistId!);
+
+      expect(playlist.id, 'PL1234567890');
+      expect(playlist.title, 'Public playlist');
+      expect(playlist.channel, 'Playlist owner');
+      expect(playlist.totalCount, 1);
+      expect(playlist.videos.single.id, videoId);
+      expect(playlist.videos.single.category, 'Imported playlist');
+      expect(requested.last.path, '/api/v1/playlists/PL1234567890');
+    });
+
+    test('rejects non-YouTube URLs before contacting a catalog server', () async {
+      var calls = 0;
+      final service = InvidiousCatalogService(
+        instanceUris: [Uri.https('catalog.example.test', '')],
+        loader: (_) async {
+          calls++;
+          return '{}';
+        },
+      );
+
+      await expectLater(
+        service.resolveYoutubeUrl('https://example.com/playlist?list=PL1234567890'),
+        throwsA(isA<InvidiousCatalogException>()),
+      );
+      expect(calls, 0);
+    });
   });
 }
