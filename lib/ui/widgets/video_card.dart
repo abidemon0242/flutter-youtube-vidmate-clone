@@ -9,24 +9,15 @@ class VideoCard extends StatelessWidget {
     super.key,
     required this.video,
     this.onTap,
-    this.multiSelectMode = false,
-    this.isSelected = false,
-    this.onLongPress,
-    this.onCheckboxTap,
   });
 
   final VideoModel video;
   final VoidCallback? onTap;
-  final bool multiSelectMode;
-  final bool isSelected;
-  final VoidCallback? onLongPress;
-  final VoidCallback? onCheckboxTap;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onLongPress,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         child: Column(
@@ -79,32 +70,7 @@ class VideoCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (multiSelectMode)
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: GestureDetector(
-                      onTap: onCheckboxTap,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primaryStart
-                              : Colors.black.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: isSelected
-                            ? const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 18,
-                              )
-                            : null,
-                      ),
-                    ),
-                  ),
+
               ],
             ),
             Padding(
