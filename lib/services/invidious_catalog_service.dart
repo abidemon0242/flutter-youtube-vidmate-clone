@@ -41,7 +41,7 @@ class InvidiousCatalogService {
   ];
 
   Future<List<Uri>> _instances() async {
-    if (_providedInstances != null) return _providedInstances!;
+    if (_providedInstances != null) return _providedInstances;
     try {
       final decoded = jsonDecode(await _loader(_registryUri));
       if (decoded is List) {
@@ -146,7 +146,6 @@ class InvidiousCatalogService {
       final views = item['viewCountText'] as String? ??
           _formatViews(item['viewCount']);
       final durationSeconds = (item['lengthSeconds'] as num?)?.toInt() ?? 0;
-      final published = item['publishedText'] as String? ?? '';
       videos.add(
         VideoModel(
           id: id,
