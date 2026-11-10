@@ -67,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final categories = repository.getCategories();
     final category = selectedCategory < categories.length
         ? categories[selectedCategory]
-        : 'All';
+        : 'Trending';
     if (mounted) {
       setState(() {
         feedLoading = true;
@@ -77,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final profile = context.read<PersonalizationService>();
       final subscribed = await profile.refreshChannelFeeds();
-      final results = repository.getFeedVideos(
+      final results = await repository.getFeedVideos(
         category: category,
         subscribedVideos: subscribed,
       );
@@ -126,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Search checks recent videos from your subscribed public channels only.'),
+            const Text('Search public YouTube video metadata without a YouTube Data API key. Results use community-run public catalog servers and may be temporarily unavailable.'),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
@@ -193,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       if (mounted && request == _searchRequest && term == searchQuery) {
         setState(() {
-          searchError = 'Search covers your subscribed channel videos only. Add or refresh channels to expand results.';
+          searchError = error.toString().replaceFirst('InvidiousCatalogException: ', '');
         });
       }
     } finally {
