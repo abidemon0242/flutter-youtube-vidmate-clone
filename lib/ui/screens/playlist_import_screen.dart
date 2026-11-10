@@ -64,7 +64,7 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Add a public YouTube channel using its /channel/UC… address or its RSS feed URL. Tube Arena reads recent public uploads from YouTube channel RSS. Global YouTube search, trending, private channels and playlist import are not provided by this no-key method.',
+            'Add a public YouTube channel using its /channel/UC… address or its RSS feed URL. Tube Arena reads recent public uploads from YouTube channel RSS. Global search and trending are also available without a YouTube Data API key through community-run public catalog servers; their availability can vary. Private channels and playlist import are not supported by this screen yet.',
           ),
           const SizedBox(height: 16),
           const Text(
