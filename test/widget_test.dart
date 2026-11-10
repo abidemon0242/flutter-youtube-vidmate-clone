@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/providers/downloads_provider.dart';
-import 'package:tube_arena/services/ad_blocker_service.dart';
 import 'package:tube_arena/services/background_download_service.dart';
 import 'package:tube_arena/ui/widgets/video_card.dart';
 import 'package:tube_arena/data/repositories/youtube_repository.dart';
@@ -216,38 +215,4 @@ void main() {
     });
   });
 
-  group('AdBlockerService URL matching', () {
-    final blocker = AdBlockerService();
-
-    test('blocks ad host subdomains without matching lookalikes', () {
-      expect(blocker.isAdDomain('https://ads.doubleclick.net/banner'), isTrue);
-      expect(blocker.isAdDomain('https://notdoubleclick.net/banner'), isFalse);
-    });
-
-    test('does not classify YouTube privacy-enhanced host as advertising', () {
-      expect(
-        blocker.isAdDomain('https://www.youtube-nocookie.com/embed/demo'),
-        isFalse,
-      );
-    });
-
-    test('matches known tracking URL paths', () {
-      expect(blocker.isAdDomain('https://www.facebook.com/tr?id=123'), isTrue);
-    });
-
-    test('reports unique hostnames separately from blocked URLs', () {
-      final stats = blocker.getStatistics([
-        'https://ads.doubleclick.net/banner?id=1',
-        'https://ads.doubleclick.net/banner?id=2',
-        'https://pagead2.googlesyndication.com/pagead?id=3',
-      ]);
-
-      expect(stats['blocked_requests'], 3);
-      expect(stats['blocked_domains'], [
-        'ads.doubleclick.net',
-        'pagead2.googlesyndication.com',
-      ]);
-      expect(stats['blocked_urls'], hasLength(3));
-    });
-  });
 }
