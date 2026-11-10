@@ -24,7 +24,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   bool _audioOnly = false;
   bool _wifiOnly = false;
   bool _notificationsDenied = false;
-  String _status = 'Paste one direct media URL per line.';
+  String _status = 'Paste direct media-file URLs here. YouTube watch-page links are not downloadable in this app.';
 
   static const _youtubeHosts = {
     'youtube.com',
@@ -141,8 +141,13 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       setState(() => _status = 'Checking ${index + 1} of ${urls.length}…');
       final parsed = _parseDirectMediaUrl(rawUrl);
       if (parsed == null) {
+        final parsedInput = Uri.tryParse(rawUrl);
+        final host = parsedInput?.host.toLowerCase() ?? '';
+        final isYoutubePage = _youtubeHosts.contains(host);
         failures.add(
-          'Link ${index + 1}: unsupported URL or file extension. Use a direct MP4, WebM, 3GP, MP3, M4A, AAC or WAV file URL.',
+          isYoutubePage
+              ? 'Link ${index + 1}: this is a YouTube page URL, not a direct media file. Tube Arena does not extract YouTube streams. Use a direct media-file URL that you own or have permission to download.'
+              : 'Link ${index + 1}: unsupported URL or file extension. Use a direct MP4, WebM, 3GP, MP3, M4A, AAC or WAV file URL.',
         );
         continue;
       }
