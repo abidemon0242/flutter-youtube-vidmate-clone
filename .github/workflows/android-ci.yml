@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: tube-arena-android-ci-${{ github.ref }}
+  group: tube-arena-android-ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
