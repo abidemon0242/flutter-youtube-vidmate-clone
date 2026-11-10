@@ -191,7 +191,7 @@ class InvidiousCatalogService {
       raw.startsWith('http') ? raw : 'https://$raw',
     );
     if (uri == null ||
-        uri.scheme != 'https' ||
+        !{'http', 'https'}.contains(uri.scheme) ||
         !{
           'youtube.com',
           'www.youtube.com',
@@ -203,7 +203,7 @@ class InvidiousCatalogService {
         uri.userInfo.isNotEmpty) {
       return null;
     }
-    return uri;
+    return uri.replace(scheme: 'https');
   }
 
   bool _validChannelId(String value) =>
