@@ -43,6 +43,37 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
     }
   }
 
+
+  Future<void> importPlaylist() async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final playlist = await context
+          .read<PersonalizationService>()
+          .importPlaylist(controller.text);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Imported ${playlist.title} (${playlist.videos.length} videos on the first page)',
+          ),
+        ),
+      );
+      controller.clear();
+    } on PlaylistImportException catch (e) {
+      if (mounted) setState(() => error = e.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => error = 'Could not import this playlist. Try again.');
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
   @override
   void dispose() {
     controller.dispose();
@@ -65,19 +96,19 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Add a public YouTube channel using its /channel/UC… address or its RSS feed URL. Tube Arena reads recent public uploads from YouTube channel RSS. Global search and trending are also available without a YouTube Data API key through community-run public catalog servers; their availability can vary. Private channels and playlist import are not supported by this screen yet.',
+            'Add a public YouTube channel using its /channel/UC… address, @handle URL, or RSS feed URL. You can also import a public playlist. Global search and trending use community-run public catalog servers without a YouTube Data API key; availability can vary. Private playlists are not supported.',
           ),
           const SizedBox(height: 16),
           const Text(
-            'Supported examples:\nhttps://www.youtube.com/channel/UC…\nhttps://www.youtube.com/feeds/videos.xml?channel_id=UC…',
+            'Supported examples:\nhttps://www.youtube.com/channel/UC…\nhttps://www.youtube.com/@creator\nhttps://www.youtube.com/feeds/videos.xml?channel_id=UC…\nhttps://www.youtube.com/playlist?list=PL…',
           ),
           const SizedBox(height: 20),
           TextField(
             controller: controller,
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
-              labelText: 'Channel or RSS URL',
-              hintText: 'https://www.youtube.com/channel/UC…',
+              labelText: 'YouTube channel or playlist URL',
+              hintText: 'https://www.youtube.com/@creator or playlist URL',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.link),
             ),
@@ -92,7 +123,13 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.add),
-            label: Text(loading ? 'Adding channel…' : 'Add channel'),
+            label: Text(loading ? 'Adding…' : 'Add channel'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: loading ? null : importPlaylist,
+            icon: const Icon(Icons.playlist_add),
+            label: const Text('Import public playlist'),
           ),
           if (error != null) ...[
             const SizedBox(height: 12),
@@ -103,20 +140,20 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
           ],
           const SizedBox(height: 24),
           Text(
-            'Your channels (${profile.playlists.length})',
+            'Your subscriptions and playlists (${profile.playlists.length})',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           if (profile.playlists.isEmpty)
-            const Text('No channels added yet.')
+            const Text('No channels or playlists added yet.')
           else
             ...profile.playlists.map(
               (channel) => Card(
                 child: ListTile(
-                  leading: const Icon(Icons.subscriptions_outlined),
+                  leading: Icon(channel.id.startsWith('playlist:') ? Icons.playlist_play : Icons.subscriptions_outlined),
                   title: Text(channel.title),
-                  subtitle: Text('${channel.videos.length} recent videos'),
+                  subtitle: Text('${channel.videos.length} videos'),
                   trailing: IconButton(
-                    tooltip: 'Remove channel',
+                    tooltip: 'Remove item',
                     icon: const Icon(Icons.delete_outline),
                     onPressed: () => profile.removePlaylist(channel.id),
                   ),
