@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/video_model.dart';
 import 'youtube_rss_service.dart';
+import 'invidious_catalog_service.dart';
 
 class ActivityRecord {
   const ActivityRecord(
@@ -97,11 +98,14 @@ class PersonalizationService extends ChangeNotifier {
   PersonalizationService({
     Future<Directory> Function()? directoryResolver,
     YouTubeChannelRssService? rssService,
+    InvidiousCatalogService? catalogService,
   }) : _directoryResolver =
            directoryResolver ?? getApplicationDocumentsDirectory,
-       _rssService = rssService ?? YouTubeChannelRssService();
+       _rssService = rssService ?? YouTubeChannelRssService(),
+       _catalogService = catalogService ?? InvidiousCatalogService();
   final Future<Directory> Function() _directoryResolver;
   final YouTubeChannelRssService _rssService;
+  final InvidiousCatalogService _catalogService;
   final List<ActivityRecord> _events = [];
   final List<ImportedPlaylist> _playlists = [];
   bool _ready = false;
@@ -179,7 +183,12 @@ class PersonalizationService extends ChangeNotifier {
   Future<ImportedPlaylist> addChannelFeed(String input) async {
     if (!_ready) await initialize();
     try {
-      final channelId = _rssService.channelIdFromInput(input);
+      String channelId;
+      try {
+        channelId = _rssService.channelIdFromInput(input);
+      } on YouTubeRssException {
+        channelId = await _catalogService.resolveChannelId(input);
+      }
       final videos = await _rssService.fetchChannel(
         'https://www.youtube.com/channel/$channelId',
       );
@@ -241,9 +250,35 @@ class PersonalizationService extends ChangeNotifier {
   }
 
   Future<ImportedPlaylist> importPlaylist(String input) async {
-    throw const PlaylistImportException(
-      'Playlist URL import is not available in no-key mode. Add the playlist owner’s public channel RSS feed instead.',
-    );
+    if (!_ready) await initialize();
+    try {
+      final resolved = await _catalogService.resolveYoutubeUrl(input);
+      final playlistId = resolved.playlistId;
+      if (playlistId == null) {
+        throw const PlaylistImportException(
+          'This URL is not a public YouTube playlist. Include a playlist link containing list=…',
+        );
+      }
+      final imported = await _catalogService.fetchPlaylist(playlistId);
+      if (imported.videos.isEmpty) {
+        throw const PlaylistImportException(
+          'No public videos were returned for this playlist.',
+        );
+      }
+      final playlist = ImportedPlaylist(
+        'playlist:$playlistId',
+        imported.title,
+        imported.channel,
+        imported.videos,
+      );
+      _playlists.removeWhere((item) => item.id == playlist.id);
+      _playlists.insert(0, playlist);
+      await _persist();
+      notifyListeners();
+      return playlist;
+    } on InvidiousCatalogException catch (error) {
+      throw PlaylistImportException(error.message);
+    }
   }
 
   Map<String, double> get interestProfile {
