@@ -94,6 +94,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final results = await repository.getFeedVideos(
         category: category,
         subscribedVideos: subscribed,
+        recommendationQuery: profile.recommendationQuery,
       );
       if (!mounted || request != _feedRequest) return;
       setState(() {
