@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
@@ -10,6 +11,40 @@ class VideoCard extends StatelessWidget {
   final VideoModel video;
   final VoidCallback? onTap;
 
+  void _showDownloadInfo(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Download options', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 10),
+              const Text(
+                'This item is a YouTube watch-page link. Tube Arena does not extract YouTube streams, so resolution and format choices are not available for this source. You can download a direct media file that you own or have permission to save.',
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    context.push('/add-downloads');
+                  },
+                  icon: const Icon(Icons.link),
+                  label: const Text('Add a direct media link'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -127,7 +162,25 @@ class VideoCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.more_vert, color: AppColors.textSecondary),
+                  PopupMenuButton<String>(
+                    tooltip: 'Video options',
+                    onSelected: (value) {
+                      if (value == 'download') _showDownloadInfo(context);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'download',
+                        child: Row(
+                          children: [
+                            Icon(Icons.download_outlined),
+                            SizedBox(width: 12),
+                            Text('Download options'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    icon: const Icon(Icons.more_vert, color: AppColors.textSecondary),
+                  ),
                 ],
               ),
             ),
