@@ -17,6 +17,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late final YouTubeRepository repository;
+  final TextEditingController _searchController = TextEditingController();
   int selectedCategory = 0;
   String searchQuery = '';
   List<VideoModel> searchResults = [];
@@ -27,6 +28,12 @@ class _HomeScreenState extends State<HomeScreen> {
   String? searchError;
   int _feedRequest = 0;
   int _searchRequest = 0;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -108,52 +115,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return profile.rankVideos(unique.values.toList());
   }
 
-  Future<void> search() async {
-    final controller = TextEditingController(text: searchQuery);
-    final query = await showDialog<String>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: const Text('Search videos'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Search public YouTube video metadata without a YouTube Data API key. Results use community-run public catalog servers and may be temporarily unavailable.',
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              onSubmitted: (value) => Navigator.pop(dialog, value),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, controller.text),
-            child: const Text('Search'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-
-    if (query == null || !mounted) return;
-    if (query.trim().isEmpty) {
+  Future<void> _runSearch(String query) async {
+    final term = query.trim();
+    if (term.isEmpty) {
       clearSearch();
       return;
     }
 
-    final term = query.trim();
     final request = ++_searchRequest;
-    await context.read<PersonalizationService>().record(
-      type: 'search',
-      query: term,
-    );
     setState(() {
       searchQuery = term;
       selectedCategory = 0;
@@ -164,6 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final profile = context.read<PersonalizationService>();
+      await profile.record(type: 'search', query: term);
+      if (!mounted || request != _searchRequest) return;
+
       final available = <String, VideoModel>{};
       for (final video in [
         ...feedVideos,
@@ -177,9 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (!mounted || request != _searchRequest || term != searchQuery) return;
       setState(() {
-        searchResults = context.read<PersonalizationService>().rankVideos(
-          found,
-        );
+        searchResults = profile.rankVideos(found);
       });
     } catch (error) {
       if (mounted && request == _searchRequest && term == searchQuery) {
@@ -191,12 +161,14 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } finally {
-      if (mounted && request == _searchRequest)
+      if (mounted && request == _searchRequest) {
         setState(() => searching = false);
+      }
     }
   }
 
   void clearSearch() {
+    _searchController.clear();
     _searchRequest++;
     setState(() {
       searchQuery = '';
@@ -227,8 +199,6 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => context.push('/personalization'),
             icon: const Icon(Icons.auto_awesome),
           ),
-          if (searchQuery.isNotEmpty)
-            IconButton(onPressed: clearSearch, icon: const Icon(Icons.close)),
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'downloads') context.go('/downloads');
@@ -251,15 +221,33 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          IconButton(
-            onPressed: search,
-            tooltip: 'Search',
-            icon: const Icon(Icons.search),
-          ),
         ],
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: TextField(
+              controller: _searchController,
+              textInputAction: TextInputAction.search,
+              onSubmitted: _runSearch,
+              decoration: InputDecoration(
+                hintText: 'Search videos, channels, topics…',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: searchQuery.isNotEmpty || _searchController.text.isNotEmpty
+                    ? IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: clearSearch,
+                        icon: const Icon(Icons.close),
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                filled: true,
+              ),
+            ),
+          ),
           SizedBox(
             height: 54,
             child: ListView.separated(
@@ -274,6 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   setState(() {
                     selectedCategory = index;
                     searchQuery = '';
+                    _searchController.clear();
                     searchResults = [];
                     searchError = null;
                     searching = false;
@@ -307,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   )
                 : visibleVideos.isEmpty
-                ? const Center(child: Text('No videos available'))
+                ? Center(child: Text(searchQuery.isNotEmpty ? 'No search results. Try another query.' : 'No videos available'))
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
                     itemCount: visibleVideos.length,

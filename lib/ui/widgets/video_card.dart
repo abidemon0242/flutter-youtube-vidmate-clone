@@ -5,7 +5,11 @@ import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
 
 class VideoCard extends StatelessWidget {
-  const VideoCard({super.key, required this.video, this.onTap});
+  const VideoCard({
+    super.key,
+    required this.video,
+    this.onTap,
+  });
 
   final VideoModel video;
   final VoidCallback? onTap;
@@ -66,6 +70,7 @@ class VideoCard extends StatelessWidget {
                       ),
                     ),
                   ),
+
               ],
             ),
             Padding(
