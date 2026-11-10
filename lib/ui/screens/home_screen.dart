@@ -15,7 +15,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late final YouTubeRepository repository;
   final TextEditingController _searchController = TextEditingController();
   int selectedCategory = 0;
@@ -31,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
   }
@@ -38,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     repository = context.read<YouTubeRepository>();
     _loadFeed();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -65,6 +67,13 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (mounted) await profile.setConsent(accepted == true);
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted && searchQuery.isEmpty) {
+      _loadFeed();
+    }
   }
 
   Future<void> _loadFeed() async {
@@ -107,8 +116,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (searchQuery.isNotEmpty) return searchResults;
     final unique = <String, VideoModel>{};
     for (final video in [
-      ...feedVideos,
       ...profile.playlists.expand((playlist) => playlist.videos),
+      ...feedVideos,
     ]) {
       unique.putIfAbsent(video.id, () => video);
     }
@@ -304,7 +313,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           : 'No videos available',
                     ),
                   )
-                : ListView.builder(
+                : RefreshIndicator(
+                    onRefresh: _loadFeed,
+                    child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
                     itemCount: visibleVideos.length,
                     itemBuilder: (context, index) {
@@ -315,6 +327,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
+                ),
           ),
         ],
       ),
