@@ -275,6 +275,22 @@ class PersonalizationService extends ChangeNotifier {
     }
   }
 
+  String get recommendationQuery {
+    final weighted = interestProfile.entries
+        .where((entry) => !entry.key.startsWith('category:') && entry.value > 0)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (weighted.isNotEmpty) {
+      return weighted.take(3).map((entry) => entry.key).join(' ');
+    }
+    final titles = _playlists.expand((playlist) => playlist.videos)
+        .take(12)
+        .map((video) => video.title)
+        .join(' ');
+    final terms = _tokens(titles.toLowerCase()).take(3);
+    return terms.join(' ');
+  }
+
   Map<String, double> get interestProfile {
     if (!_personalizationEnabled) return const {};
     final out = <String, double>{}, now = DateTime.now();
