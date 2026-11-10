@@ -12,13 +12,27 @@ class YouTubeRepository {
   Future<List<VideoModel>> getFeedVideos({
     required List<VideoModel> subscribedVideos,
     String category = 'Trending',
+    String recommendationQuery = '',
   }) async {
     if (category == 'Subscriptions') {
       return List.unmodifiable(_unique(subscribedVideos));
     }
     try {
       final trending = await _catalog.fetchTrending(region: 'BD');
-      return List.unmodifiable(_unique([...trending, ...subscribedVideos]));
+      var recommended = <VideoModel>[];
+      if (recommendationQuery.trim().isNotEmpty) {
+        try {
+          recommended = await _catalog.searchVideos(
+            recommendationQuery,
+            region: 'BD',
+          );
+        } on InvidiousCatalogException {
+          // Keep the fresh trending and imported channel feed available.
+        }
+      }
+      return List.unmodifiable(
+        _unique([...subscribedVideos, ...recommended, ...trending]),
+      );
     } on InvidiousCatalogException {
       if (subscribedVideos.isNotEmpty) {
         return List.unmodifiable(_unique(subscribedVideos));
