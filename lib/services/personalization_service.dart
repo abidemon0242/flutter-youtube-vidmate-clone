@@ -225,15 +225,33 @@ class PersonalizationService extends ChangeNotifier {
         if (channel.id.startsWith('playlist:')) {
           final playlistId = channel.id.substring('playlist:'.length);
           final latest = await _catalogService.fetchPlaylist(playlistId);
-          refreshed.add(
-            ImportedPlaylist(
-              channel.id,
-              latest.title,
-              latest.channel,
-              latest.videos.isEmpty ? channel.videos : latest.videos,
-            ),
+          refreshed.add(ImportedPlaylist(
+            channel.id,
+            latest.title,
+            latest.channel,
+            latest.videos.isEmpty ? channel.videos : latest.videos,
+          ));
+        } else if (RegExp(r'^UC[A-Za-z0-9_-]{22}$').hasMatch(channel.id)) {
+          final videos = await _rssService.fetchChannel(
+            'https://www.youtube.com/channel/' + channel.id,
           );
-        } else if (RegExp(r'^UC[A-Za-z0-9_-]{22}
+          refreshed.add(ImportedPlaylist(
+            channel.id,
+            videos.isEmpty ? channel.title : videos.first.channelName,
+            videos.isEmpty ? channel.channel : videos.first.channelName,
+            videos.isEmpty ? channel.videos : videos,
+          ));
+        } else {
+          refreshed.add(channel);
+        }
+      } on YouTubeRssException catch (error) {
+        debugPrint('Channel feed refresh failed for ' + channel.id + ': ' + error.message);
+        refreshed.add(channel);
+      } on InvidiousCatalogException catch (error) {
+        debugPrint('Playlist refresh failed for ' + channel.id + ': ' + error.toString());
+        refreshed.add(channel);
+      }
+    }
     _playlists
       ..clear()
       ..addAll(refreshed);
@@ -241,7 +259,6 @@ class PersonalizationService extends ChangeNotifier {
     notifyListeners();
     return _playlists.expand((channel) => channel.videos).toList();
   }
-
   Future<ImportedPlaylist> importPlaylist(String input) async {
     if (!_ready) await initialize();
     try {
@@ -289,216 +306,6 @@ class PersonalizationService extends ChangeNotifier {
         .join(' ');
     final terms = _tokens(titles.toLowerCase()).take(3);
     return terms.join(' ');
-  }
-
-  Map<String, double> get interestProfile {
-    if (!_personalizationEnabled) return const {};
-    final out = <String, double>{}, now = DateTime.now();
-    for (final e in _events) {
-      final days = now.difference(e.time).inDays,
-          recency = days <= 1
-              ? 1.0
-              : days <= 7
-              ? 0.8
-              : days <= 30
-              ? 0.55
-              : 0.25;
-      final weight =
-          (switch (e.type) {
-            'like' => 4.0,
-            'unlike' => -4.0,
-            'watch' => e.seconds >= 120 ? 2.8 : 1.5,
-            'open' => .7,
-            'save' => 3.0,
-            'unsave' => -3.0,
-            'search' => 1.7,
-            'playlist_import' => 2.0,
-            'skip' => -1.2,
-            'dislike' => -3.5,
-            _ => 0.0,
-          }) *
-          recency;
-      for (final t in _tokens(
-        (e.title + ' ' + e.category + ' ' + e.query).toLowerCase(),
-      )) {
-        out[t] = (out[t] ?? 0) + weight;
-      }
-      if (e.category.isNotEmpty) {
-        final k = 'category:' + e.category.toLowerCase();
-        out[k] = (out[k] ?? 0) + weight;
-      }
-    }
-    for (final p in _playlists)
-      for (final v in p.videos)
-        for (final t in _tokens(v.title.toLowerCase())) {
-          out[t] = (out[t] ?? 0) + .65;
-        }
-    return Map.unmodifiable(out);
-  }
-
-  List<VideoModel> rankVideos(List<VideoModel> list) {
-    final profile = interestProfile;
-    if (profile.isEmpty) return List.unmodifiable(list);
-    final ranked = list.map((v) {
-      var score = 0.0;
-      for (final t in _tokens(
-        (v.title + ' ' + v.channelName + ' ' + v.category).toLowerCase(),
-      ))
-        score += profile[t] ?? 0;
-      score += profile['category:' + v.category.toLowerCase()] ?? 0;
-      return (video: v, score: score);
-    }).toList()..sort((a, b) => b.score.compareTo(a.score));
-    return ranked.map((x) => x.video).toList(growable: false);
-  }
-
-  Set<String> _tokens(String s) {
-    const stop = {
-      'the',
-      'and',
-      'for',
-      'with',
-      'from',
-      'that',
-      'this',
-      'your',
-      'you',
-      'how',
-      'what',
-      'when',
-      'where',
-      'why',
-      'are',
-      'was',
-      'into',
-      'about',
-      'video',
-      'videos',
-      'youtube',
-      'official',
-      'full',
-      'new',
-      'best',
-      'top',
-      'এবং',
-      'কেন',
-      'কী',
-      'কিভাবে',
-      'করে',
-      'থেকে',
-      'জন্য',
-      'আমার',
-      'আপনার',
-      'ভিডিও',
-    };
-    return s
-        .split(RegExp(r'[^a-z0-9\u0980-\u09FF]+'))
-        .where((x) => x.length >= 2 && !stop.contains(x))
-        .toSet();
-  }
-
-  Future<void> setConsent(bool enabled) async {
-    _consentDecided = true;
-    _personalizationEnabled = enabled;
-    if (!enabled) {
-      _events.clear();
-    }
-    notifyListeners();
-    await _persist();
-  }
-
-  Future<void> removePlaylist(String id) async {
-    _playlists.removeWhere((p) => p.id == id);
-    await _persist();
-    notifyListeners();
-  }
-
-  Future<void> clearActivity() async {
-    _events.clear();
-    notifyListeners();
-    await _persist();
-  }
-
-  Future<void> _persist() {
-    _queue = _queue.then((_) async {
-      try {
-        final f = await _file();
-        await f.writeAsString(
-          jsonEncode({
-            'consentDecided': _consentDecided,
-            'personalizationEnabled': _personalizationEnabled,
-            'activity': _events.map((e) => e.toJson()).toList(),
-            'playlists': _playlists.map((p) => p.toJson()).toList(),
-          }),
-          flush: true,
-        );
-      } catch (e) {
-        debugPrint('Personalization save: $e');
-      }
-    });
-    return _queue;
-  }
-}
-).hasMatch(channel.id)) {
-          final videos = await _rssService.fetchChannel(
-            'https://www.youtube.com/channel/${channel.id}',
-          );
-          refreshed.add(
-            ImportedPlaylist(
-              channel.id,
-              videos.isEmpty ? channel.title : videos.first.channelName,
-              videos.isEmpty ? channel.channel : videos.first.channelName,
-              videos.isEmpty ? channel.videos : videos,
-            ),
-          );
-        } else {
-          refreshed.add(channel);
-        }
-      } on YouTubeRssException catch (error) {
-        debugPrint('Channel feed refresh failed for ${channel.id}: ${error.message}');
-        refreshed.add(channel);
-      } on InvidiousCatalogException catch (error) {
-        debugPrint('Playlist refresh failed for ${channel.id}: $error');
-        refreshed.add(channel);
-      }
-    }
-    _playlists
-      ..clear()
-      ..addAll(refreshed);
-    await _persist();
-    notifyListeners();
-    return _playlists.expand((channel) => channel.videos).toList();
-  }
-
-  Future<ImportedPlaylist> importPlaylist(String input) async {
-    if (!_ready) await initialize();
-    try {
-      final resolved = await _catalogService.resolveYoutubeUrl(input);
-      final playlistId = resolved.playlistId;
-      if (playlistId == null) {
-        throw const PlaylistImportException(
-          'This URL is not a public YouTube playlist. Include a playlist link containing list=…',
-        );
-      }
-      final imported = await _catalogService.fetchPlaylist(playlistId);
-      if (imported.videos.isEmpty) {
-        throw const PlaylistImportException(
-          'No public videos were returned for this playlist.',
-        );
-      }
-      final playlist = ImportedPlaylist(
-        'playlist:$playlistId',
-        imported.title,
-        imported.channel,
-        imported.videos,
-      );
-      _playlists.removeWhere((item) => item.id == playlist.id);
-      _playlists.insert(0, playlist);
-      await _persist();
-      notifyListeners();
-      return playlist;
-    } on InvidiousCatalogException catch (error) {
-      throw PlaylistImportException(error.message);
-    }
   }
 
   Map<String, double> get interestProfile {
