@@ -167,21 +167,26 @@ void main() {
       expect(requested.last.path, '/api/v1/playlists/PL1234567890');
     });
 
-    test('rejects non-YouTube URLs before contacting a catalog server', () async {
-      var calls = 0;
-      final service = InvidiousCatalogService(
-        instanceUris: [Uri.https('catalog.example.test', '')],
-        loader: (_) async {
-          calls++;
-          return '{}';
-        },
-      );
+    test(
+      'rejects non-YouTube URLs before contacting a catalog server',
+      () async {
+        var calls = 0;
+        final service = InvidiousCatalogService(
+          instanceUris: [Uri.https('catalog.example.test', '')],
+          loader: (_) async {
+            calls++;
+            return '{}';
+          },
+        );
 
-      await expectLater(
-        service.resolveYoutubeUrl('https://example.com/playlist?list=PL1234567890'),
-        throwsA(isA<InvidiousCatalogException>()),
-      );
-      expect(calls, 0);
-    });
+        await expectLater(
+          service.resolveYoutubeUrl(
+            'https://example.com/playlist?list=PL1234567890',
+          ),
+          throwsA(isA<InvidiousCatalogException>()),
+        );
+        expect(calls, 0);
+      },
+    );
   });
 }

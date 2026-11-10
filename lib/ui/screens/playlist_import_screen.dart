@@ -43,7 +43,6 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
     }
   }
 
-
   Future<void> importPlaylist() async {
     FocusScope.of(context).unfocus();
     setState(() {
@@ -149,7 +148,11 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
             ...profile.playlists.map(
               (channel) => Card(
                 child: ListTile(
-                  leading: Icon(channel.id.startsWith('playlist:') ? Icons.playlist_play : Icons.subscriptions_outlined),
+                  leading: Icon(
+                    channel.id.startsWith('playlist:')
+                        ? Icons.playlist_play
+                        : Icons.subscriptions_outlined,
+                  ),
                   title: Text(channel.title),
                   subtitle: Text('${channel.videos.length} videos'),
                   trailing: IconButton(

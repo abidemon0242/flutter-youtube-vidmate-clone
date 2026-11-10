@@ -90,40 +90,43 @@ void main() {
       throwsA(isA<PlaylistImportException>()),
     );
   });
-  test('imports and persists a public playlist without a YouTube API key', () async {
-    profile.dispose();
-    profile = PersonalizationService(
-      directoryResolver: () async => temp,
-      catalogService: InvidiousCatalogService(
-        instanceUris: [Uri.https('catalog.example.test', '')],
-        loader: (uri) async => jsonEncode({
-          'title': 'Imported playlist',
-          'author': 'Creator',
-          'videoCount': 1,
-          'videos': [
-            {
-              'videoId': 'abcdefghijk',
-              'title': 'First video',
-              'author': 'Creator',
-              'lengthSeconds': 60,
-            },
-          ],
-        }),
-      ),
-    );
-    await profile.initialize();
-    final playlist = await profile.importPlaylist(
-      'https://www.youtube.com/playlist?list=PL1234567890',
-    );
-    expect(playlist.id, 'playlist:PL1234567890');
-    expect(playlist.videos.single.id, 'abcdefghijk');
-    expect(profile.playlists, hasLength(1));
+  test(
+    'imports and persists a public playlist without a YouTube API key',
+    () async {
+      profile.dispose();
+      profile = PersonalizationService(
+        directoryResolver: () async => temp,
+        catalogService: InvidiousCatalogService(
+          instanceUris: [Uri.https('catalog.example.test', '')],
+          loader: (uri) async => jsonEncode({
+            'title': 'Imported playlist',
+            'author': 'Creator',
+            'videoCount': 1,
+            'videos': [
+              {
+                'videoId': 'abcdefghijk',
+                'title': 'First video',
+                'author': 'Creator',
+                'lengthSeconds': 60,
+              },
+            ],
+          }),
+        ),
+      );
+      await profile.initialize();
+      final playlist = await profile.importPlaylist(
+        'https://www.youtube.com/playlist?list=PL1234567890',
+      );
+      expect(playlist.id, 'playlist:PL1234567890');
+      expect(playlist.videos.single.id, 'abcdefghijk');
+      expect(profile.playlists, hasLength(1));
 
-    profile.dispose();
-    profile = PersonalizationService(directoryResolver: () async => temp);
-    await profile.initialize();
-    expect(profile.playlists.single.title, 'Imported playlist');
-  });
+      profile.dispose();
+      profile = PersonalizationService(directoryResolver: () async => temp);
+      await profile.initialize();
+      expect(profile.playlists.single.title, 'Imported playlist');
+    },
+  );
 
   test('resolves a public channel handle before subscribing to RSS', () async {
     const xml = '''
@@ -140,9 +143,7 @@ void main() {
       rssService: YouTubeChannelRssService(loader: (_) async => xml),
       catalogService: InvidiousCatalogService(
         instanceUris: [Uri.https('catalog.example.test', '')],
-        loader: (_) async => jsonEncode({
-          'ucid': 'UC0123456789012345678901',
-        }),
+        loader: (_) async => jsonEncode({'ucid': 'UC0123456789012345678901'}),
       ),
     );
     await profile.initialize();

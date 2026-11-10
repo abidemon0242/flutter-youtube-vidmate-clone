@@ -136,12 +136,14 @@ class InvidiousCatalogService {
         'The public catalog could not resolve this YouTube URL.',
       );
     }
-    final channel = decoded['ucid'] as String? ?? decoded['browseId'] as String?;
+    final channel =
+        decoded['ucid'] as String? ?? decoded['browseId'] as String?;
     final playlist = decoded['playlistId'] as String?;
     return (
       channelId: channel != null && _validChannelId(channel) ? channel : null,
-      playlistId:
-          playlist != null && _validPlaylistId(playlist) ? playlist : null,
+      playlistId: playlist != null && _validPlaylistId(playlist)
+          ? playlist
+          : null,
     );
   }
 
@@ -160,9 +162,7 @@ class InvidiousCatalogService {
     int page = 1,
   }) async {
     if (!_validPlaylistId(playlistId)) {
-      throw const InvidiousCatalogException(
-        'The playlist ID is not valid.',
-      );
+      throw const InvidiousCatalogException('The playlist ID is not valid.');
     }
     final decoded = await _requestJson('/api/v1/playlists/$playlistId', {
       'page': '$page',
@@ -187,9 +187,7 @@ class InvidiousCatalogService {
 
   Uri? _youtubeUri(String input) {
     final raw = input.trim();
-    final uri = Uri.tryParse(
-      raw.startsWith('http') ? raw : 'https://$raw',
-    );
+    final uri = Uri.tryParse(raw.startsWith('http') ? raw : 'https://$raw');
     if (uri == null ||
         !{'http', 'https'}.contains(uri.scheme) ||
         !{
