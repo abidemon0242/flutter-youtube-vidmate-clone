@@ -28,10 +28,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? searchError;
   int _feedRequest = 0;
   int _searchRequest = 0;
+  String _playlistSignature = '';
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    context.read<PersonalizationService>().removeListener(_onPersonalizationChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -41,6 +43,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     repository = context.read<YouTubeRepository>();
+    final profile = context.read<PersonalizationService>();
+    _playlistSignature = _currentPlaylistSignature(profile);
+    profile.addListener(_onPersonalizationChanged);
     _loadFeed();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final profile = context.read<PersonalizationService>();
@@ -67,6 +72,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
       if (mounted) await profile.setConsent(accepted == true);
     });
+  }
+
+  String _currentPlaylistSignature(PersonalizationService profile) =>
+      profile.playlists
+          .map((playlist) => '${playlist.id}:${playlist.videos.length}')
+          .join('|');
+
+  void _onPersonalizationChanged() {
+    if (!mounted) return;
+    final profile = context.read<PersonalizationService>();
+    final signature = _currentPlaylistSignature(profile);
+    if (signature == _playlistSignature) return;
+    _playlistSignature = signature;
+    if (searchQuery.isEmpty) _loadFeed();
   }
 
   @override
@@ -116,13 +135,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<VideoModel> videos(PersonalizationService profile) {
     if (searchQuery.isNotEmpty) return searchResults;
     final unique = <String, VideoModel>{};
-    for (final video in [
-      ...profile.playlists.expand((playlist) => playlist.videos),
-      ...feedVideos,
-    ]) {
+    final imported = profile.playlists.expand((playlist) => playlist.videos);
+    for (final video in imported) {
       unique.putIfAbsent(video.id, () => video);
     }
-    return profile.rankVideos(unique.values.toList());
+    for (final video in profile.rankVideos(feedVideos)) {
+      unique.putIfAbsent(video.id, () => video);
+    }
+    return List.unmodifiable(unique.values);
   }
 
   Future<void> _runSearch(String query) async {
