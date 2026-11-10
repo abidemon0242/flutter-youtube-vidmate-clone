@@ -39,7 +39,9 @@ Future<void> _initializeServices() async {
   try {
     await BackgroundDownloadService().initialize();
   } catch (error, stackTrace) {
-    debugPrint('Background download initialization failed: $error\n$stackTrace');
+    debugPrint(
+      'Background download initialization failed: $error\n$stackTrace',
+    );
   }
   try {
     await MediaSessionService().initialize();

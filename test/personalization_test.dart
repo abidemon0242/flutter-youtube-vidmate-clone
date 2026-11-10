@@ -9,9 +9,7 @@ void main() {
   late PersonalizationService profile;
   setUp(() async {
     temp = await Directory.systemTemp.createTemp('ta-profile-');
-    profile = PersonalizationService(
-      directoryResolver: () async => temp,
-    );
+    profile = PersonalizationService(directoryResolver: () async => temp);
     await profile.initialize();
     await profile.setConsent(true);
   });
@@ -124,9 +122,7 @@ void main() {
   test('persists and restores activity', () async {
     await profile.record(type: 'search', query: 'cybersecurity basics');
     profile.dispose();
-    profile = PersonalizationService(
-      directoryResolver: () async => temp,
-    );
+    profile = PersonalizationService(directoryResolver: () async => temp);
     await profile.initialize();
     expect(profile.activityCount, 1);
     expect(profile.interestProfile['cybersecurity'], greaterThan(0));

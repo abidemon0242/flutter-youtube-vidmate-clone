@@ -126,7 +126,9 @@ class _HomeScreenState extends State<HomeScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Search public YouTube video metadata without a YouTube Data API key. Results use community-run public catalog servers and may be temporarily unavailable.'),
+            const Text(
+              'Search public YouTube video metadata without a YouTube Data API key. Results use community-run public catalog servers and may be temporarily unavailable.',
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: controller,
@@ -193,7 +195,10 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       if (mounted && request == _searchRequest && term == searchQuery) {
         setState(() {
-          searchError = error.toString().replaceFirst('InvidiousCatalogException: ', '');
+          searchError = error.toString().replaceFirst(
+            'InvidiousCatalogException: ',
+            '',
+          );
         });
       }
     } finally {
@@ -280,7 +285,10 @@ class _HomeScreenState extends State<HomeScreen> {
               PopupMenuItem(value: 'links', child: Text('Add media links')),
               PopupMenuItem(value: 'downloads', child: Text('Downloads')),
               PopupMenuItem(value: 'library', child: Text('Library')),
-              PopupMenuItem(value: 'playlists', child: Text('Add YouTube channel')),
+              PopupMenuItem(
+                value: 'playlists',
+                child: Text('Add YouTube channel'),
+              ),
               PopupMenuItem(
                 value: 'privacy',
                 child: Text('Personalization & privacy'),

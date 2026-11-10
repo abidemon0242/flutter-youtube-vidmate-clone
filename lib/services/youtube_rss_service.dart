@@ -24,10 +24,16 @@ class YouTubeChannelRssService {
 
   String channelIdFromInput(String input) {
     final uri = Uri.tryParse(
-      input.trim().startsWith('http') ? input.trim() : 'https://${input.trim()}',
+      input.trim().startsWith('http')
+          ? input.trim()
+          : 'https://${input.trim()}',
     );
     if (uri == null ||
-        !{'youtube.com', 'www.youtube.com', 'm.youtube.com'}.contains(uri.host.toLowerCase())) {
+        !{
+          'youtube.com',
+          'www.youtube.com',
+          'm.youtube.com',
+        }.contains(uri.host.toLowerCase())) {
       throw const YouTubeRssException(
         'Enter a YouTube channel URL or its public channel RSS URL.',
       );
@@ -56,7 +62,9 @@ class YouTubeChannelRssService {
     try {
       document = XmlDocument.parse(xml);
     } on XmlException {
-      throw const YouTubeRssException('YouTube returned an invalid channel feed.');
+      throw const YouTubeRssException(
+        'YouTube returned an invalid channel feed.',
+      );
     }
     final feedTitle = _firstElement(
       document.findAllElements('title', namespace: _atom),
@@ -64,11 +72,11 @@ class YouTubeChannelRssService {
     final author = _firstElement(
       document.findAllElements('author', namespace: _atom),
     );
-    final channelName = _firstElement(
-              author?.findElements('name', namespace: _atom) ?? const <XmlElement>[],
-            )
-            ?.innerText
-            .trim() ??
+    final channelName =
+        _firstElement(
+          author?.findElements('name', namespace: _atom) ??
+              const <XmlElement>[],
+        )?.innerText.trim() ??
         feedTitle ??
         'YouTube channel';
     final videos = <VideoModel>[];
@@ -83,18 +91,20 @@ class YouTubeChannelRssService {
       final published = _firstElement(
         entry.findElements('published', namespace: _atom),
       )?.innerText;
-      videos.add(VideoModel(
-        id: id,
-        title: title?.isNotEmpty == true ? title! : 'YouTube video',
-        channelName: channelName,
-        views: published == null ? 'Recent upload' : _relativeDate(published),
-        duration: '—',
-        thumbnailUrl: 'https://i.ytimg.com/vi/$id/hqdefault.jpg',
-        channelAvatar: '',
-        isVerified: false,
-        category: 'Subscriptions',
-        playbackUrl: 'https://www.youtube.com/watch?v=$id',
-      ));
+      videos.add(
+        VideoModel(
+          id: id,
+          title: title?.isNotEmpty == true ? title! : 'YouTube video',
+          channelName: channelName,
+          views: published == null ? 'Recent upload' : _relativeDate(published),
+          duration: '—',
+          thumbnailUrl: 'https://i.ytimg.com/vi/$id/hqdefault.jpg',
+          channelAvatar: '',
+          isVerified: false,
+          category: 'Subscriptions',
+          playbackUrl: 'https://www.youtube.com/watch?v=$id',
+        ),
+      );
     }
     return videos;
   }
@@ -113,21 +123,35 @@ class YouTubeChannelRssService {
   }
 
   static Future<String> _load(Uri uri) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 12);
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 12);
     try {
-      final request = await client.getUrl(uri).timeout(const Duration(seconds: 12));
-      request.headers.set(HttpHeaders.acceptHeader, 'application/atom+xml, application/xml, text/xml');
+      final request = await client
+          .getUrl(uri)
+          .timeout(const Duration(seconds: 12));
+      request.headers.set(
+        HttpHeaders.acceptHeader,
+        'application/atom+xml, application/xml, text/xml',
+      );
       request.headers.set(HttpHeaders.userAgentHeader, 'TubeArena/1.0');
-      final response = await request.close().timeout(const Duration(seconds: 18));
+      final response = await request.close().timeout(
+        const Duration(seconds: 18),
+      );
       final body = await response.transform(utf8.decoder).join();
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw YouTubeRssException('Channel feed request failed (HTTP ${response.statusCode}).');
+        throw YouTubeRssException(
+          'Channel feed request failed (HTTP ${response.statusCode}).',
+        );
       }
       return body;
     } on SocketException {
-      throw const YouTubeRssException('Network unavailable. Check your connection.');
+      throw const YouTubeRssException(
+        'Network unavailable. Check your connection.',
+      );
     } on TimeoutException {
-      throw const YouTubeRssException('Channel feed request timed out. Please retry.');
+      throw const YouTubeRssException(
+        'Channel feed request timed out. Please retry.',
+      );
     } finally {
       client.close(force: true);
     }

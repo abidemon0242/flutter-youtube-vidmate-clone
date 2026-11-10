@@ -19,11 +19,9 @@ typedef CatalogTextLoader = Future<String> Function(Uri uri);
 /// This service deliberately uses only search and trending endpoints. It never
 /// requests video stream URLs or attempts to extract downloadable media.
 class InvidiousCatalogService {
-  InvidiousCatalogService({
-    CatalogTextLoader? loader,
-    List<Uri>? instanceUris,
-  }) : _loader = loader ?? _load,
-       _providedInstances = instanceUris;
+  InvidiousCatalogService({CatalogTextLoader? loader, List<Uri>? instanceUris})
+    : _loader = loader ?? _load,
+      _providedInstances = instanceUris;
 
   final CatalogTextLoader _loader;
   final List<Uri>? _providedInstances;
@@ -134,17 +132,15 @@ class InvidiousCatalogService {
         for (final candidate in thumbnails) {
           if (candidate is Map && candidate['url'] is String) {
             final url = Uri.tryParse(candidate['url'] as String);
-            if (url != null &&
-                url.scheme == 'https' &&
-                url.host.isNotEmpty) {
+            if (url != null && url.scheme == 'https' && url.host.isNotEmpty) {
               thumbnail = url.toString();
               break;
             }
           }
         }
       }
-      final views = item['viewCountText'] as String? ??
-          _formatViews(item['viewCount']);
+      final views =
+          item['viewCountText'] as String? ?? _formatViews(item['viewCount']);
       final durationSeconds = (item['lengthSeconds'] as num?)?.toInt() ?? 0;
       videos.add(
         VideoModel(
@@ -181,10 +177,7 @@ class InvidiousCatalogService {
     return '${minutes.toString().padLeft(2, '0')}:${remaining.toString().padLeft(2, '0')}';
   }
 
-  Future<dynamic> _requestJson(
-    String path,
-    Map<String, String> query,
-  ) async {
+  Future<dynamic> _requestJson(String path, Map<String, String> query) async {
     final instances = await _instances();
     Object? lastError;
     for (final base in instances) {
@@ -213,9 +206,9 @@ class InvidiousCatalogService {
           .timeout(const Duration(seconds: 12));
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       request.headers.set(HttpHeaders.userAgentHeader, 'TubeArena/1.0');
-      final response = await request
-          .close()
-          .timeout(const Duration(seconds: 15));
+      final response = await request.close().timeout(
+        const Duration(seconds: 15),
+      );
       final body = await response.transform(utf8.decoder).join();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw InvidiousCatalogException(

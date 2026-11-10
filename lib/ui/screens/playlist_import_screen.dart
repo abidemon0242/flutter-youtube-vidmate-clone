@@ -36,7 +36,8 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
     } on PlaylistImportException catch (e) {
       if (mounted) setState(() => error = e.message);
     } catch (_) {
-      if (mounted) setState(() => error = 'Could not add this channel. Try again.');
+      if (mounted)
+        setState(() => error = 'Could not add this channel. Try again.');
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -113,9 +114,7 @@ class _PlaylistImportScreenState extends State<PlaylistImportScreen> {
                 child: ListTile(
                   leading: const Icon(Icons.subscriptions_outlined),
                   title: Text(channel.title),
-                  subtitle: Text(
-                    '${channel.videos.length} recent videos',
-                  ),
+                  subtitle: Text('${channel.videos.length} recent videos'),
                   trailing: IconButton(
                     tooltip: 'Remove channel',
                     icon: const Icon(Icons.delete_outline),

@@ -48,7 +48,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         .toList();
     if (initialUrls.isNotEmpty) {
       _urlsController.text = initialUrls.join('\n');
-      _status = '${initialUrls.length} link(s) added. Only direct media files can be queued.';
+      _status =
+          '${initialUrls.length} link(s) added. Only direct media files can be queued.';
     }
   }
 
@@ -119,7 +120,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       }
       if (!service.isInitialized) await service.initialize();
       if (!service.isInitialized) {
-        throw StateError(service.initializationError ?? 'Download service is unavailable.');
+        throw StateError(
+          service.initializationError ?? 'Download service is unavailable.',
+        );
       }
     } catch (error) {
       if (!mounted) return;
@@ -138,7 +141,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       setState(() => _status = 'Checking ${index + 1} of ${urls.length}…');
       final parsed = _parseDirectMediaUrl(rawUrl);
       if (parsed == null) {
-        failures.add('Link ${index + 1}: unsupported URL or file extension. Use a direct MP4, WebM, 3GP, MP3, M4A, AAC or WAV file URL.');
+        failures.add(
+          'Link ${index + 1}: unsupported URL or file extension. Use a direct MP4, WebM, 3GP, MP3, M4A, AAC or WAV file URL.',
+        );
         continue;
       }
 
@@ -149,7 +154,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ? normalizedTitle.substring(0, 80)
           : normalizedTitle;
       final safeFileId = id.replaceAll(RegExp(r'[^\w-]'), '');
-      final fileBase = safeTitle.isEmpty ? safeFileId : '${safeTitle}_$safeFileId';
+      final fileBase = safeTitle.isEmpty
+          ? safeFileId
+          : '${safeTitle}_$safeFileId';
       final extension = parsed.extension;
       final format = extension.toUpperCase();
       final fileName = '$fileBase.$extension';
@@ -167,7 +174,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
         isAudioOnly: _audioOnly,
       );
       if (taskId == null) {
-        failures.add('$title: download could not be queued. Check the URL, Wi-Fi-only setting and existing task state.');
+        failures.add(
+          '$title: download could not be queued. Check the URL, Wi-Fi-only setting and existing task state.',
+        );
         continue;
       }
 
@@ -193,7 +202,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       final permissionNote = _notificationsDenied
           ? ' Notification permission is off, so visible download notifications may be unavailable.'
           : '';
-      _status = (failures.isEmpty
+      _status =
+          (failures.isEmpty
               ? '$queued download(s) queued.'
               : '$queued queued; ${failures.length} link(s) skipped.') +
           permissionNote;
@@ -239,14 +249,20 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             contentPadding: EdgeInsets.zero,
             value: _audioOnly,
             title: const Text('Audio-only files'),
-            subtitle: const Text('Accept MP3, M4A, AAC, WAV and audio WebM links.'),
-            onChanged: _isProcessing ? null : (value) => setState(() => _audioOnly = value),
+            subtitle: const Text(
+              'Accept MP3, M4A, AAC, WAV and audio WebM links.',
+            ),
+            onChanged: _isProcessing
+                ? null
+                : (value) => setState(() => _audioOnly = value),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _wifiOnly,
             title: const Text('Wi-Fi only downloads'),
-            subtitle: const Text('Pause or block downloads when Wi-Fi is unavailable while Tube Arena is active.'),
+            subtitle: const Text(
+              'Pause or block downloads when Wi-Fi is unavailable while Tube Arena is active.',
+            ),
             onChanged: _isProcessing
                 ? null
                 : (value) async {
@@ -268,14 +284,23 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Text('$count unique link(s)', style: const TextStyle(color: AppColors.textSecondary)),
+          Text(
+            '$count unique link(s)',
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: _isProcessing ? null : _startBatch,
             icon: _isProcessing
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.download_rounded),
-            label: Text(_isProcessing ? 'Preparing downloads…' : 'Download files'),
+            label: Text(
+              _isProcessing ? 'Preparing downloads…' : 'Download files',
+            ),
           ),
           const SizedBox(height: 16),
           Text(_status, style: const TextStyle(color: AppColors.textSecondary)),

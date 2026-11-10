@@ -7,9 +7,10 @@ void main() {
   group('YouTubeChannelRssService', () {
     test('parses a public channel RSS feed without an API key', () async {
       Uri? requested;
-      final service = YouTubeChannelRssService(loader: (uri) async {
-        requested = uri;
-        return '''
+      final service = YouTubeChannelRssService(
+        loader: (uri) async {
+          requested = uri;
+          return '''
           <feed xmlns="http://www.w3.org/2005/Atom"
                 xmlns:yt="http://www.youtube.com/xml/schemas/2015">
             <title>Example Channel</title>
@@ -21,7 +22,8 @@ void main() {
             </entry>
           </feed>
         ''';
-      });
+        },
+      );
       final videos = await service.fetchChannel(
         'https://www.youtube.com/channel/$channelId',
       );

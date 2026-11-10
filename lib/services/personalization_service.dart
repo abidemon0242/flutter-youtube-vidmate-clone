@@ -226,7 +226,9 @@ class PersonalizationService extends ChangeNotifier {
           ),
         );
       } on YouTubeRssException catch (error) {
-        debugPrint('Channel feed refresh failed for ${channel.id}: ${error.message}');
+        debugPrint(
+          'Channel feed refresh failed for ${channel.id}: ${error.message}',
+        );
         refreshed.add(channel);
       }
     }

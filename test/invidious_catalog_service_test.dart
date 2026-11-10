@@ -14,10 +14,7 @@ void main() {
     'lengthSeconds': 125,
     'publishedText': '2 days ago',
     'videoThumbnails': [
-      {
-        'quality': 'medium',
-        'url': 'https://img.example.test/thumb.jpg',
-      },
+      {'quality': 'medium', 'url': 'https://img.example.test/thumb.jpg'},
     ],
   };
 
@@ -42,7 +39,10 @@ void main() {
       expect(videos.single.id, videoId);
       expect(videos.single.title, 'Public catalog result');
       expect(videos.single.duration, '02:05');
-      expect(videos.single.playbackUrl, 'https://www.youtube.com/watch?v=$videoId');
+      expect(
+        videos.single.playbackUrl,
+        'https://www.youtube.com/watch?v=$videoId',
+      );
       expect(videos.single.thumbnailUrl, 'https://img.example.test/thumb.jpg');
     });
 
