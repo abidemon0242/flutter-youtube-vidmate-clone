@@ -14,10 +14,11 @@ class InvidiousCatalogException implements Exception {
 
 typedef CatalogTextLoader = Future<String> Function(Uri uri);
 
-/// Reads public video metadata from the community-maintained Invidious API.
+/// Reads public video metadata from community-maintained Invidious instances.
 ///
-/// This service deliberately uses only search and trending endpoints. It never
-/// requests video stream URLs or attempts to extract downloadable media.
+/// This service never requests video stream URLs or attempts to extract
+/// downloadable media. It supports public search, trending, playlist metadata,
+/// and resolving public YouTube channel/playlist URLs.
 class InvidiousCatalogService {
   InvidiousCatalogService({CatalogTextLoader? loader, List<Uri>? instanceUris})
     : _loader = loader ?? _load,
@@ -32,14 +33,12 @@ class InvidiousCatalogService {
     {'sort_by': 'type,users'},
   );
 
-  // Last-resort fallback, included in the official Invidious instance
-  // registry with its public API enabled at the time this integration shipped.
   static final List<Uri> _fallbackInstances = [
     Uri.https('yt.chocolatemoo53.com', ''),
   ];
 
   Future<List<Uri>> _instances() async {
-    if (_providedInstances != null) return _providedInstances;
+    if (_providedInstances != null) return _providedInstances!;
     try {
       final decoded = jsonDecode(await _loader(_registryUri));
       if (decoded is List) {
@@ -66,7 +65,7 @@ class InvidiousCatalogService {
         if (instances.isNotEmpty) return instances;
       }
     } catch (_) {
-      // Use the last known official API-enabled instance below.
+      // Fall back to the last known API-enabled public instance.
     }
     return _fallbackInstances;
   }
@@ -107,6 +106,111 @@ class InvidiousCatalogService {
     }
     return _videosFromList(decoded, category: 'Trending');
   }
+
+  /// Resolves only YouTube URLs to a public channel ID or playlist ID.
+  Future<({String? channelId, String? playlistId})> resolveYoutubeUrl(
+    String input,
+  ) async {
+    final uri = _youtubeUri(input);
+    if (uri == null) {
+      throw const InvidiousCatalogException(
+        'Enter a valid public YouTube channel or playlist URL.',
+      );
+    }
+    final directPlaylist = uri.queryParameters['list'];
+    if (directPlaylist != null && _validPlaylistId(directPlaylist)) {
+      return (channelId: null, playlistId: directPlaylist);
+    }
+    final parts = uri.pathSegments;
+    if (parts.length >= 2 &&
+        parts.first == 'channel' &&
+        _validChannelId(parts[1])) {
+      return (channelId: parts[1], playlistId: null);
+    }
+
+    final decoded = await _requestJson('/api/v1/resolveurl', {
+      'url': uri.toString(),
+    });
+    if (decoded is! Map) {
+      throw const InvidiousCatalogException(
+        'The public catalog could not resolve this YouTube URL.',
+      );
+    }
+    final channel = decoded['ucid'] as String? ?? decoded['browseId'] as String?;
+    final playlist = decoded['playlistId'] as String?;
+    return (
+      channelId: channel != null && _validChannelId(channel) ? channel : null,
+      playlistId:
+          playlist != null && _validPlaylistId(playlist) ? playlist : null,
+    );
+  }
+
+  Future<String> resolveChannelId(String input) async {
+    final resolved = await resolveYoutubeUrl(input);
+    if (resolved.channelId == null) {
+      throw const InvidiousCatalogException(
+        'This link did not resolve to a public YouTube channel. Use a channel URL or @handle URL.',
+      );
+    }
+    return resolved.channelId!;
+  }
+
+  Future<ImportedCatalogPlaylist> fetchPlaylist(
+    String playlistId, {
+    int page = 1,
+  }) async {
+    if (!_validPlaylistId(playlistId)) {
+      throw const InvidiousCatalogException(
+        'The playlist ID is not valid.',
+      );
+    }
+    final decoded = await _requestJson('/api/v1/playlists/$playlistId', {
+      'page': '$page',
+    });
+    if (decoded is! Map || decoded['videos'] is! List) {
+      throw const InvidiousCatalogException(
+        'This playlist is unavailable or its response is unsupported.',
+      );
+    }
+    final videos = _videosFromList(
+      decoded['videos'] as List,
+      category: 'Imported playlist',
+    );
+    return ImportedCatalogPlaylist(
+      id: playlistId,
+      title: decoded['title'] as String? ?? 'YouTube playlist',
+      channel: decoded['author'] as String? ?? '',
+      videos: videos,
+      totalCount: (decoded['videoCount'] as num?)?.toInt() ?? videos.length,
+    );
+  }
+
+  Uri? _youtubeUri(String input) {
+    final raw = input.trim();
+    final uri = Uri.tryParse(
+      raw.startsWith('http') ? raw : 'https://$raw',
+    );
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        !{
+          'youtube.com',
+          'www.youtube.com',
+          'm.youtube.com',
+          'music.youtube.com',
+          'youtu.be',
+          'www.youtu.be',
+        }.contains(uri.host.toLowerCase()) ||
+        uri.userInfo.isNotEmpty) {
+      return null;
+    }
+    return uri;
+  }
+
+  bool _validChannelId(String value) =>
+      RegExp(r'^UC[A-Za-z0-9_-]{22}$').hasMatch(value);
+
+  bool _validPlaylistId(String value) =>
+      RegExp(r'^[A-Za-z0-9_-]{10,128}$').hasMatch(value);
 
   List<VideoModel> _videosFromList(
     List<dynamic> items, {
@@ -193,7 +297,7 @@ class InvidiousCatalogService {
     }
     if (lastError is InvidiousCatalogException) throw lastError;
     throw InvidiousCatalogException(
-      'No trusted public catalog instance is responding. Try again later. (${lastError ?? 'No instance available'})',
+      'No public catalog instance is responding. Try again later. (${lastError ?? 'No instance available'})',
     );
   }
 
@@ -228,4 +332,20 @@ class InvidiousCatalogService {
       client.close(force: true);
     }
   }
+}
+
+class ImportedCatalogPlaylist {
+  const ImportedCatalogPlaylist({
+    required this.id,
+    required this.title,
+    required this.channel,
+    required this.videos,
+    required this.totalCount,
+  });
+
+  final String id;
+  final String title;
+  final String channel;
+  final List<VideoModel> videos;
+  final int totalCount;
 }
