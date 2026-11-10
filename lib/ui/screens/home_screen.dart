@@ -18,7 +18,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final YouTubeRepository repository;
   int selectedCategory = 0;
-  bool multiSelectMode = false;
   String searchQuery = '';
   List<VideoModel> searchResults = [];
   List<VideoModel> feedVideos = [];
@@ -26,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
   String? feedError;
   bool searching = false;
   String? searchError;
-  final Set<String> selectedIds = {};
   int _feedRequest = 0;
   int _searchRequest = 0;
 
@@ -110,13 +108,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return profile.rankVideos(unique.values.toList());
   }
 
-  void toggle(String id) {
-    setState(() {
-      if (!selectedIds.add(id)) selectedIds.remove(id);
-      multiSelectMode = selectedIds.isNotEmpty;
-    });
-  }
-
   Future<void> search() async {
     final controller = TextEditingController(text: searchQuery);
     final query = await showDialog<String>(
@@ -169,8 +160,6 @@ class _HomeScreenState extends State<HomeScreen> {
       searching = true;
       searchError = null;
       searchResults = [];
-      selectedIds.clear();
-      multiSelectMode = false;
     });
 
     try {
@@ -214,40 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
       searchResults = [];
       searchError = null;
       searching = false;
-      selectedIds.clear();
-      multiSelectMode = false;
     });
-  }
-
-  String? _downloadUrlFor(VideoModel video) {
-    // YouTube watch pages are not direct downloadable media URLs.
-    // The download flow accepts only authorized direct media-file links.
-    return null;
-  }
-
-  void _openSelectedDownloads(List<VideoModel> visibleVideos) {
-    final urls = visibleVideos
-        .where((video) => selectedIds.contains(video.id))
-        .map(_downloadUrlFor)
-        .whereType<String>()
-        .toList();
-
-    if (urls.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'YouTube videos cannot be downloaded from their watch-page links. Add an authorized direct media-file URL instead.',
-          ),
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      selectedIds.clear();
-      multiSelectMode = false;
-    });
-    context.push('/add-downloads', extra: urls);
   }
 
   @override
@@ -321,9 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     searchResults = [];
                     searchError = null;
                     searching = false;
-                    selectedIds.clear();
-                    multiSelectMode = false;
-                  });
+                                              });
                   _loadFeed();
                 },
               ),
@@ -361,17 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       final video = visibleVideos[index];
                       return VideoCard(
                         video: video,
-                        multiSelectMode: multiSelectMode,
-                        isSelected: selectedIds.contains(video.id),
-                        onLongPress: () => toggle(video.id),
-                        onCheckboxTap: () => toggle(video.id),
-                        onTap: () {
-                          if (multiSelectMode) {
-                            toggle(video.id);
-                            return;
-                          }
-                          context.push('/watch', extra: video);
-                        },
+                        onTap: () => context.push('/watch', extra: video),
                       );
                     },
                   ),
@@ -400,13 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      floatingActionButton: multiSelectMode
-          ? FloatingActionButton.extended(
-              onPressed: () => _openSelectedDownloads(visibleVideos),
-              label: const Text('Download selected'),
-              icon: const Icon(Icons.add_link),
-            )
-          : null,
+
     );
   }
 }
