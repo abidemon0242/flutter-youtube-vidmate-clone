@@ -24,7 +24,7 @@ Future<void> main() async {
           create: (_) => DownloadsProvider()..initialize(),
         ),
         ChangeNotifierProvider<PersonalizationService>.value(value: profile),
-        Provider(create: (_) => const YouTubeRepository()),
+        Provider(create: (_) => YouTubeRepository()),
         Provider(create: (_) => AdBlockerService()),
         Provider(create: (_) => BackgroundDownloadService()),
         Provider(create: (_) => LocalFileManagerService()),
