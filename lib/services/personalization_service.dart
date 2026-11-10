@@ -211,6 +211,8 @@ class PersonalizationService extends ChangeNotifier {
       return channel;
     } on YouTubeRssException catch (error) {
       throw PlaylistImportException(error.message);
+    } on InvidiousCatalogException catch (error) {
+      throw PlaylistImportException(error.message);
     }
   }
 
