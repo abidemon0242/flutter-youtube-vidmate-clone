@@ -51,7 +51,7 @@ class YouTubeRepository {
     String query,
     List<VideoModel> availableVideos,
   ) {
-    final terms = query.toLowerCase().split(RegExp(r'\\s+'));
+    final terms = query.toLowerCase().split(RegExp(r'\s+'));
     return availableVideos.where((video) {
       final haystack = '${video.title} ${video.channelName} ${video.category}'
           .toLowerCase();
