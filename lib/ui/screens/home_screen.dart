@@ -277,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     searchResults = [];
                     searchError = null;
                     searching = false;
-                                              });
+                  });
                   _loadFeed();
                 },
               ),
@@ -344,7 +344,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-
     );
   }
 }
