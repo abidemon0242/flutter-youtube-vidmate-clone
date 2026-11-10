@@ -208,7 +208,11 @@ class PersonalizationService extends ChangeNotifier {
       _playlists.insert(0, channel);
       await _persist();
       notifyListeners();
-      await record(type: 'playlist_import', query: channel.title, video: channel.videos.first);
+      await record(
+        type: 'playlist_import',
+        query: channel.title,
+        video: channel.videos.first,
+      );
       return channel;
     } on YouTubeRssException catch (error) {
       throw PlaylistImportException(error.message);
@@ -225,30 +229,41 @@ class PersonalizationService extends ChangeNotifier {
         if (channel.id.startsWith('playlist:')) {
           final playlistId = channel.id.substring('playlist:'.length);
           final latest = await _catalogService.fetchPlaylist(playlistId);
-          refreshed.add(ImportedPlaylist(
-            channel.id,
-            latest.title,
-            latest.channel,
-            latest.videos.isEmpty ? channel.videos : latest.videos,
-          ));
+          refreshed.add(
+            ImportedPlaylist(
+              channel.id,
+              latest.title,
+              latest.channel,
+              latest.videos.isEmpty ? channel.videos : latest.videos,
+            ),
+          );
         } else if (RegExp(r'^UC[A-Za-z0-9_-]{22}$').hasMatch(channel.id)) {
           final videos = await _rssService.fetchChannel(
             'https://www.youtube.com/channel/' + channel.id,
           );
-          refreshed.add(ImportedPlaylist(
-            channel.id,
-            videos.isEmpty ? channel.title : videos.first.channelName,
-            videos.isEmpty ? channel.channel : videos.first.channelName,
-            videos.isEmpty ? channel.videos : videos,
-          ));
+          refreshed.add(
+            ImportedPlaylist(
+              channel.id,
+              videos.isEmpty ? channel.title : videos.first.channelName,
+              videos.isEmpty ? channel.channel : videos.first.channelName,
+              videos.isEmpty ? channel.videos : videos,
+            ),
+          );
         } else {
           refreshed.add(channel);
         }
       } on YouTubeRssException catch (error) {
-        debugPrint('Channel feed refresh failed for ' + channel.id + ': ' + error.message);
+        debugPrint(
+          'Channel feed refresh failed for ' +
+              channel.id +
+              ': ' +
+              error.message,
+        );
         refreshed.add(channel);
       } on InvidiousCatalogException catch (error) {
-        debugPrint('Playlist refresh failed for ' + channel.id + ': ' + error.toString());
+        debugPrint(
+          'Playlist refresh failed for ' + channel.id + ': ' + error.toString(),
+        );
         refreshed.add(channel);
       }
     }
@@ -259,6 +274,7 @@ class PersonalizationService extends ChangeNotifier {
     notifyListeners();
     return _playlists.expand((channel) => channel.videos).toList();
   }
+
   Future<ImportedPlaylist> importPlaylist(String input) async {
     if (!_ready) await initialize();
     try {
@@ -285,7 +301,11 @@ class PersonalizationService extends ChangeNotifier {
       _playlists.insert(0, playlist);
       await _persist();
       notifyListeners();
-      await record(type: 'playlist_import', query: playlist.title, video: playlist.videos.first);
+      await record(
+        type: 'playlist_import',
+        query: playlist.title,
+        video: playlist.videos.first,
+      );
       return playlist;
     } on InvidiousCatalogException catch (error) {
       throw PlaylistImportException(error.message);
@@ -293,14 +313,18 @@ class PersonalizationService extends ChangeNotifier {
   }
 
   String get recommendationQuery {
-    final weighted = interestProfile.entries
-        .where((entry) => !entry.key.startsWith('category:') && entry.value > 0)
-        .toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final weighted =
+        interestProfile.entries
+            .where(
+              (entry) => !entry.key.startsWith('category:') && entry.value > 0,
+            )
+            .toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
     if (weighted.isNotEmpty) {
       return weighted.take(3).map((entry) => entry.key).join(' ');
     }
-    final titles = _playlists.expand((playlist) => playlist.videos)
+    final titles = _playlists
+        .expand((playlist) => playlist.videos)
         .take(12)
         .map((video) => video.title)
         .join(' ');

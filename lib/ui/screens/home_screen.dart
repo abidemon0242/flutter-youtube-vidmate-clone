@@ -33,7 +33,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    context.read<PersonalizationService>().removeListener(_onPersonalizationChanged);
+    context.read<PersonalizationService>().removeListener(
+      _onPersonalizationChanged,
+    );
     _searchController.dispose();
     super.dispose();
   }
@@ -74,10 +76,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
   }
 
-  String _currentPlaylistSignature(PersonalizationService profile) =>
-      profile.playlists
-          .map((playlist) => '${playlist.id}:${playlist.videos.length}')
-          .join('|');
+  String _currentPlaylistSignature(PersonalizationService profile) => profile
+      .playlists
+      .map((playlist) => '${playlist.id}:${playlist.videos.length}')
+      .join('|');
 
   void _onPersonalizationChanged() {
     if (!mounted) return;
@@ -337,18 +339,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 : RefreshIndicator(
                     onRefresh: _loadFeed,
                     child: ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                    itemCount: visibleVideos.length,
-                    itemBuilder: (context, index) {
-                      final video = visibleVideos[index];
-                      return VideoCard(
-                        video: video,
-                        onTap: () => context.push('/watch', extra: video),
-                      );
-                    },
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                      itemCount: visibleVideos.length,
+                      itemBuilder: (context, index) {
+                        final video = visibleVideos[index];
+                        return VideoCard(
+                          video: video,
+                          onTap: () => context.push('/watch', extra: video),
+                        );
+                      },
+                    ),
                   ),
-                ),
           ),
         ],
       ),

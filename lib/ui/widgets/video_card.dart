@@ -22,7 +22,10 @@ class VideoCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Download options', style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                'Download options',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(height: 10),
               const Text(
                 'This item is a YouTube watch-page link. Tube Arena does not extract YouTube streams, so resolution and format choices are not available for this source. You can download a direct media file that you own or have permission to save.',
@@ -45,6 +48,7 @@ class VideoCard extends StatelessWidget {
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -179,7 +183,10 @@ class VideoCard extends StatelessWidget {
                         ),
                       ),
                     ],
-                    icon: const Icon(Icons.more_vert, color: AppColors.textSecondary),
+                    icon: const Icon(
+                      Icons.more_vert,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
