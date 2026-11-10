@@ -38,7 +38,7 @@ class InvidiousCatalogService {
   ];
 
   Future<List<Uri>> _instances() async {
-    if (_providedInstances != null) return _providedInstances!;
+    if (_providedInstances != null) return _providedInstances;
     try {
       final decoded = jsonDecode(await _loader(_registryUri));
       if (decoded is List) {
