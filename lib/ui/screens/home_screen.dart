@@ -85,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final signature = _currentPlaylistSignature(profile);
     if (signature == _playlistSignature) return;
     _playlistSignature = signature;
-    if (searchQuery.isEmpty) _loadFeed();
+    if (searchQuery.isEmpty && !feedLoading) _loadFeed();
   }
 
   @override
