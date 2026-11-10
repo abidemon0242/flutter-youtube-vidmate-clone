@@ -1,37 +1,71 @@
 import '../../models/video_model.dart';
+import '../../services/invidious_catalog_service.dart';
 
 class YouTubeRepository {
-  const YouTubeRepository();
+  YouTubeRepository({InvidiousCatalogService? catalog})
+    : _catalog = catalog ?? InvidiousCatalogService();
+
+  final InvidiousCatalogService _catalog;
 
   void dispose() {}
 
-  List<VideoModel> getFeedVideos({
+  Future<List<VideoModel>> getFeedVideos({
     required List<VideoModel> subscribedVideos,
-    String category = 'All',
-  }) {
-    final unique = <String, VideoModel>{};
-    for (final video in subscribedVideos) {
-      if (category == 'All' || category == 'Subscriptions') {
-        unique.putIfAbsent(video.id, () => video);
-      }
+    String category = 'Trending',
+  }) async {
+    if (category == 'Subscriptions') {
+      return List.unmodifiable(_unique(subscribedVideos));
     }
-    final result = unique.values.toList();
-    return List.unmodifiable(result);
+    try {
+      final trending = await _catalog.fetchTrending(region: 'BD');
+      return List.unmodifiable(_unique([...trending, ...subscribedVideos]));
+    } on InvidiousCatalogException {
+      if (subscribedVideos.isNotEmpty) {
+        return List.unmodifiable(_unique(subscribedVideos));
+      }
+      rethrow;
+    }
   }
 
   Future<List<VideoModel>> searchVideos(
     String query, {
-    required List<VideoModel> availableVideos,
+    List<VideoModel> availableVideos = const [],
   }) async {
-    final terms = query.toLowerCase().trim().split(RegExp(r'\s+'));
-    if (terms.isEmpty || terms.every((term) => term.isEmpty)) return const [];
-    final matches = availableVideos.where((video) {
+    final term = query.trim();
+    if (term.isEmpty) return const [];
+    try {
+      final remote = await _catalog.searchVideos(term, region: 'BD');
+      final combined = _unique([
+        ...remote,
+        ..._localSearch(term, availableVideos),
+      ]);
+      return List.unmodifiable(combined);
+    } on InvidiousCatalogException {
+      final local = _localSearch(term, availableVideos);
+      if (local.isNotEmpty) return List.unmodifiable(local);
+      rethrow;
+    }
+  }
+
+  List<VideoModel> _localSearch(
+    String query,
+    List<VideoModel> availableVideos,
+  ) {
+    final terms = query.toLowerCase().split(RegExp(r'\\s+'));
+    return availableVideos.where((video) {
       final haystack =
           '${video.title} ${video.channelName} ${video.category}'.toLowerCase();
       return terms.every(haystack.contains);
     }).toList();
-    return List.unmodifiable(matches);
   }
 
-  List<String> getCategories() => const ['All', 'Subscriptions'];
+  List<VideoModel> _unique(Iterable<VideoModel> videos) {
+    final unique = <String, VideoModel>{};
+    for (final video in videos) {
+      unique.putIfAbsent(video.id, () => video);
+    }
+    return unique.values.toList(growable: false);
+  }
+
+  List<String> getCategories() => const ['Trending', 'Subscriptions'];
 }
