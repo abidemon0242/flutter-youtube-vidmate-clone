@@ -24,7 +24,8 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
   bool _audioOnly = false;
   bool _wifiOnly = false;
   bool _notificationsDenied = false;
-  String _status = 'Paste direct media-file URLs here. YouTube watch-page links are not downloadable in this app.';
+  String _status =
+      'Paste direct media-file URLs here. YouTube watch-page links are not downloadable in this app.';
 
   static const _youtubeHosts = {
     'youtube.com',

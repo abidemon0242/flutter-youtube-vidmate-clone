@@ -234,7 +234,8 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: InputDecoration(
                 hintText: 'Search videos, channels, topics…',
                 prefixIcon: const Icon(Icons.search),
-                suffixIcon: searchQuery.isNotEmpty || _searchController.text.isNotEmpty
+                suffixIcon:
+                    searchQuery.isNotEmpty || _searchController.text.isNotEmpty
                     ? IconButton(
                         tooltip: 'Clear search',
                         onPressed: clearSearch,
@@ -296,7 +297,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   )
                 : visibleVideos.isEmpty
-                ? Center(child: Text(searchQuery.isNotEmpty ? 'No search results. Try another query.' : 'No videos available'))
+                ? Center(
+                    child: Text(
+                      searchQuery.isNotEmpty
+                          ? 'No search results. Try another query.'
+                          : 'No videos available',
+                    ),
+                  )
                 : ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
                     itemCount: visibleVideos.length,
