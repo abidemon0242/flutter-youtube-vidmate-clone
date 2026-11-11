@@ -63,7 +63,9 @@ class DownloadsScreen extends StatelessWidget {
                   Icon(
                     Icons.download_outlined,
                     size: 64,
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.6),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -112,7 +114,9 @@ class DownloadsScreen extends StatelessWidget {
                               ? null
                               : (item.progress.clamp(0, 100) / 100).toDouble(),
                           minHeight: 4,
-                          color: failed ? Theme.of(context).colorScheme.error : null,
+                          color: failed
+                              ? Theme.of(context).colorScheme.error
+                              : null,
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -290,7 +294,9 @@ class DownloadsScreen extends StatelessWidget {
         type: BottomNavigationBarType.fixed,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        unselectedItemColor: Theme.of(
+          context,
+        ).colorScheme.onSurface.withValues(alpha: 0.6),
         currentIndex: 1,
         onTap: (index) {
           if (index == 0) context.go('/');

@@ -81,10 +81,15 @@ class VideoCard extends StatelessWidget {
                   ),
                   child: video.thumbnailUrl.isEmpty
                       ? Container(
-                          color: isDark ? AppColors.darkSurface : const Color(0xFFE8EEF5),
+                          color: isDark
+                              ? AppColors.darkSurface
+                              : const Color(0xFFE8EEF5),
                           width: double.infinity,
                           height: 200,
-                          child: const Icon(Icons.video_library_outlined, size: 48),
+                          child: const Icon(
+                            Icons.video_library_outlined,
+                            size: 48,
+                          ),
                         )
                       : CachedNetworkImage(
                           imageUrl: video.thumbnailUrl,
@@ -92,12 +97,19 @@ class VideoCard extends StatelessWidget {
                           width: double.infinity,
                           height: 200,
                           placeholder: (context, url) => Container(
-                            color: isDark ? AppColors.darkSurface : const Color(0xFFE8EEF5),
+                            color: isDark
+                                ? AppColors.darkSurface
+                                : const Color(0xFFE8EEF5),
                             height: 200,
                           ),
                           errorWidget: (context, url, error) => Container(
-                            color: isDark ? AppColors.darkSurface : const Color(0xFFE8EEF5),
-                            child: const Icon(Icons.broken_image_outlined, size: 48),
+                            color: isDark
+                                ? AppColors.darkSurface
+                                : const Color(0xFFE8EEF5),
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              size: 48,
+                            ),
                           ),
                         ),
                 ),
@@ -133,7 +145,9 @@ class VideoCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 20,
-                    backgroundColor: isDark ? AppColors.darkSurface : const Color(0xFFE8EEF5),
+                    backgroundColor: isDark
+                        ? AppColors.darkSurface
+                        : const Color(0xFFE8EEF5),
                     backgroundImage: video.channelAvatar.isEmpty
                         ? null
                         : CachedNetworkImageProvider(video.channelAvatar),
@@ -141,7 +155,9 @@ class VideoCard extends StatelessWidget {
                         ? Icon(
                             Icons.person_outline,
                             size: 22,
-                            color: isDark ? AppColors.textSecondary : const Color(0xFF5A6A7A),
+                            color: isDark
+                                ? AppColors.textSecondary
+                                : const Color(0xFF5A6A7A),
                           )
                         : null,
                   ),
@@ -155,7 +171,9 @@ class VideoCard extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: isDark ? AppColors.textPrimary : const Color(0xFF1A1A2E),
+                            color: isDark
+                                ? AppColors.textPrimary
+                                : const Color(0xFF1A1A2E),
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             height: 1.3,
@@ -170,7 +188,9 @@ class VideoCard extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: isDark ? AppColors.textSecondary : const Color(0xFF5A6A7A),
+                                  color: isDark
+                                      ? AppColors.textSecondary
+                                      : const Color(0xFF5A6A7A),
                                   fontSize: 13,
                                 ),
                               ),
@@ -189,7 +209,9 @@ class VideoCard extends StatelessWidget {
                         Text(
                           video.views,
                           style: TextStyle(
-                            color: isDark ? AppColors.textSecondary : const Color(0xFF5A6A7A),
+                            color: isDark
+                                ? AppColors.textSecondary
+                                : const Color(0xFF5A6A7A),
                             fontSize: 12,
                           ),
                         ),
@@ -215,7 +237,9 @@ class VideoCard extends StatelessWidget {
                     ],
                     icon: Icon(
                       Icons.more_vert,
-                      color: isDark ? AppColors.textSecondary : const Color(0xFF5A6A7A),
+                      color: isDark
+                          ? AppColors.textSecondary
+                          : const Color(0xFF5A6A7A),
                     ),
                   ),
                 ],

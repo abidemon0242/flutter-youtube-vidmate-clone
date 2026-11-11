@@ -42,10 +42,7 @@ class TubeArenaApp extends StatelessWidget {
         path: '/personalization',
         builder: (c, s) => const PersonalizationSettingsScreen(),
       ),
-      GoRoute(
-        path: '/settings',
-        builder: (c, s) => const SettingsScreen(),
-      ),
+      GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
       GoRoute(
         path: '/local-player',
         builder: (c, s) => LocalMediaPlayerScreen(filePath: s.extra as String),

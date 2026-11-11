@@ -563,10 +563,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       ),
       body: Column(
         children: [
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: _buildPlayer(),
-          ),
+          AspectRatio(aspectRatio: 16 / 9, child: _buildPlayer()),
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
