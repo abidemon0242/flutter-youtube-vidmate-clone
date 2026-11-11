@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/repositories/youtube_repository.dart';
 import '../../models/video_model.dart';
+import '../../services/invidious_catalog_service.dart';
 import '../../services/personalization_service.dart';
 import '../widgets/video_card.dart';
 
@@ -97,6 +98,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  String _cleanError(Object error) {
+    final text = error.toString();
+    if (error is InvidiousCatalogException) return error.message;
+    return text
+        .replaceFirst('InvidiousCatalogException: ', '')
+        .replaceFirst('YouTubeRssException: ', '')
+        .trim();
+  }
+
   Future<void> _loadFeed() async {
     final request = ++_feedRequest;
     final categories = repository.getCategories();
@@ -122,14 +132,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         feedVideos = results;
         feedLoading = false;
         feedError = results.isEmpty
-            ? 'No channel videos yet. Add a YouTube channel from the RSS button above.'
+            ? (category == 'Subscriptions'
+                  ? 'No channel videos yet. Add a YouTube channel from the RSS button above.'
+                  : 'No videos available right now. Pull to refresh or try again later.')
             : null;
       });
     } catch (error) {
       if (!mounted || request != _feedRequest) return;
       setState(() {
         feedLoading = false;
-        feedError = error.toString().replaceFirst('YouTubeRssException: ', '');
+        feedError = _cleanError(error);
       });
     }
   }
@@ -179,17 +191,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         term,
         availableVideos: available.values.toList(),
       );
-      if (!mounted || request != _searchRequest || term != searchQuery) return;
+      if (!mounted || request != _searchRequest || term == searchQuery) return;
       setState(() {
         searchResults = profile.rankVideos(found);
       });
     } catch (error) {
       if (mounted && request == _searchRequest && term == searchQuery) {
         setState(() {
-          searchError = error.toString().replaceFirst(
-            'InvidiousCatalogException: ',
-            '',
-          );
+          searchError = _cleanError(error);
         });
       }
     } finally {
@@ -208,6 +217,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       searchError = null;
       searching = false;
     });
+  }
+
+  Widget _buildEmptyState({
+    required String message,
+    VoidCallback? onAction,
+    String? actionLabel,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.video_library_outlined,
+              size: 64,
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            if (onAction != null && actionLabel != null) ...[
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onAction,
+                icon: const Icon(Icons.refresh),
+                label: Text(actionLabel),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -312,31 +357,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: searching
                 ? const Center(child: CircularProgressIndicator())
                 : searchError != null
-                ? Center(child: Text(searchError!))
+                ? _buildEmptyState(
+                    message: searchError!,
+                    onAction: () => _runSearch(searchQuery),
+                    actionLabel: 'Retry search',
+                  )
                 : feedLoading && searchQuery.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : feedError != null && visibleVideos.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(feedError!),
-                        const SizedBox(height: 12),
-                        FilledButton.icon(
-                          onPressed: _loadFeed,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Retry'),
-                        ),
-                      ],
-                    ),
+                ? _buildEmptyState(
+                    message: feedError!,
+                    onAction: _loadFeed,
+                    actionLabel: 'Retry',
                   )
                 : visibleVideos.isEmpty
-                ? Center(
-                    child: Text(
-                      searchQuery.isNotEmpty
-                          ? 'No search results. Try another query.'
-                          : 'No videos available',
-                    ),
+                ? _buildEmptyState(
+                    message: searchQuery.isNotEmpty
+                        ? 'No search results. Try another query.'
+                        : 'No videos available',
                   )
                 : RefreshIndicator(
                     onRefresh: _loadFeed,
@@ -358,9 +396,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        backgroundColor: AppColors.background,
-        selectedItemColor: AppColors.primaryStart,
-        unselectedItemColor: AppColors.textSecondary,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
         currentIndex: 0,
         onTap: (index) {
           if (index == 1) context.go('/downloads');
