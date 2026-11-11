@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/downloads_provider.dart';
 import '../../services/background_download_service.dart';
+import '../../services/hls_resolution_service.dart';
 
 class BatchDownloadScreen extends StatefulWidget {
   const BatchDownloadScreen({super.key, this.initialUrls});
@@ -35,7 +37,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     'youtu.be',
     'www.youtu.be',
   };
-  static const _videoExtensions = {'mp4', 'webm', '3gp'};
+  static const _videoExtensions = {'mp4', 'webm', '3gp', 'm3u8'};
   static const _audioExtensions = {'mp3', 'm4a', 'aac', 'wav', 'webm'};
 
   @override
@@ -98,6 +100,88 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     return title.isEmpty ? fallback : title;
   }
 
+
+  Future<({MediaResolutionOption option, String format})?> _chooseResolution(
+    List<MediaResolutionOption> options,
+    String title,
+  ) async {
+    var selected = options.last;
+    var format = 'mp4';
+    return showModalBottomSheet<({MediaResolutionOption option, String format})>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 6),
+                const Text(
+                  'Choose an available stream. File sizes are estimates from the playlist bitrate and duration.',
+                ),
+                const SizedBox(height: 12),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 360),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: options.map((option) {
+                      final bitrate = option.bandwidth > 0
+                          ? ' • ${(option.bandwidth / 1000).round()} kbps'
+                          : '';
+                      return RadioListTile<MediaResolutionOption>(
+                        value: option,
+                        groupValue: selected,
+                        onChanged: (value) {
+                          if (value != null) {
+                            setSheetState(() => selected = value);
+                          }
+                        },
+                        title: Text(option.label),
+                        subtitle: Text('${option.sizeLabel}$bitrate'),
+                        secondary: const Icon(Icons.high_quality_outlined),
+                        contentPadding: EdgeInsets.zero,
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const Divider(),
+                const Text('Output format'),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'mp4', label: Text('MP4')),
+                    ButtonSegment(value: 'mkv', label: Text('MKV')),
+                  ],
+                  selected: {format},
+                  onSelectionChanged: (value) {
+                    setSheetState(() => format = value.first);
+                  },
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.pop(
+                      sheetContext,
+                      (option: selected, format: format),
+                    ),
+                    icon: const Icon(Icons.download_rounded),
+                    label: Text('Download ${selected.label}'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _startBatch() async {
     final urls = _readUrls();
     if (urls.isEmpty) {
@@ -150,6 +234,70 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
               ? 'Link ${index + 1}: this is a YouTube page URL, not a direct media file. Tube Arena does not extract YouTube streams. Use a direct media-file URL that you own or have permission to download.'
               : 'Link ${index + 1}: unsupported URL or file extension. Use a direct MP4, WebM, 3GP, MP3, M4A, AAC or WAV file URL.',
         );
+        continue;
+      }
+
+      if (parsed.extension == 'm3u8') {
+        final networks = await Connectivity().checkConnectivity();
+        if (_wifiOnly && !networks.contains(ConnectivityResult.wifi)) {
+          failures.add('Link ${index + 1}: Wi-Fi-only is enabled, but Wi-Fi is not connected.');
+          continue;
+        }
+        final title = _titleFromUri(parsed.uri, 'Media ${index + 1}');
+        final resolver = HlsResolutionService();
+        try {
+          setState(() => _status = 'Finding available resolutions for $title…');
+          final options = await resolver.discover(rawUrl);
+          if (!mounted) {
+            resolver.close();
+            return;
+          }
+          final choice = await _chooseResolution(options, title);
+          if (choice == null) {
+            resolver.close();
+            continue;
+          }
+          final id = 'hls-${DateTime.now().microsecondsSinceEpoch}-$index';
+          final normalizedTitle = title.replaceAll(RegExp(r'[^\\w\\s-]'), '').trim();
+          final safeTitle = normalizedTitle.isEmpty ? 'media' : normalizedTitle;
+          final safeBase = safeTitle.length > 70 ? safeTitle.substring(0, 70) : safeTitle;
+          final fileName = '${safeBase}_$id.${choice.format}';
+          final savePath = '$documentsPath/TubeArena/Downloads/$fileName';
+          final estimatedSize = choice.option.sizeLabel;
+          final entry = DownloadEntry(
+            id: id,
+            title: title,
+            url: choice.option.url,
+            sourceUrl: rawUrl,
+            size: estimatedSize,
+            format: '${choice.option.label} ${choice.format.toUpperCase()}',
+            progress: 0,
+            savedPath: savePath,
+            status: 'downloading',
+          );
+          downloads.addDownload(entry);
+          setState(() => _status = 'Downloading ${choice.option.label} • $title…');
+          final succeeded = await resolver.download(
+            option: choice.option,
+            outputPath: savePath,
+            format: choice.format,
+          );
+          downloads.addDownload(
+            entry.copyWith(
+              progress: succeeded ? 100 : 0,
+              status: succeeded ? 'completed' : 'failed',
+            ),
+          );
+          if (succeeded) {
+            queued++;
+          } else {
+            failures.add('$title: the selected stream could not be saved as ${choice.format.toUpperCase()}. Try another available quality or format.');
+          }
+        } catch (error) {
+          failures.add('$title: could not read the HLS quality list. $error');
+        } finally {
+          resolver.close();
+        }
         continue;
       }
 
@@ -247,7 +395,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Paste direct file URLs that end in a supported media extension. Tube Arena does not extract streams from YouTube pages. Only download media you own or have permission to save.',
+            'Paste direct media URLs, including HLS .m3u8 manifests. HLS manifests can expose selectable resolutions. Tube Arena does not extract streams from YouTube pages. Only download media you own or have permission to save.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 16),
@@ -284,7 +432,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             keyboardType: TextInputType.multiline,
             enabled: !_isProcessing,
             decoration: const InputDecoration(
-              hintText: 'https://example.com/media/video.mp4',
+              hintText: 'https://example.com/media/video.mp4 or master.m3u8',
               alignLabelWithHint: true,
               border: OutlineInputBorder(),
             ),
