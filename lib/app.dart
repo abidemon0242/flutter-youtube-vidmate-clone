@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'models/video_model.dart';
+import 'providers/theme_provider.dart';
 import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/batch_download_screen.dart';
 import 'ui/screens/folder_contents_screen.dart';
@@ -71,10 +73,15 @@ class TubeArenaApp extends StatelessWidget {
   );
 
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-    title: 'Tube Arena',
-    debugShowCheckedModeBanner: false,
-    theme: AppTheme.lightTheme,
-    routerConfig: _router,
-  );
+  Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    return MaterialApp.router(
+      title: 'Tube Arena',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeProvider.themeMode,
+      routerConfig: _router,
+    );
+  }
 }
