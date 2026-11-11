@@ -136,9 +136,7 @@ class HlsResolutionService {
         .getUrl(uri)
         .timeout(const Duration(seconds: 12));
     request.headers.set(HttpHeaders.acceptHeader, '*/*');
-    final response = await request
-        .close()
-        .timeout(const Duration(seconds: 18));
+    final response = await request.close().timeout(const Duration(seconds: 18));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException(
         'Media server returned HTTP ${response.statusCode}.',
@@ -236,8 +234,7 @@ class HlsResolutionService {
     final normalizedFormat = format.toLowerCase();
     if (normalizedFormat != 'mp4' && normalizedFormat != 'mkv') return false;
     if (!isSupportedMediaUrl(option.url) ||
-        (option.audioUrl != null &&
-            !isSupportedMediaUrl(option.audioUrl!))) {
+        (option.audioUrl != null && !isSupportedMediaUrl(option.audioUrl!))) {
       return false;
     }
 
