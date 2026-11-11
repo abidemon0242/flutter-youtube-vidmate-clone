@@ -20,7 +20,8 @@ class MediaResolutionOption {
   final int bandwidth;
   final int? estimatedBytes;
 
-  String get label => width > 0 && height > 0 ? '${height}p' : 'Original quality';
+  String get label =>
+      width > 0 && height > 0 ? '${height}p' : 'Original quality';
 
   String get sizeLabel {
     final bytes = estimatedBytes;
@@ -101,28 +102,23 @@ class HlsResolutionService {
   }
 
   Future<String> _getText(Uri uri) async {
-    final request = await _client.getUrl(uri).timeout(
-      const Duration(seconds: 12),
-    );
+    final request = await _client
+        .getUrl(uri)
+        .timeout(const Duration(seconds: 12));
     request.headers.set(HttpHeaders.acceptHeader, '*/*');
-    final response = await request.close().timeout(
-      const Duration(seconds: 18),
-    );
+    final response = await request.close().timeout(const Duration(seconds: 18));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw HttpException(
         'Media server returned HTTP ${response.statusCode}.',
         uri: uri,
       );
     }
-    final bytes = await response.fold<List<int>>(
-      <int>[],
-      (all, chunk) {
-        if (all.length + chunk.length > 2 * 1024 * 1024) {
-          throw const FormatException('Playlist manifest is unexpectedly large.');
-        }
-        return all..addAll(chunk);
-      },
-    );
+    final bytes = await response.fold<List<int>>(<int>[], (all, chunk) {
+      if (all.length + chunk.length > 2 * 1024 * 1024) {
+        throw const FormatException('Playlist manifest is unexpectedly large.');
+      }
+      return all..addAll(chunk);
+    });
     return String.fromCharCodes(bytes);
   }
 
@@ -150,8 +146,7 @@ class HlsResolutionService {
       if (!line.startsWith('#EXT-X-STREAM-INF:')) continue;
       var next = index + 1;
       while (next < lines.length &&
-          (lines[next].trim().isEmpty ||
-              lines[next].trim().startsWith('#'))) {
+          (lines[next].trim().isEmpty || lines[next].trim().startsWith('#'))) {
         next++;
       }
       if (next >= lines.length) continue;
@@ -160,9 +155,10 @@ class HlsResolutionService {
       final dimensions = RegExp(r'^(\d+)x(\d+)$').firstMatch(resolution);
       final width = int.tryParse(dimensions?.group(1) ?? '') ?? 0;
       final height = int.tryParse(dimensions?.group(2) ?? '') ?? 0;
-      final bandwidth = int.tryParse(_attribute(line, 'AVERAGE-BANDWIDTH'))
-              ?? int.tryParse(_attribute(line, 'BANDWIDTH'))
-              ?? 0;
+      final bandwidth =
+          int.tryParse(_attribute(line, 'AVERAGE-BANDWIDTH')) ??
+          int.tryParse(_attribute(line, 'BANDWIDTH')) ??
+          0;
       final audioGroup = _attribute(line, 'AUDIO');
       variants.add(
         MediaResolutionOption(

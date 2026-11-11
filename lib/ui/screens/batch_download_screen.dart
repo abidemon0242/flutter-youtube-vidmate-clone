@@ -100,14 +100,15 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     return title.isEmpty ? fallback : title;
   }
 
-
   Future<({MediaResolutionOption option, String format})?> _chooseResolution(
     List<MediaResolutionOption> options,
     String title,
   ) async {
     var selected = options.last;
     var format = 'mp4';
-    return showModalBottomSheet<({MediaResolutionOption option, String format})>(
+    return showModalBottomSheet<
+      ({MediaResolutionOption option, String format})
+    >(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -168,10 +169,10 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    onPressed: () => Navigator.pop(
-                      sheetContext,
-                      (option: selected, format: format),
-                    ),
+                    onPressed: () => Navigator.pop(sheetContext, (
+                      option: selected,
+                      format: format,
+                    )),
                     icon: const Icon(Icons.download_rounded),
                     label: Text('Download ${selected.label}'),
                   ),
@@ -245,7 +246,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       if (parsed.extension == 'm3u8') {
         final networks = await Connectivity().checkConnectivity();
         if (_wifiOnly && !networks.contains(ConnectivityResult.wifi)) {
-          failures.add('Link ${index + 1}: Wi-Fi-only is enabled, but Wi-Fi is not connected.');
+          failures.add(
+            'Link ${index + 1}: Wi-Fi-only is enabled, but Wi-Fi is not connected.',
+          );
           continue;
         }
         final title = _titleFromUri(parsed.uri, 'Media ${index + 1}');
@@ -263,9 +266,13 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             continue;
           }
           final id = 'hls-${DateTime.now().microsecondsSinceEpoch}-$index';
-          final normalizedTitle = title.replaceAll(RegExp(r'[^\w\s-]'), '').trim();
+          final normalizedTitle = title
+              .replaceAll(RegExp(r'[^\w\s-]'), '')
+              .trim();
           final safeTitle = normalizedTitle.isEmpty ? 'media' : normalizedTitle;
-          final safeBase = safeTitle.length > 70 ? safeTitle.substring(0, 70) : safeTitle;
+          final safeBase = safeTitle.length > 70
+              ? safeTitle.substring(0, 70)
+              : safeTitle;
           final fileName = '${safeBase}_$id.${choice.format}';
           final savePath = '$documentsPath/TubeArena/Downloads/$fileName';
           final estimatedSize = choice.option.sizeLabel;
@@ -281,7 +288,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             status: 'downloading',
           );
           downloads.addDownload(entry);
-          setState(() => _status = 'Downloading ${choice.option.label} • $title…');
+          setState(
+            () => _status = 'Downloading ${choice.option.label} • $title…',
+          );
           final succeeded = await resolver.download(
             option: choice.option,
             outputPath: savePath,
@@ -296,7 +305,9 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           if (succeeded) {
             queued++;
           } else {
-            failures.add('$title: the selected stream could not be saved as ${choice.format.toUpperCase()}. Try another available quality or format.');
+            failures.add(
+              '$title: the selected stream could not be saved as ${choice.format.toUpperCase()}. Try another available quality or format.',
+            );
           }
         } catch (error) {
           failures.add('$title: could not read the HLS quality list. $error');
