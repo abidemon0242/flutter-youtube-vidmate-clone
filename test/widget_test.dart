@@ -90,6 +90,50 @@ video/720.m3u8
       );
     });
 
+    test('rejects non-network and credential-bearing HLS URLs', () {
+      expect(
+        HlsResolutionService.isSupportedMediaUrl('file:///data/video.m3u8'),
+        isFalse,
+      );
+      expect(
+        HlsResolutionService.isSupportedMediaUrl('ftp://cdn.example/video.m3u8'),
+        isFalse,
+      );
+      expect(
+        HlsResolutionService.isSupportedMediaUrl(
+          'https://user:pass@cdn.example/video.m3u8',
+        ),
+        isFalse,
+      );
+      expect(
+        HlsResolutionService.isSupportedMediaUrl(
+          'https://cdn.example/video.m3u8',
+        ),
+        isTrue,
+      );
+    });
+
+    test('requires a real completed media playlist, not ENDLIST alone', () {
+      expect(
+        HlsResolutionService.isFiniteMediaPlaylist(
+          '#EXTM3U\\n#EXT-X-ENDLIST',
+        ),
+        isFalse,
+      );
+      expect(
+        HlsResolutionService.isFiniteMediaPlaylist(
+          '#EXTM3U\\n#EXTINF:0,\\nsegment.ts\\n#EXT-X-ENDLIST',
+        ),
+        isFalse,
+      );
+      expect(
+        HlsResolutionService.isFiniteMediaPlaylist(
+          '#EXTM3U\\n#EXTINF:5,\\nsegment.ts\\n#EXT-X-ENDLIST',
+        ),
+        isTrue,
+      );
+    });
+
     test('accepts external HLS manifests but rejects YouTube pages', () {
       expect(
         HlsResolutionService.isSupportedManifestUrl(
