@@ -1,27 +1,17 @@
-# Tube Arena personalization setup
+# Tube Arena feed and personalization
 
-## What is included
+## Public data sources
 
-- Local activity tracking for searches, video opens, in-app watch duration, likes/dislikes, saves and skips.
-- A lightweight, on-device interest profile and recommendation ranking.
-- Public YouTube playlist import using the official YouTube Data API v3.
-- Local privacy screen to inspect detected interests and clear stored activity.
-- Imported playlist metadata is stored locally in the app's private documents directory.
+- Public video search, Bangladesh regional metadata, and public playlist metadata use independently operated Invidious catalog instances.
+- Public channel subscriptions use YouTube's public RSS feeds.
+- Public channel handles can be resolved through the catalog before subscribing to RSS.
+- Private playlists and private YouTube account data are not supported.
+- **No YouTube Data API key is used or required.** No Google OAuth setup is needed for these public-data features.
 
-## Enable public playlist import
+Catalog instances are operated independently, so availability and response quality can vary. Search terms and public URLs are sent to the selected instance.
 
-The app deliberately does not scrape YouTube pages or extract private browser sessions. Public playlist metadata is fetched through YouTube Data API v3.
+## Local personalization and privacy
 
-1. Create a Google Cloud project and enable **YouTube Data API v3**.
-2. Create an API key and restrict it to the Android application package/signing certificate used for your release.
-3. Build with the key supplied at compile time:
+Tube Arena can use in-app searches, video opens, watch duration, likes, saves, and skips to rank recommendations on the device. The app asks for consent before recording personalization activity. Users can inspect interests, turn personalization off, or clear locally stored activity in the personalization settings.
 
-```bash
-flutter build apk --release --dart-define=YOUTUBE_DATA_API_KEY=YOUR_RESTRICTED_API_KEY
-```
-
-Do not commit the key to the repository. The API key is a client-side identifier, not a user OAuth credential; restrict its API and Android application usage in Google Cloud Console. Private playlist access and personal watch/search history are not provided by this public-data flow.
-
-## Recommendation data and privacy
-
-Personalization is computed locally from activity generated inside Tube Arena and metadata from imported public playlists. The current prototype does not implement Google Sign-In, OAuth consent, cloud sync, or access to a user's private YouTube watch/search history. Those require a separately configured identity/OAuth flow and approved scopes. The app must not imply that accepting its Terms grants Google account access.
+The current app does not implement Google Sign-In, cloud sync, or access to a user's private YouTube watch/search history. Accepting the app's personalization consent does not grant Google account access.

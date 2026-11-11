@@ -1,48 +1,46 @@
 # Tube Arena
 
-Tube Arena is an Android-first Flutter media browser and private offline media library with a modern, polished UI.
+Tube Arena is an Android-first Flutter media browser and private offline media library.
 
-## Implemented app features
+## Implemented features
 
-- Public catalog via community Invidious instances for search and regional trending (Bangladesh), plus RSS channel subscriptions
-- YouTube videos play inside Tube Arena through the official YouTube IFrame Player API; direct media URLs and local files use the native Flutter player
-- Category filtering (Trending / Subscriptions), live search with **recent search history**, and on-device recommendation ranking with local consent controls
-- Batch download queue for media the user owns or is authorized to save
-- Available video/audio quality selection, adaptive stream pairing, FFmpeg merge, progress, pause/resume/cancel/retry
-- YouTube stream URL refresh when retrying downloads created by the current version
-- Persistent download task metadata and history
-- Clearer failure messages and retry guidance in the Downloads screen
-- Wi-Fi-only preference with best-effort network-aware pausing (toggle in Settings)
-- Private local media library with folder creation, browsing, rename, move and safe deletion
-- Local audio/video playback, MP3 extraction and local video/audio merge with H.264/AAC normalization for MP4 compatibility
-- 3GP conversion preset using QCIF 176×144 H.263 video and AMR-NB audio
-- Share/export of completed downloads through Android's system share sheet
-- Android notification permission request when a batch is started
-- Media notification / lock-screen controls for local audio, local video and the in-app direct-video player
-- Settings screen with Wi-Fi-only control, **persistent light/dark theme switcher**, and clear notes about official player and download limitations
-- Modern polished UI with refined cards, spacing, and typography
+- Public video search and Bangladesh regional metadata through community Invidious catalog instances.
+- Public channel subscriptions through YouTube RSS.
+- Public playlist import and local playlist history; private playlists are not supported.
+- YouTube playback through the official embedded player; direct media URLs and local files use the native player.
+- Category filtering, recent search history, and on-device recommendations with local consent controls.
+- Batch downloads for direct media files that the user owns or is authorized to save.
+- Completed HLS VOD resolution selection, estimated sizes, and FFmpeg stream merging where required.
+- Download progress, pause/resume/cancel/retry, and persistent task history.
+- Wi-Fi-only preference with best-effort pausing for regular downloads.
+- Private local media library with folder creation, browsing, rename, move, and safe deletion.
+- Local audio/video playback, MP3 extraction, and local video/audio conversion.
+- 3GP conversion preset using H.263 video and AMR-NB audio.
+- Share/export of completed downloads through Android's system share sheet.
+- Media notification and lock-screen controls for supported local and embedded playback.
+- Persistent light/dark theme and personalization settings.
 
-## Known limitations and external dependencies
+## Data sources and download boundaries
 
-- Search and trending rely on public Invidious instances. These can be slow or temporarily unavailable.
-- YouTube videos play inside Tube Arena through the official YouTube IFrame Player API. The embedded player is subject to YouTube's availability, playback rules and ad experience. Tube Arena cannot remove ads from the official player.
-- Legacy YouTube stream extraction still depends on a third-party library and can stop working when YouTube changes its delivery system; use only content you are authorized to save.
-- Retry can refresh YouTube streams only when the original YouTube URL was saved.
-- The selected quality depends on source availability. Adaptive streams require successful FFmpeg merging.
-- During adaptive merging the task displays **Merging**. Pause/cancel are unavailable while FFmpeg is processing.
-- 3GP conversion uses QCIF 176×144 H.263 video at 15 fps and AMR-NB mono audio. Test on the exact receiving phone.
-- Downloaded files remain in app-private storage. Share opens Android's share sheet.
-- Wi-Fi-only behavior is best-effort network-aware pausing, not a system-level firewall.
-- The official YouTube embedded player manages quality itself. The IFrame API does not let Tube Arena force a fixed stream quality.
+- No YouTube Data API key is used or required.
+- Public search, regional trending metadata, and public playlist metadata use independently operated Invidious instances. Availability can vary.
+- Public channel subscriptions use YouTube RSS. The app does not access private account subscriptions, watch history, or private playlists.
+- YouTube watch pages are played with the official YouTube player; Tube Arena does not extract or download YouTube streams.
+- Downloads accept direct media-file URLs and completed HLS VOD manifests only. Live HLS playlists are not supported.
+- Only download content you own or are authorized to save.
+
+## Known limitations
+
+- Public Invidious instances can be slow or temporarily unavailable.
+- The official YouTube player controls ads, quality, and playback availability. Tube Arena cannot remove YouTube ads or force a YouTube stream quality.
+- Adaptive HLS streams require successful FFmpeg processing. Pause/cancel are unavailable while FFmpeg is processing.
+- Wi-Fi-only is best-effort, not a system-level firewall. Regular downloads pause when the app receives connectivity changes; HLS downloads only check Wi-Fi before starting and are not automatically paused if the connection changes.
+- Android may delay background connectivity events and notifications.
+- 3GP compatibility depends on the available FFmpeg encoders and the receiving phone.
+- Downloaded files are stored in app-private storage and exported through Android's share sheet.
 - No production signing key is included. Release builds must be signed with a key controlled by the app owner.
-- Real-device testing remains necessary for network, codec, and notification workflows.
+- Real-device testing remains necessary for network, codec, notification, and file-sharing workflows.
 
-## Remaining work (next steps)
+## Build and verification
 
-1. **Production signing** — Add a real release keystore and signing config.
-2. **Real-device testing** — Especially FFmpeg merge, 3GP conversion, notifications, and share sheet.
-3. **Optional Google Sign-In** — If you want a true personalized subscriptions feed.
-
-## Android build and verification
-
-The Android project scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI uses the same bootstrap script before formatting verification, static analysis, tests, APK builds and an emulator install/launch smoke test. The bootstrap script preserves `android/key.properties` and configures an owner-managed release keystore when present; see [Release signing](docs/RELEASE_SIGNING.md).
+The Android scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI checks formatting, static analysis, Flutter tests, debug/release APK builds, and an Android emulator install/launch smoke test. The emulator smoke test does not verify every feature. See [Release signing](docs/RELEASE_SIGNING.md).

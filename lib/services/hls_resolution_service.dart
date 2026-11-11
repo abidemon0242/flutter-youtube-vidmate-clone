@@ -85,7 +85,8 @@ class HlsResolutionService {
       } on FormatException {
         rethrow;
       } catch (_) {
-        // A network error should not prevent listing the available resolution.
+        // Do not offer a variant unless its media playlist can be verified.
+        continue;
       }
       final estimatedBytes = durationSeconds == null || variant.bandwidth <= 0
           ? null
@@ -99,6 +100,11 @@ class HlsResolutionService {
           bandwidth: variant.bandwidth,
           estimatedBytes: estimatedBytes,
         ),
+      );
+    }
+    if (resolved.isEmpty) {
+      throw const FormatException(
+        'No completed HLS video streams could be verified for download.',
       );
     }
     resolved.sort((a, b) {

@@ -411,7 +411,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Paste direct media URLs, including HLS .m3u8 manifests. HLS master manifests can expose selectable resolutions and estimated sizes; ordinary MP4/WebM files download in their original quality. Tube Arena does not extract streams from YouTube pages. Only download media you own or have permission to save.',
+            'Paste direct media URLs, including completed HLS VOD .m3u8 manifests. HLS master manifests can expose selectable resolutions and estimated sizes; live HLS playlists are not supported. Ordinary MP4/WebM files download in their original quality. Tube Arena does not extract streams from YouTube pages. Only download media you own or have permission to save.',
             style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: 16),

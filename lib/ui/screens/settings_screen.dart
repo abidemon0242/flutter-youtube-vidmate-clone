@@ -77,7 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const ListTile(
                   title: Text('Downloads'),
                   subtitle: Text(
-                    'Downloads accept direct media-file URLs and supported HLS manifests. YouTube watch-page links are not extracted. Only save content you own or are authorized to download.',
+                    'Downloads accept direct media-file URLs and completed HLS VOD manifests. Live HLS playlists and YouTube watch-page extraction are not supported. Only save content you own or are authorized to download.',
                   ),
                 ),
                 const ListTile(

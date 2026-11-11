@@ -898,7 +898,7 @@ class BackgroundDownloadService {
     }
   }
 
-  Future<bool> _refreshYoutubeStreams(AppDownloadTask task) async {
+  bool _hasValidDirectMediaUrl(AppDownloadTask task) {
     // Downloads now store direct, user-authorized media URLs. Do not attempt
     // to extract or refresh streams from a YouTube page during retry.
     final candidate = task.isAudioOnly ? task.audioUrl : task.videoUrl;
@@ -916,12 +916,11 @@ class BackgroundDownloadService {
             task.status != DownloadStatus.cancelled))
       return false;
     try {
-      // Remove stale adaptive fragments before selecting new stream URLs. The
-      // refreshed manifest may switch this task between adaptive and muxed.
+      // Remove partial adaptive output before restarting the saved direct URLs.
       await _cleanupAdaptiveTempFiles(task);
-      if (!await _refreshYoutubeStreams(task)) {
+      if (!_hasValidDirectMediaUrl(task)) {
         logger.w(
-          'Retry stopped because fresh compatible YouTube streams could not be obtained.',
+          'Retry stopped because the saved direct media URL is invalid.',
         );
         return false;
       }
