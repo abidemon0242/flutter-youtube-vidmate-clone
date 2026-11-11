@@ -75,6 +75,19 @@ video/720.m3u8
       expect(options.single.audioUrl, 'https://media.example/audio/en.m3u8');
     });
 
+    test('rejects live HLS playlists without an end marker', () {
+      expect(
+        HlsResolutionService.isFiniteMediaPlaylist('#EXTM3U\n#EXTINF:5,\nsegment.ts'),
+        isFalse,
+      );
+      expect(
+        HlsResolutionService.isFiniteMediaPlaylist(
+          '#EXTM3U\n#EXTINF:5,\nsegment.ts\n#EXT-X-ENDLIST',
+        ),
+        isTrue,
+      );
+    });
+
     test('accepts external HLS manifests but rejects YouTube pages', () {
       expect(
         HlsResolutionService.isSupportedManifestUrl(
