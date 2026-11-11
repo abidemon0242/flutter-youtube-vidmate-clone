@@ -319,7 +319,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         : null;
   }
 
-  String? _downloadUrlFor(VideoModel video) {
+  String? _youtubeWatchUrlFor(VideoModel video) {
     final uri = Uri.tryParse(video.playbackUrl);
     const youtubeHosts = {
       'youtube.com',
@@ -329,17 +329,12 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       'youtu.be',
       'www.youtu.be',
     };
-
-    if (uri != null &&
-        (uri.scheme == 'http' || uri.scheme == 'https') &&
-        youtubeHosts.contains(uri.host.toLowerCase())) {
-      return uri.toString();
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        !youtubeHosts.contains(uri.host.toLowerCase())) {
+      return null;
     }
-
-    if (RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(video.id)) {
-      return 'https://www.youtube.com/watch?v=${video.id}';
-    }
-    return null;
+    return uri.toString();
   }
 
   Future<void> _openInYouTube() async {
@@ -361,7 +356,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       return;
     }
 
-    if (_downloadUrlFor(widget.video) != null) {
+    if (_youtubeWatchUrlFor(widget.video) != null) {
       if (mounted) setState(() => failed = true);
       return;
     }
@@ -390,25 +385,27 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _openDownloadFlow() async {
-    final url = _downloadUrlFor(widget.video);
-    if (url == null) {
+    final url = _youtubeWatchUrlFor(widget.video);
+    if (url != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'This sample has no YouTube URL. Add an authorized media link on the next screen.',
+            'YouTube videos use the official player. Downloads accept direct media-file links only.',
           ),
         ),
       );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Only download media you own or are authorized to save.',
-          ),
-        ),
-      );
+      return;
     }
-    await context.push('/add-downloads', extra: url);
+    final uri = Uri.tryParse(widget.video.playbackUrl);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No direct media link is available.')),
+      );
+      return;
+    }
+    await context.push('/add-downloads', extra: uri.toString());
   }
 
   @override
@@ -620,11 +617,12 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                       ),
                     ),
                   const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _openDownloadFlow,
-                    icon: const Icon(Icons.download),
-                    label: const Text('Download'),
-                  ),
+                  if (!isYouTube)
+                    FilledButton.icon(
+                      onPressed: _openDownloadFlow,
+                      icon: const Icon(Icons.download),
+                      label: const Text('Add to downloads'),
+                    ),
                 ],
               ),
             ),
