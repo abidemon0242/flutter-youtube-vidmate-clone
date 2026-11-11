@@ -62,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SwitchListTile(
                   title: const Text('Wi-Fi only downloads'),
                   subtitle: const Text(
-                    'Pause downloads when not on Wi-Fi or Ethernet. This is best-effort and may not block mobile data while the app is in the background.',
+                    'Regular downloads pause when Wi-Fi or Ethernet is lost. HLS downloads check the connection before starting but are not automatically paused if it changes. Android background limits may delay pause events.',
                   ),
                   value: _wifiOnly,
                   onChanged: _setWifiOnly,
