@@ -82,8 +82,10 @@ class HlsResolutionService {
           );
         }
         durationSeconds = _playlistDurationSeconds(mediaPlaylist);
+      } on FormatException {
+        rethrow;
       } catch (_) {
-        // Resolution remains selectable even when the server hides size metadata.
+        // A network error should not prevent listing the available resolution.
       }
       final estimatedBytes = durationSeconds == null || variant.bandwidth <= 0
           ? null
