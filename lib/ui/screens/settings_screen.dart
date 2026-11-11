@@ -77,19 +77,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const ListTile(
                   title: Text('Downloads'),
                   subtitle: Text(
-                    'High-quality downloads may require merging video and audio. This can fail if YouTube changes its streams. Only download content you own or are authorized to save.',
+                    'Downloads accept direct media-file URLs and supported HLS manifests. YouTube watch-page links are not extracted. Only save content you own or are authorized to download.',
                   ),
                 ),
                 const ListTile(
                   title: Text('Personalized feed'),
                   subtitle: Text(
-                    'The home feed uses the official YouTube Data API (regional charts and search). It is not a logged-in personalized YouTube account feed.',
+                    'Public search and regional trending metadata use independently operated Invidious catalog instances. Public channel subscriptions use YouTube RSS. This is not a logged-in personalized YouTube account feed.',
                   ),
                 ),
                 const ListTile(
-                  title: Text('API key'),
+                  title: Text('YouTube Data API key'),
                   subtitle: Text(
-                    'A YouTube Data API key is required for the live feed and search. Restrict the key to this app\'s package name and certificate.',
+                    'No YouTube Data API key is used or required. Public catalog availability can vary because instances are independently operated.',
                   ),
                 ),
               ],
