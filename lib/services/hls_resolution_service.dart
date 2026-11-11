@@ -217,7 +217,11 @@ class HlsResolutionService {
     } else {
       args.addAll(['-map', '0:a?']);
     }
-    args.addAll(['-c', 'copy', '-movflags', '+faststart', outputPath]);
+    args.addAll(['-c', 'copy']);
+    if (normalizedFormat == 'mp4') {
+      args.addAll(['-movflags', '+faststart']);
+    }
+    args.add(outputPath);
 
     try {
       final session = await FFmpegKit.executeWithArguments(args);
