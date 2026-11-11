@@ -238,6 +238,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               if (value == 'links') context.push('/add-downloads');
               if (value == 'playlists') context.push('/playlists');
               if (value == 'privacy') context.push('/personalization');
+              if (value == 'settings') context.push('/settings');
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'links', child: Text('Add media links')),
@@ -251,6 +252,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 value: 'privacy',
                 child: Text('Personalization & privacy'),
               ),
+              PopupMenuItem(value: 'settings', child: Text('Settings')),
             ],
           ),
         ],
