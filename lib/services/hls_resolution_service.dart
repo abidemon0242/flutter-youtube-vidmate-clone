@@ -38,15 +38,21 @@ class HlsResolutionService {
 
   final HttpClient _client;
 
-  static bool isSupportedManifestUrl(String value) {
+  /// Accept only ordinary HTTP(S) media URLs without embedded credentials.
+  /// FFmpeg is also restricted to network protocols when it opens a manifest.
+  static bool isSupportedMediaUrl(String value) {
     final uri = Uri.tryParse(value);
-    return uri != null &&
-        (uri.scheme == 'http' || uri.scheme == 'https') &&
+    if (uri == null) return false;
+    final scheme = uri.scheme.toLowerCase();
+    return (scheme == 'http' || scheme == 'https') &&
         uri.host.isNotEmpty &&
         uri.userInfo.isEmpty &&
-        !_isYouTubeHost(uri.host) &&
-        uri.path.toLowerCase().endsWith('.m3u8');
+        !_isYouTubeHost(uri.host);
   }
+
+  static bool isSupportedManifestUrl(String value) =>
+      isSupportedMediaUrl(value) &&
+      (Uri.tryParse(value)?.path.toLowerCase().endsWith('.m3u8') ?? false);
 
   static bool _isYouTubeHost(String host) {
     final normalized = host.toLowerCase();
@@ -73,6 +79,14 @@ class HlsResolutionService {
 
     final resolved = <MediaResolutionOption>[];
     for (final variant in variants.take(12)) {
+      if (!isSupportedMediaUrl(variant.url) ||
+          (variant.audioUrl != null &&
+              !isSupportedMediaUrl(variant.audioUrl!))) {
+        throw const FormatException(
+          'The HLS playlist contains an unsupported video or audio URL.',
+        );
+      }
+
       int? durationSeconds;
       try {
         final mediaPlaylist = await _getText(Uri.parse(variant.url));
@@ -115,6 +129,9 @@ class HlsResolutionService {
   }
 
   Future<String> _getText(Uri uri) async {
+    if (!isSupportedMediaUrl(uri.toString())) {
+      throw const FormatException('Unsupported HLS network URL.');
+    }
     final request = await _client
         .getUrl(uri)
         .timeout(const Duration(seconds: 12));
@@ -216,13 +233,30 @@ class HlsResolutionService {
   }) async {
     final normalizedFormat = format.toLowerCase();
     if (normalizedFormat != 'mp4' && normalizedFormat != 'mkv') return false;
+    if (!isSupportedMediaUrl(option.url) ||
+        (option.audioUrl != null &&
+            !isSupportedMediaUrl(option.audioUrl!))) {
+      return false;
+    }
+
     final output = File(outputPath);
     if (await output.exists()) return false;
     await output.parent.create(recursive: true);
 
-    final args = <String>['-y', '-i', option.url];
+    const protocolWhitelist = 'http,https,tcp,tls,crypto';
+    final args = <String>[
+      '-protocol_whitelist',
+      protocolWhitelist,
+      '-i',
+      option.url,
+    ];
     if (option.audioUrl != null) {
-      args.addAll(['-i', option.audioUrl!]);
+      args.addAll([
+        '-protocol_whitelist',
+        protocolWhitelist,
+        '-i',
+        option.audioUrl!,
+      ]);
     }
     args.addAll(['-map', '0:v:0']);
     if (option.audioUrl != null) {
