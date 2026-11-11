@@ -90,20 +90,23 @@ void main() {
   });
 
   group('HLS playlist validation', () {
-    test('recognizes completed media playlists only when ENDLIST exists', () {
-      expect(
-        HlsResolutionService.isFiniteMediaPlaylist(
-          '#EXTM3U\n#EXTINF:4.0,\nsegment.ts\n#EXT-X-ENDLIST',
-        ),
-        isTrue,
-      );
-      expect(
-        HlsResolutionService.isFiniteMediaPlaylist(
-          '#EXTM3U\n#EXTINF:4.0,\nsegment.ts',
-        ),
-        isFalse,
-      );
-    });
+    test(
+      'recognizes completed media playlists only when ENDLIST exists',
+      () {
+        expect(
+          HlsResolutionService.isFiniteMediaPlaylist(
+            '#EXTM3U\n#EXTINF:4.0,\nsegment.ts\n#EXT-X-ENDLIST',
+          ),
+          isTrue,
+        );
+        expect(
+          HlsResolutionService.isFiniteMediaPlaylist(
+            '#EXTM3U\n#EXTINF:4.0,\nsegment.ts',
+          ),
+          isFalse,
+        );
+      },
+    );
 
     test('resolves variant and audio URLs against the master URL', () {
       final masterUri = Uri.parse('https://cdn.example.com/hls/master.m3u8');
