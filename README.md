@@ -1,6 +1,6 @@
 # Tube Arena
 
-Tube Arena is an Android-first Flutter media browser and private offline media library.
+Tube Arena is an Android-first Flutter media browser and private offline media library with a modern, polished UI.
 
 ## Implemented app features
 
@@ -19,7 +19,8 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - Android notification permission request when a batch is started
 - Media notification / lock-screen controls for local audio, local video and the in-app direct-video player
 - Ad/tracker URL classification
-- Settings screen with Wi-Fi-only control and clear notes about official player and download limitations
+- Settings screen with Wi-Fi-only control, **light/dark theme switcher**, and clear notes about official player and download limitations
+- Modern polished UI with refined cards, spacing, and typography (cleaner than typical download apps)
 
 ## Known limitations and external dependencies
 
