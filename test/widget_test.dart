@@ -77,7 +77,9 @@ video/720.m3u8
 
     test('rejects live HLS playlists without an end marker', () {
       expect(
-        HlsResolutionService.isFiniteMediaPlaylist('#EXTM3U\n#EXTINF:5,\nsegment.ts'),
+        HlsResolutionService.isFiniteMediaPlaylist(
+          '#EXTM3U\n#EXTINF:5,\nsegment.ts',
+        ),
         isFalse,
       );
       expect(
