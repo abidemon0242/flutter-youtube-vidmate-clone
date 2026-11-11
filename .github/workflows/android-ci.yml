@@ -3,12 +3,16 @@ name: Tube Arena Android CI
 on:
   push:
     branches:
-      - "**"
+      - main
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
+# PR updates run once through pull_request; main pushes run through push.
+# A PR number keeps all updates to that PR in one concurrency group.
 concurrency:
-  group: tube-arena-android-ci-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: tube-arena-android-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -44,8 +48,8 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Format Dart source
-        run: dart format lib test
+      - name: Verify Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib test
 
       - name: Analyze Dart source
         run: flutter analyze --no-pub
@@ -169,7 +173,5 @@ jobs:
           profile: pixel_2
           emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
           emulator-boot-timeout: 1200
-          # Keep runner animation toggling disabled; the smoke script handles
-          # package readiness and APK installation after the emulator boots.
           disable-animations: false
           script: bash "$RUNNER_TEMP/tube-arena-smoke.sh"
