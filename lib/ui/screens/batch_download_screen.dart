@@ -431,7 +431,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             value: _wifiOnly,
             title: const Text('Wi-Fi only downloads'),
             subtitle: const Text(
-              'Pause or block downloads when Wi-Fi is unavailable while Tube Arena is active.',
+              'Regular downloads pause when Wi-Fi is lost. HLS downloads check Wi-Fi before starting but are not automatically paused if the connection changes.',
             ),
             onChanged: _isProcessing
                 ? null
