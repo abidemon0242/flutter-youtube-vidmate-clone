@@ -10,6 +10,7 @@ import 'ui/screens/home_screen.dart';
 import 'ui/screens/library_screen.dart';
 import 'ui/screens/personalization_settings_screen.dart';
 import 'ui/screens/playlist_import_screen.dart';
+import 'ui/screens/settings_screen.dart';
 import 'ui/screens/watch_screen.dart';
 
 class TubeArenaApp extends StatelessWidget {
@@ -38,6 +39,10 @@ class TubeArenaApp extends StatelessWidget {
       GoRoute(
         path: '/personalization',
         builder: (c, s) => const PersonalizationSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (c, s) => const SettingsScreen(),
       ),
       GoRoute(
         path: '/local-player',
