@@ -191,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         term,
         availableVideos: available.values.toList(),
       );
-      if (!mounted || request != _searchRequest || term == searchQuery) return;
+      if (!mounted || request != _searchRequest || term != searchQuery) return;
       setState(() {
         searchResults = profile.rankVideos(found);
       });
