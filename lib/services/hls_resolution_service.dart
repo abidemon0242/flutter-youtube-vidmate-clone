@@ -76,6 +76,11 @@ class HlsResolutionService {
       int? durationSeconds;
       try {
         final mediaPlaylist = await _getText(Uri.parse(variant.url));
+        if (!isFiniteMediaPlaylist(mediaPlaylist)) {
+          throw const FormatException(
+            'Live HLS playlists are not supported. Use a completed video playlist.',
+          );
+        }
         durationSeconds = _playlistDurationSeconds(mediaPlaylist);
       } catch (_) {
         // Resolution remains selectable even when the server hides size metadata.
@@ -181,6 +186,10 @@ class HlsResolutionService {
     ).firstMatch(line);
     return (match?.group(1) ?? match?.group(2) ?? '').trim();
   }
+
+  static bool isFiniteMediaPlaylist(String source) => source
+      .split(RegExp(r'\r?\n'))
+      .any((line) => line.trim() == '#EXT-X-ENDLIST');
 
   static int? _playlistDurationSeconds(String source) {
     var total = 0.0;
