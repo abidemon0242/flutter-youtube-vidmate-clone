@@ -35,6 +35,9 @@ class InvidiousCatalogService {
 
   static final List<Uri> _fallbackInstances = [
     Uri.https('yt.chocolatemoo53.com', ''),
+    Uri.https('invidious.fdn.fr', ''),
+    Uri.https('inv.nadeko.net', ''),
+    Uri.https('invidious.privacyredirect.com', ''),
   ];
 
   Future<List<Uri>> _instances() async {
@@ -65,7 +68,7 @@ class InvidiousCatalogService {
         if (instances.isNotEmpty) return instances;
       }
     } catch (_) {
-      // Fall back to the last known API-enabled public instance.
+      // Fall back to known instances.
     }
     return _fallbackInstances;
   }
