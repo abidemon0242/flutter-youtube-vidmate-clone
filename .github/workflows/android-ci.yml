@@ -49,10 +49,7 @@ jobs:
         run: flutter pub get
 
       - name: Verify Dart formatting
-        run: |
-          dart format lib test
-          git diff -- lib/services/hls_resolution_service.dart test/hls_resolution_service_test.dart
-          exit 1
+        run: dart format --output=none --set-exit-if-changed lib test
 
       - name: Analyze Dart source
         run: flutter analyze --no-pub
