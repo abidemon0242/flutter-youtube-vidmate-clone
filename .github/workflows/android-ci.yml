@@ -80,37 +80,27 @@ jobs:
           retention-days: 14
 
   android-emulator-smoke-test:
-    name: Install and launch on Android emulator
+    name: Install and launch release APK on Android emulator
     needs: flutter-checks
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Download release APK artifacts
+        uses: actions/download-artifact@v4
         with:
-          distribution: temurin
-          java-version: "17"
+          name: tube-arena-release-apks
+          path: release-apks
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Generate missing Android project scaffolding
-        run: bash tool/bootstrap_android.sh
-
-      - name: Ensure declared asset directories exist
-        run: mkdir -p assets/images assets/icons
-
-      - name: Build debug APK for emulator
+      - name: Verify x86_64 release APK and INTERNET permission
+        shell: bash
         run: |
-          flutter pub get
-          flutter build apk --debug
-          (cd android && ./gradlew --stop)
+          set -euo pipefail
+          apk="release-apks/app-x86_64-release.apk"
+          test -s "$apk"
+          aapt="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -n "$aapt"
+          "$aapt" dump permissions "$apk" | grep -q "android.permission.INTERNET"
+          echo "Release APK exists and declares INTERNET permission."
 
       - name: Prepare emulator smoke-test script
         shell: bash
@@ -139,11 +129,11 @@ jobs:
 
           installed=false
           for attempt in 1 2 3; do
-            if adb install -r build/app/outputs/flutter-apk/app-debug.apk; then
+            if adb install -r release-apks/app-x86_64-release.apk; then
               installed=true
               break
             fi
-            echo "APK installation attempt $attempt failed."
+            echo "Release APK installation attempt $attempt failed."
             if [ "$attempt" -lt 3 ]; then
               adb reboot
               adb wait-for-device
@@ -164,7 +154,7 @@ jobs:
           SMOKE
           chmod +x "$RUNNER_TEMP/tube-arena-smoke.sh"
 
-      - name: Boot emulator, install and launch app
+      - name: Boot emulator, install and launch release APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
