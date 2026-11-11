@@ -51,41 +51,60 @@ class VideoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.card : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
                   child: video.thumbnailUrl.isEmpty
                       ? Container(
-                          color: AppColors.card,
+                          color: isDark ? AppColors.darkSurface : const Color(0xFFE8EEF5),
                           width: double.infinity,
-                          height: 220,
-                          child: const Icon(Icons.video_library_outlined),
+                          height: 200,
+                          child: const Icon(Icons.video_library_outlined, size: 48),
                         )
                       : CachedNetworkImage(
                           imageUrl: video.thumbnailUrl,
                           fit: BoxFit.cover,
                           width: double.infinity,
-                          height: 220,
-                          placeholder: (context, url) =>
-                              Container(color: AppColors.card, height: 220),
+                          height: 200,
+                          placeholder: (context, url) => Container(
+                            color: isDark ? AppColors.darkSurface : const Color(0xFFE8EEF5),
+                            height: 200,
+                          ),
                           errorWidget: (context, url, error) => Container(
-                            color: AppColors.card,
-                            child: const Icon(Icons.broken_image_outlined),
+                            color: isDark ? AppColors.darkSurface : const Color(0xFFE8EEF5),
+                            child: const Icon(Icons.broken_image_outlined, size: 48),
                           ),
                         ),
                 ),
                 if (video.duration.isNotEmpty && video.duration != '—')
                   Positioned(
-                    right: 10,
-                    bottom: 10,
+                    right: 12,
+                    bottom: 12,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -93,7 +112,7 @@ class VideoCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.75),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         video.duration,
@@ -108,17 +127,22 @@ class VideoCard extends StatelessWidget {
               ],
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+              padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(
-                    radius: 18,
+                    radius: 20,
+                    backgroundColor: isDark ? AppColors.darkSurface : const Color(0xFFE8EEF5),
                     backgroundImage: video.channelAvatar.isEmpty
                         ? null
                         : CachedNetworkImageProvider(video.channelAvatar),
                     child: video.channelAvatar.isEmpty
-                        ? const Icon(Icons.person_outline, size: 20)
+                        ? Icon(
+                            Icons.person_outline,
+                            size: 22,
+                            color: isDark ? AppColors.textSecondary : const Color(0xFF5A6A7A),
+                          )
                         : null,
                   ),
                   const SizedBox(width: 12),
@@ -130,36 +154,42 @@ class VideoCard extends StatelessWidget {
                           video.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
+                          style: TextStyle(
+                            color: isDark ? AppColors.textPrimary : const Color(0xFF1A1A2E),
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
+                            height: 1.3,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text(
-                              video.channelName,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
+                            Flexible(
+                              child: Text(
+                                video.channelName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: isDark ? AppColors.textSecondary : const Color(0xFF5A6A7A),
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                             if (video.isVerified) ...[
-                              const SizedBox(width: 6),
-                              const Icon(
+                              const SizedBox(width: 4),
+                              Icon(
                                 Icons.verified,
-                                size: 12,
+                                size: 14,
                                 color: AppColors.primaryStart,
                               ),
                             ],
                           ],
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           video.views,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: isDark ? AppColors.textSecondary : const Color(0xFF5A6A7A),
                             fontSize: 12,
                           ),
                         ),
@@ -183,9 +213,9 @@ class VideoCard extends StatelessWidget {
                         ),
                       ),
                     ],
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.more_vert,
-                      color: AppColors.textSecondary,
+                      color: isDark ? AppColors.textSecondary : const Color(0xFF5A6A7A),
                     ),
                   ),
                 ],
