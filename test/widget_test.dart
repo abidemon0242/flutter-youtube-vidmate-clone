@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/providers/downloads_provider.dart';
 import 'package:tube_arena/services/background_download_service.dart';
+import 'package:tube_arena/services/hls_resolution_service.dart';
 import 'package:tube_arena/ui/widgets/video_card.dart';
 import 'package:tube_arena/data/repositories/youtube_repository.dart';
 
@@ -35,6 +36,59 @@ void main() {
     expect(find.text('Test channel'), findsOneWidget);
     await tester.tap(find.text('Widget test video'));
     expect(tapped, isTrue);
+  });
+
+  group('HLS resolution discovery', () {
+    test('parses available heights, bandwidths and relative playlist URLs', () {
+      const manifest = '''
+#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=650000,RESOLUTION=640x360
+low/index.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=1800000,RESOLUTION=1280x720
+../hd/720.m3u8
+#EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=4200000,RESOLUTION=1920x1080
+https://cdn.example/fullhd.m3u8
+''';
+      final options = HlsResolutionService.parseMasterPlaylist(
+        Uri.parse('https://media.example/live/master.m3u8'),
+        manifest,
+      );
+      expect(options, hasLength(3));
+      expect(options.map((option) => option.height), [360, 720, 1080]);
+      expect(options.first.url, 'https://media.example/live/low/index.m3u8');
+      expect(options[1].url, 'https://media.example/hd/720.m3u8');
+      expect(options.last.bandwidth, 4200000);
+      expect(options.last.label, '1080p');
+    });
+
+    test('associates an external audio rendition with its video variant', () {
+      const manifest = '''
+#EXTM3U
+#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",DEFAULT=YES,URI="audio/en.m3u8"
+#EXT-X-STREAM-INF:BANDWIDTH=2200000,RESOLUTION=1280x720,AUDIO="aud"
+video/720.m3u8
+''';
+      final options = HlsResolutionService.parseMasterPlaylist(
+        Uri.parse('https://media.example/master.m3u8'),
+        manifest,
+      );
+      expect(options.single.audioUrl, 'https://media.example/audio/en.m3u8');
+    });
+
+    test('accepts external HLS manifests but rejects YouTube pages', () {
+      expect(
+        HlsResolutionService.isSupportedManifestUrl(
+          'https://cdn.example/master.m3u8',
+        ),
+        isTrue,
+      );
+      expect(
+        HlsResolutionService.isSupportedManifestUrl(
+          'https://www.youtube.com/watch?v=abcdefghijk',
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('YouTubeRepository', () {
