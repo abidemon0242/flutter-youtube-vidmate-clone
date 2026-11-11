@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'data/repositories/youtube_repository.dart';
 import 'providers/downloads_provider.dart';
+import 'providers/theme_provider.dart';
 import 'services/background_download_service.dart';
 import 'services/local_file_manager_service.dart';
 import 'services/media_session_service.dart';
@@ -19,6 +20,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(
           create: (_) => DownloadsProvider()..initialize(),
         ),
