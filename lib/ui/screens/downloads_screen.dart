@@ -5,11 +5,31 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../core/constants/app_colors.dart';
 import '../../providers/downloads_provider.dart';
 
 class DownloadsScreen extends StatelessWidget {
   const DownloadsScreen({super.key});
+
+  String _statusText(DownloadEntry item) {
+    switch (item.status) {
+      case 'processing':
+        return 'Merging video and audio…';
+      case 'failed':
+        return 'Failed — stream may have expired or YouTube changed. Try Retry or re-add the link.';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'completed':
+        return 'Completed';
+      case 'paused':
+        return 'Paused • ${item.progress.toStringAsFixed(0)}%';
+      case 'downloading':
+        return 'Downloading • ${item.progress.toStringAsFixed(0)}%';
+      case 'pending':
+        return 'Waiting to start…';
+      default:
+        return '${item.status} • ${item.progress.toStringAsFixed(0)}%';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,29 +56,27 @@ class DownloadsScreen extends StatelessWidget {
         ],
       ),
       body: downloads.items.isEmpty
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.download_outlined,
                     size: 64,
-                    color: AppColors.textSecondary,
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
                     'No downloads yet',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Add an authorized video or audio link to get started.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textSecondary),
+                  const SizedBox(height: 8),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      'Add an authorized video or audio link to get started.',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ],
               ),
@@ -70,6 +88,7 @@ class DownloadsScreen extends StatelessWidget {
                 final item = downloads.items[index];
                 final selected = downloads.selectedIds.contains(item.id);
                 final completed = item.status == 'completed';
+                final failed = item.status == 'failed';
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
@@ -93,14 +112,15 @@ class DownloadsScreen extends StatelessWidget {
                               ? null
                               : (item.progress.clamp(0, 100) / 100).toDouble(),
                           minHeight: 4,
+                          color: failed ? Theme.of(context).colorScheme.error : null,
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          item.status == 'processing'
-                              ? 'Merging file…'
-                              : '${item.status} • ${item.progress.toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          _statusText(item),
+                          style: TextStyle(
+                            color: failed
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).textTheme.bodySmall?.color,
                             fontSize: 12,
                           ),
                         ),
@@ -140,6 +160,15 @@ class DownloadsScreen extends StatelessWidget {
                             break;
                           case 'retry':
                             success = await downloads.retryDownload(item.id);
+                            if (context.mounted && !success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Retry failed. The stream may have expired. Re-add the original link.',
+                                  ),
+                                ),
+                              );
+                            }
                             break;
                           case 'readd':
                             final source = item.sourceUrl;
@@ -191,7 +220,7 @@ class DownloadsScreen extends StatelessWidget {
                           default:
                             return;
                         }
-                        if (context.mounted) {
+                        if (context.mounted && action != 'retry') {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -259,9 +288,9 @@ class DownloadsScreen extends StatelessWidget {
             ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        backgroundColor: AppColors.background,
-        selectedItemColor: AppColors.primaryStart,
-        unselectedItemColor: AppColors.textSecondary,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
         currentIndex: 1,
         onTap: (index) {
           if (index == 0) context.go('/');
@@ -292,7 +321,7 @@ class DownloadsScreen extends StatelessWidget {
                   );
                 }
               },
-              backgroundColor: AppColors.danger,
+              backgroundColor: Theme.of(context).colorScheme.error,
               label: const Text('Delete selected'),
               icon: const Icon(Icons.delete_forever_rounded),
             )
