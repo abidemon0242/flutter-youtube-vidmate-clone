@@ -96,6 +96,15 @@ class HlsResolutionService {
           );
         }
         durationSeconds = _playlistDurationSeconds(mediaPlaylist);
+        final audioUrl = variant.audioUrl;
+        if (audioUrl != null) {
+          final audioPlaylist = await _getText(Uri.parse(audioUrl));
+          if (!isFiniteMediaPlaylist(audioPlaylist)) {
+            // A video rendition is not downloadable unless its external audio
+            // rendition is also a completed VOD playlist.
+            continue;
+          }
+        }
       } on FormatException {
         rethrow;
       } catch (_) {
@@ -212,9 +221,31 @@ class HlsResolutionService {
     return (match?.group(1) ?? match?.group(2) ?? '').trim();
   }
 
-  static bool isFiniteMediaPlaylist(String source) => source
-      .split(RegExp(r'\r?\n'))
-      .any((line) => line.trim() == '#EXT-X-ENDLIST');
+  static bool isFiniteMediaPlaylist(String source) {
+    final lines = source
+        .split(RegExp(r'\r?\n'))
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
+    if (lines.isEmpty || lines.first != '#EXTM3U') return false;
+    if (!lines.contains('#EXT-X-ENDLIST')) return false;
+
+    // ENDLIST alone is not enough: reject malformed or empty playlists.
+    for (var index = 0; index < lines.length; index++) {
+      if (!lines[index].startsWith('#EXTINF:')) continue;
+      final durationText = lines[index]
+          .substring('#EXTINF:'.length)
+          .split(',')
+          .first;
+      final duration = double.tryParse(durationText);
+      if (duration == null || !duration.isFinite || duration <= 0) continue;
+      if (index + 1 < lines.length &&
+          !lines[index + 1].startsWith('#')) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   static int? _playlistDurationSeconds(String source) {
     var total = 0.0;
