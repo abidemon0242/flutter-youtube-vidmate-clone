@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/theme_provider.dart';
 import '../../services/background_download_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -39,12 +40,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               children: [
+                ListTile(
+                  title: const Text('Theme'),
+                  subtitle: Text(
+                    themeProvider.isDark ? 'Dark mode' : 'Light mode',
+                  ),
+                  trailing: Switch(
+                    value: themeProvider.isDark,
+                    onChanged: (_) => themeProvider.toggleTheme(),
+                  ),
+                ),
+                const Divider(),
                 SwitchListTile(
                   title: const Text('Wi-Fi only downloads'),
                   subtitle: const Text(
