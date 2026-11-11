@@ -127,26 +127,28 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
                 const SizedBox(height: 12),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 360),
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: options.map((option) {
-                      final bitrate = option.bandwidth > 0
-                          ? ' • ${(option.bandwidth / 1000).round()} kbps'
-                          : '';
-                      return RadioListTile<MediaResolutionOption>(
-                        value: option,
-                        groupValue: selected,
-                        onChanged: (value) {
-                          if (value != null) {
-                            setSheetState(() => selected = value);
-                          }
-                        },
-                        title: Text(option.label),
-                        subtitle: Text('${option.sizeLabel}$bitrate'),
-                        secondary: const Icon(Icons.high_quality_outlined),
-                        contentPadding: EdgeInsets.zero,
-                      );
-                    }).toList(),
+                  child: RadioGroup<MediaResolutionOption>(
+                    groupValue: selected,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setSheetState(() => selected = value);
+                      }
+                    },
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: options.map((option) {
+                        final bitrate = option.bandwidth > 0
+                            ? ' • ${(option.bandwidth / 1000).round()} kbps'
+                            : '';
+                        return RadioListTile<MediaResolutionOption>(
+                          value: option,
+                          title: Text(option.label),
+                          subtitle: Text('${option.sizeLabel}$bitrate'),
+                          secondary: const Icon(Icons.high_quality_outlined),
+                          contentPadding: EdgeInsets.zero,
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
                 const Divider(),
