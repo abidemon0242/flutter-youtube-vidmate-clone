@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/constants/app_colors.dart';
 import '../../data/repositories/youtube_repository.dart';
 import '../../models/video_model.dart';
 import '../../services/invidious_catalog_service.dart';
@@ -30,6 +30,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _feedRequest = 0;
   int _searchRequest = 0;
   String _playlistSignature = '';
+  List<String> _recentSearches = [];
+  static const _recentKey = 'recent_searches';
 
   @override
   void dispose() {
@@ -49,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final profile = context.read<PersonalizationService>();
     _playlistSignature = _currentPlaylistSignature(profile);
     profile.addListener(_onPersonalizationChanged);
+    _loadRecentSearches();
     _loadFeed();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final profile = context.read<PersonalizationService>();
@@ -75,6 +78,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
       if (mounted) await profile.setConsent(accepted == true);
     });
+  }
+
+  Future<void> _loadRecentSearches() async {
+    final prefs = await SharedPreferences.getInstance();
+    final list = prefs.getStringList(_recentKey) ?? [];
+    if (mounted) setState(() => _recentSearches = list);
+  }
+
+  Future<void> _addRecentSearch(String term) async {
+    final cleaned = term.trim();
+    if (cleaned.isEmpty) return;
+    _recentSearches.remove(cleaned);
+    _recentSearches.insert(0, cleaned);
+    if (_recentSearches.length > 8) {
+      _recentSearches = _recentSearches.take(8).toList();
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_recentKey, _recentSearches);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _clearRecentSearches() async {
+    _recentSearches.clear();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_recentKey);
+    if (mounted) setState(() {});
   }
 
   String _currentPlaylistSignature(PersonalizationService profile) => profile
@@ -166,6 +195,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       return;
     }
 
+    await _addRecentSearch(term);
+
     final request = ++_searchRequest;
     setState(() {
       searchQuery = term;
@@ -233,7 +264,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Icon(
               Icons.video_library_outlined,
               size: 64,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.6),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 16),
             Text(
@@ -251,6 +284,48 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRecentSearches() {
+    if (_recentSearches.isEmpty || searchQuery.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Recent searches',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: _clearRecentSearches,
+                child: const Text('Clear'),
+              ),
+            ],
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: _recentSearches
+                .map(
+                  (term) => ActionChip(
+                    label: Text(term),
+                    onPressed: () {
+                      _searchController.text = term;
+                      _runSearch(term);
+                    },
+                  ),
+                )
+                .toList(),
+          ),
+        ],
       ),
     );
   }
@@ -328,6 +403,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
+          _buildRecentSearches(),
           SizedBox(
             height: 54,
             child: ListView.separated(
@@ -398,7 +474,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         type: BottomNavigationBarType.fixed,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         selectedItemColor: Theme.of(context).colorScheme.primary,
-        unselectedItemColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        unselectedItemColor: Theme.of(
+          context,
+        ).colorScheme.onSurface.withValues(alpha: 0.6),
         currentIndex: 0,
         onTap: (index) {
           if (index == 1) context.go('/downloads');
