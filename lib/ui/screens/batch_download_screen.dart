@@ -197,14 +197,17 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     final downloads = context.read<DownloadsProvider>();
     final service = BackgroundDownloadService();
     String documentsPath;
+    final hasRegularFiles = urls.any(
+      (url) => !HlsResolutionService.isSupportedManifestUrl(url),
+    );
     try {
       documentsPath = (await getApplicationDocumentsDirectory()).path;
-      if (Platform.isAndroid) {
+      if (hasRegularFiles && Platform.isAndroid) {
         final permission = await Permission.notification.request();
         _notificationsDenied = !permission.isGranted;
       }
-      if (!service.isInitialized) await service.initialize();
-      if (!service.isInitialized) {
+      if (hasRegularFiles && !service.isInitialized) await service.initialize();
+      if (hasRegularFiles && !service.isInitialized) {
         throw StateError(
           service.initializationError ?? 'Download service is unavailable.',
         );
