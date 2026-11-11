@@ -57,13 +57,14 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     if (videoId != null) {
       youtubeController = YoutubePlayerController.fromVideoId(
         videoId: videoId,
-        autoPlay: false,
+        autoPlay: true,
         params: const YoutubePlayerParams(
           showControls: true,
           showFullscreenButton: true,
           privacyEnhancedMode: true,
           strictRelatedVideos: true,
           interfaceLanguage: 'en',
+          origin: 'https://www.youtube-nocookie.com',
         ),
       );
       _attachYoutubeMediaSession();
@@ -342,6 +343,14 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     return null;
   }
 
+  Future<void> _openInYouTube() async {
+    final url = widget.video.playbackUrl;
+    final uri = Uri.tryParse(url);
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   Future<void> initialize() async {
     if (youtubeController != null) {
       if (mounted) setState(() => ready = true);
@@ -353,8 +362,6 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       return;
     }
 
-    // YouTube URLs are rendered by the official iframe player above. The
-    // native Flutter player handles direct media URLs and local files.
     if (_downloadUrlFor(widget.video) != null) {
       if (mounted) setState(() => failed = true);
       return;
@@ -419,191 +426,181 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final video = widget.video;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Watch')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AspectRatio(
-              aspectRatio: youtubeController != null
-                  ? 16 / 9
-                  : ready && controller.value.aspectRatio > 0
-                  ? controller.value.aspectRatio
-                  : 16 / 9,
-              child: youtubeController != null
-                  ? YoutubePlayer(
-                      controller: youtubeController!,
-                      aspectRatio: 16 / 9,
-                    )
-                  : Container(
-                      color: Colors.black,
-                      child: failed
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    'This video is hosted on YouTube or cannot be played here.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                  FilledButton.icon(
-                                    onPressed: () async {
-                                      final uri = Uri.tryParse(
-                                        video.playbackUrl,
-                                      );
-                                      if (uri != null &&
-                                          (uri.scheme == 'http' ||
-                                              uri.scheme == 'https')) {
-                                        await launchUrl(
-                                          uri,
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      }
-                                    },
-                                    icon: const Icon(Icons.open_in_new),
-                                    label: const Text('Open externally'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : !ready
-                          ? const Center(child: CircularProgressIndicator())
-                          : Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                VideoPlayer(controller),
-                                Align(
-                                  alignment: Alignment.bottomCenter,
-                                  child: VideoProgressIndicator(
-                                    controller,
-                                    allowScrubbing: true,
-                                    colors: const VideoProgressColors(
-                                      playedColor: AppColors.primaryStart,
-                                      bufferedColor: Colors.white54,
-                                      backgroundColor: Colors.white24,
-                                    ),
-                                  ),
-                                ),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      tooltip: 'Back 10 seconds',
-                                      onPressed: () => _seekBy(-10),
-                                      icon: const Icon(
-                                        Icons.replay_10,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    IconButton.filled(
-                                      onPressed: () async {
-                                        if (controller.value.isPlaying) {
-                                          await controller.pause();
-                                        } else {
-                                          await controller.play();
-                                        }
-                                        if (mounted) {
-                                          setState(
-                                            () => playing =
-                                                controller.value.isPlaying,
-                                          );
-                                        }
-                                      },
-                                      icon: Icon(
-                                        playing
-                                            ? Icons.pause
-                                            : Icons.play_arrow,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Forward 10 seconds',
-                                      onPressed: () => _seekBy(10),
-                                      icon: const Icon(
-                                        Icons.forward_10,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    IconButton.filled(
-                                      tooltip: 'Fullscreen',
-                                      onPressed: _openFullscreen,
-                                      icon: const Icon(Icons.fullscreen),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+  Widget _buildPlayer() {
+    if (youtubeController != null) {
+      return Container(
+        color: Colors.black,
+        child: YoutubePlayer(
+          controller: youtubeController!,
+          aspectRatio: 16 / 9,
+        ),
+      );
+    }
+
+    return Container(
+      color: Colors.black,
+      child: failed
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'This video cannot be played inside the app.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white),
                     ),
-            ),
-            if (ready && youtubeController == null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _openInYouTube,
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('Open in YouTube'),
+                  ),
+                ],
+              ),
+            )
+          : !ready
+          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          : Stack(
+              alignment: Alignment.center,
+              children: [
+                VideoPlayer(controller),
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: VideoProgressIndicator(
+                    controller,
+                    allowScrubbing: true,
+                    colors: const VideoProgressColors(
+                      playedColor: AppColors.primaryStart,
+                      bufferedColor: Colors.white54,
+                      backgroundColor: Colors.white24,
+                    ),
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '${_formatTime(controller.value.position)} / ${_formatTime(controller.value.duration)}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
+                    IconButton(
+                      tooltip: 'Back 10 seconds',
+                      onPressed: () => _seekBy(-10),
+                      icon: const Icon(Icons.replay_10, color: Colors.white),
+                    ),
+                    IconButton.filled(
+                      onPressed: () async {
+                        if (controller.value.isPlaying) {
+                          await controller.pause();
+                        } else {
+                          await controller.play();
+                        }
+                        if (mounted) {
+                          setState(() => playing = controller.value.isPlaying);
+                        }
+                      },
+                      icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+                    ),
+                    IconButton(
+                      tooltip: 'Forward 10 seconds',
+                      onPressed: () => _seekBy(10),
+                      icon: const Icon(Icons.forward_10, color: Colors.white),
                     ),
                   ],
                 ),
-              ),
-            const SizedBox(height: 16),
-            Text(
-              video.title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-            Text('${video.channelName} • ${video.views}'),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              children: [
-                ActionChip(
-                  label: Text(liked ? 'Liked' : 'Like'),
-                  onPressed: () async {
-                    final next = !liked;
-                    setState(() => liked = next);
-                    await record(next ? 'like' : 'unlike');
-                  },
-                ),
-                ActionChip(
-                  label: const Text('Share'),
-                  onPressed: () =>
-                      Share.share('${video.title} — ${video.channelName}'),
-                ),
-                ActionChip(
-                  label: const Text('Add download'),
-                  onPressed: _openDownloadFlow,
-                ),
-                ActionChip(
-                  label: Text(saved ? 'Saved' : 'Save'),
-                  onPressed: () async {
-                    setState(() => saved = !saved);
-                    await record(saved ? 'save' : 'unsave');
-                  },
-                ),
-                ActionChip(
-                  label: const Text('Not interested'),
-                  onPressed: () => record('skip'),
-                ),
               ],
             ),
-            const SizedBox(height: 20),
-            Text(
-              youtubeController != null
-                  ? 'Playing through YouTube’s official embedded player. YouTube manages playback quality; the app cannot force a specific YouTube stream.'
-                  : 'Direct media playback is handled by Tube Arena. Watch duration is tracked locally when personalization is enabled.',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final video = widget.video;
+    final isYouTube = youtubeController != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Watch'),
+        actions: [
+          if (isYouTube)
+            IconButton(
+              tooltip: 'Open in YouTube',
+              onPressed: _openInYouTube,
+              icon: const Icon(Icons.open_in_new),
             ),
-          ],
-        ),
+        ],
+      ),
+      body: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: _buildPlayer(),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    video.title,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      if (video.channelAvatar.isNotEmpty)
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundImage: NetworkImage(video.channelAvatar),
+                        )
+                      else
+                        const CircleAvatar(
+                          radius: 16,
+                          child: Icon(Icons.person, size: 18),
+                        ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          video.channelName,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    video.views,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 20),
+                  if (isYouTube)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Playing with the official YouTube player. Ads and quality are controlled by YouTube.',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _openDownloadFlow,
+                    icon: const Icon(Icons.download),
+                    label: const Text('Download'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
