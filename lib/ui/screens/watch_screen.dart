@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
@@ -476,6 +475,39 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                       playedColor: AppColors.primaryStart,
                       bufferedColor: Colors.white54,
                       backgroundColor: Colors.white24,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: IconButton(
+                    tooltip: 'Open fullscreen',
+                    onPressed: _openFullscreen,
+                    color: Colors.white,
+                    icon: const Icon(Icons.fullscreen),
+                  ),
+                ),
+                Positioned(
+                  left: 12,
+                  bottom: 18,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
+                      child: Text(
+                        '${_formatTime(controller.value.position)} / ${_formatTime(controller.value.duration)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                   ),
                 ),
