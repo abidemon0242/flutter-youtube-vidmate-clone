@@ -96,7 +96,9 @@ video/720.m3u8
         isFalse,
       );
       expect(
-        HlsResolutionService.isSupportedMediaUrl('ftp://cdn.example/video.m3u8'),
+        HlsResolutionService.isSupportedMediaUrl(
+          'ftp://cdn.example/video.m3u8',
+        ),
         isFalse,
       );
       expect(
@@ -115,20 +117,18 @@ video/720.m3u8
 
     test('requires a real completed media playlist, not ENDLIST alone', () {
       expect(
+        HlsResolutionService.isFiniteMediaPlaylist('#EXTM3U\n#EXT-X-ENDLIST'),
+        isFalse,
+      );
+      expect(
         HlsResolutionService.isFiniteMediaPlaylist(
-          '#EXTM3U\\n#EXT-X-ENDLIST',
+          '#EXTM3U\n#EXTINF:0,\nsegment.ts\n#EXT-X-ENDLIST',
         ),
         isFalse,
       );
       expect(
         HlsResolutionService.isFiniteMediaPlaylist(
-          '#EXTM3U\\n#EXTINF:0,\\nsegment.ts\\n#EXT-X-ENDLIST',
-        ),
-        isFalse,
-      );
-      expect(
-        HlsResolutionService.isFiniteMediaPlaylist(
-          '#EXTM3U\\n#EXTINF:5,\\nsegment.ts\\n#EXT-X-ENDLIST',
+          '#EXTM3U\n#EXTINF:5,\nsegment.ts\n#EXT-X-ENDLIST',
         ),
         isTrue,
       );

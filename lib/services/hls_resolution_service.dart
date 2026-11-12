@@ -239,8 +239,7 @@ class HlsResolutionService {
           .first;
       final duration = double.tryParse(durationText);
       if (duration == null || !duration.isFinite || duration <= 0) continue;
-      if (index + 1 < lines.length &&
-          !lines[index + 1].startsWith('#')) {
+      if (index + 1 < lines.length && !lines[index + 1].startsWith('#')) {
         return true;
       }
     }
