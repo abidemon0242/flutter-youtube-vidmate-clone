@@ -9,8 +9,6 @@ on:
       - main
   workflow_dispatch:
 
-# PR updates run once through pull_request; main pushes run through push.
-# A PR number keeps all updates to that PR in one concurrency group.
 concurrency:
   group: tube-arena-android-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -26,46 +24,35 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.9'
           channel: stable
           cache: true
-
       - name: Generate missing Android project scaffolding
         run: bash tool/bootstrap_android.sh
-
       - name: Ensure declared asset directories exist
         run: mkdir -p assets/images assets/icons
-
       - name: Install dependencies
         run: flutter pub get
-
       - name: Print formatter output for the two failing files
         run: |
           dart format --output=show lib/services/hls_resolution_service.dart
           dart format --output=show test/widget_test.dart
-
       - name: Verify Dart formatting
         run: dart format --output=none --set-exit-if-changed lib test
-
       - name: Analyze Dart source
         run: flutter analyze --no-pub
-
       - name: Run Flutter tests
         run: flutter test --no-pub --reporter expanded
-
       - name: Build debug APK
         run: flutter build apk --debug --no-pub
-
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -73,10 +60,8 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7
-
       - name: Build optimized split release APKs
         run: flutter build apk --release --split-per-abi --no-pub
-
       - name: Upload split release APKs
         uses: actions/upload-artifact@v4
         with:
@@ -96,7 +81,6 @@ jobs:
         with:
           name: tube-arena-release-apks
           path: release-apks
-
       - name: Verify x86_64 release APK and INTERNET permission
         shell: bash
         run: |
@@ -107,7 +91,6 @@ jobs:
           test -n "$aapt"
           "$aapt" dump permissions "$apk" | grep -q "android.permission.INTERNET"
           echo "Release APK exists and declares INTERNET permission."
-
       - name: Prepare emulator smoke-test script
         shell: bash
         run: |
@@ -149,17 +132,43 @@ jobs:
           test "$installed" = true
 
           adb logcat -c
-          adb shell am start -n com.tubearena.app/.MainActivity
-          sleep 15
-          app_pid="$(adb shell pidof com.tubearena.app || true)"
-          test -n "$app_pid"
-          if adb logcat -d -t 1500 | grep -E "FATAL EXCEPTION|AndroidRuntime"; then
-            echo "Android runtime crash detected."
+          echo "Launching Tube Arena..."
+          launch_output="$(adb shell am start -W -n com.tubearena.app/.MainActivity 2>&1)" || {
+            echo "Activity launch command failed:"
+            echo "$launch_output"
+            adb logcat -d -b all -v threadtime | tail -n 500
+            exit 1
+          }
+          echo "$launch_output"
+
+          app_pid=""
+          for attempt in $(seq 1 20); do
+            app_pid="$(adb shell pidof com.tubearena.app 2>/dev/null | tr -d '\r' || true)"
+            if [ -n "$app_pid" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [ -z "$app_pid" ]; then
+            echo "FAIL: Tube Arena process was not alive after launch."
+            echo "--- Activity state ---"
+            adb shell dumpsys activity activities | tail -n 100 || true
+            echo "--- Process state ---"
+            adb shell dumpsys activity processes | tail -n 100 || true
+            echo "--- Android logcat (last 500 lines) ---"
+            adb logcat -d -b all -v threadtime | tail -n 500
             exit 1
           fi
+
+          echo "Tube Arena is running with PID(s): $app_pid"
+          if adb logcat -d -b all -v threadtime | grep -E "FATAL EXCEPTION|Fatal signal| tombstoned |AndroidRuntime.*FATAL"; then
+            echo "FAIL: Android runtime crash detected."
+            exit 1
+          fi
+          echo "PASS: Tube Arena launched and remained running."
           SMOKE
           chmod +x "$RUNNER_TEMP/tube-arena-smoke.sh"
-
       - name: Boot emulator, install and launch release APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
