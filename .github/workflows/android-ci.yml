@@ -48,6 +48,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Print formatter output for the two failing files
+        run: |
+          dart format --output=show lib/services/hls_resolution_service.dart
+          dart format --output=show test/widget_test.dart
+
       - name: Verify Dart formatting
         run: dart format --output=none --set-exit-if-changed lib test
 
