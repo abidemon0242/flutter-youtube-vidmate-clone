@@ -36,74 +36,104 @@ command -v copilot >/dev/null
 find_run() {
   local sha="$1"
   gh run list --workflow android-ci.yml --branch "$BRANCH" --limit 100 \
-    --json databaseId,headSha,status,conclusion,event |
-    jq -c --arg sha "$sha" '[.[] | select(.headSha == $sha)] | sort_by(.databaseId) | last // empty'
+    --json databaseId,headSha,status,conclusion,event,createdAt |
+    jq -c --arg sha "$sha" '[.[] | select(.headSha == $sha)] | sort_by(.createdAt) | last // empty'
+}
+
+run_snapshot() {
+  local run_id="$1"
+  gh run view "$run_id" --repo "$REPO" \
+    --json databaseId,headSha,status,conclusion,event
+}
+
+wait_for_run() {
+  local run_id="$1"
+  local expected_sha="$2"
+  local record status conclusion actual_sha
+  while true; do
+    record="$(run_snapshot "$run_id")"
+    actual_sha="$(jq -r '.headSha' <<< "$record")"
+    if [[ "$actual_sha" != "$expected_sha" ]]; then
+      echo "::error::Run $run_id targets $actual_sha, expected $expected_sha."
+      return 2
+    fi
+    status="$(jq -r '.status' <<< "$record")"
+    if [[ "$status" == "completed" ]]; then
+      conclusion="$(jq -r '.conclusion // "unknown"' <<< "$record")"
+      printf '%s\n' "$run_id" > "$RUNNER_TEMP/tube-arena-last-ci-run-id"
+      printf '%s\n' "$conclusion" > "$RUNNER_TEMP/tube-arena-last-ci-conclusion"
+      printf -- '- Commit `%s`: Android CI run [%s](https://github.com/%s/actions/runs/%s) — **%s**\\n' \
+        "$expected_sha" "$run_id" "$REPO" "$run_id" "$conclusion" >> "$HISTORY"
+      case "$conclusion" in
+        success) return 0 ;;
+        cancelled) return 3 ;;
+        *) return 1 ;;
+      esac
+    fi
+    echo "Waiting for exact Android CI run $run_id (status: $status)."
+    sleep 15
+  done
+}
+
+dispatch_new_ci() {
+  local sha="$1"
+  local before_ids record run_id
+  before_ids="$(gh run list --workflow android-ci.yml --branch "$BRANCH" --limit 100 --json databaseId | jq -r '.[].databaseId' | sort -n)"
+  echo "Dispatching a fresh Android CI run for exact commit $sha."
+  gh workflow run android-ci.yml --repo "$REPO" --ref "$BRANCH"
+  for attempt in $(seq 1 60); do
+    record="$(gh run list --workflow android-ci.yml --branch "$BRANCH" --limit 100 \
+      --json databaseId,headSha,status,conclusion,event,createdAt |
+      jq -c --arg sha "$sha" --arg before "$(printf '%s' "$before_ids" | paste -sd, -)" '
+        ($before | split(",") | map(select(length > 0))) as $ids
+        | [.[] | select(.headSha == $sha and .event == "workflow_dispatch")
+          | select((.databaseId | tostring) as $id | ($ids | index($id)) == null)]
+        | sort_by(.createdAt) | last // empty' 2>/dev/null || true)"
+    if [[ -n "$record" ]]; then
+      run_id="$(jq -r '.databaseId' <<< "$record")"
+      echo "Captured newly dispatched Android CI run $run_id for $sha."
+      printf '%s\n' "$run_id"
+      return 0
+    fi
+    sleep 10
+  done
+  echo "::error::The dispatched Android CI run for $sha did not appear within 10 minutes."
+  return 2
 }
 
 wait_for_ci() {
   local sha="$1"
-  local dispatch_if_missing="$2"
-  local record=""
-  local i
+  local record run_id status conclusion dispatch_status
 
-  # Reuse the pull_request CI run when it already exists for this exact commit.
-  for i in $(seq 1 12); do
-    record="$(find_run "$sha")"
-    if [[ -n "$record" ]]; then
-      break
-    fi
-    sleep 10
-  done
-
-  # GITHUB_TOKEN pushes do not start ordinary push workflows. Explicitly dispatch
-  # the existing Android CI workflow when no run exists for this commit.
-  if [[ -z "$record" && "$dispatch_if_missing" == "true" ]]; then
-    echo "No Android CI run found for $sha; dispatching android-ci.yml."
-    gh workflow run android-ci.yml --repo "$REPO" --ref "$BRANCH"
-    for i in $(seq 1 60); do
-      record="$(find_run "$sha")"
-      if [[ -n "$record" ]]; then
-        break
-      fi
-      sleep 10
-    done
-  fi
-
-  if [[ -z "$record" ]]; then
-    echo "::error::No Android CI run appeared for commit $sha within the wait window."
-    return 2
-  fi
-
-  local run_id status conclusion
-  run_id="$(jq -r '.databaseId' <<< "$record")"
-  status="$(jq -r '.status' <<< "$record")"
-
-  while [[ "$status" != "completed" ]]; do
-    echo "Waiting for Android CI run $run_id (status: $status)."
-    sleep 15
-    record="$(find_run "$sha")"
-    if [[ -z "$record" ]]; then
-      echo "::error::Android CI run $run_id disappeared from the run list."
-      return 2
-    fi
-    status="$(jq -r '.status' <<< "$record")"
+  # Prefer an existing exact-SHA run. A cancelled run is not treated as a code
+  # failure: dispatch one fresh run and then follow that run ID only.
+  record="$(find_run "$sha")"
+  if [[ -n "$record" ]]; then
     run_id="$(jq -r '.databaseId' <<< "$record")"
-  done
+    status="$(jq -r '.status' <<< "$record")"
+    conclusion="$(jq -r '.conclusion // ""' <<< "$record")"
+    if [[ "$status" == "completed" && "$conclusion" == "cancelled" ]]; then
+      echo "Latest exact-SHA CI run $run_id was cancelled; requesting one replacement run."
+      run_id="$(dispatch_new_ci "$sha")" || return 2
+    fi
+  else
+    run_id="$(dispatch_new_ci "$sha")" || return 2
+  fi
 
-  conclusion="$(jq -r '.conclusion // "unknown"' <<< "$record")"
-  echo "$run_id" > "$RUNNER_TEMP/tube-arena-last-ci-run-id"
-  echo "$conclusion" > "$RUNNER_TEMP/tube-arena-last-ci-conclusion"
-  printf -- '- Commit `%s`: Android CI run [%s](https://github.com/%s/actions/runs/%s) — **%s**\n' \
-    "$sha" "$run_id" "$REPO" "$run_id" "$conclusion" >> "$HISTORY"
-
-  if [[ "$conclusion" == "success" ]]; then
+  if wait_for_run "$run_id" "$sha"; then
     return 0
+  else
+    dispatch_status=$?
   fi
-  if [[ "$conclusion" == "cancelled" ]]; then
-    echo "::error::Android CI run was cancelled. Stopping the repair chain."
-    return 3
+
+  # One cancellation recovery only. Never loop on repeated cancellations.
+  if [[ "$dispatch_status" -eq 3 ]]; then
+    echo "CI run $run_id was cancelled; requesting one controlled replacement."
+    run_id="$(dispatch_new_ci "$sha")" || return 2
+    wait_for_run "$run_id" "$sha"
+    return $?
   fi
-  return 1
+  return "$dispatch_status"
 }
 
 iteration=0
@@ -231,7 +261,5 @@ PROMPT
   target_sha="$(git rev-parse HEAD)"
   echo "Repair committed and pushed to $BRANCH: $target_sha"
 
-  # Explicitly start a fresh full CI run for the new commit.
-  gh workflow run android-ci.yml --repo "$REPO" --ref "$BRANCH"
-  echo "Dispatched Android CI for $target_sha."
+  # The next loop iteration dispatches CI if no exact-SHA run exists.
 done
