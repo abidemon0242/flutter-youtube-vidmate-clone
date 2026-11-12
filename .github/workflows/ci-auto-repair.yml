@@ -1,0 +1,54 @@
+name: Tube Arena Continuous AI Repair
+
+on:
+  push:
+    branches:
+      - feature/complete-tube-arena
+
+concurrency:
+  group: tube-arena-ai-repair-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  repair-until-green:
+    name: Diagnose, repair and rerun Android CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Check out the feature branch without persisting write credentials
+        uses: actions/checkout@v4
+        with:
+          ref: feature/complete-tube-arena
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js for GitHub Copilot CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install GitHub Copilot CLI
+        run: npm install --global @github/copilot
+
+      - name: Run unlimited repair and retest loop
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+        run: bash tool/ci_auto_repair_loop.sh
+
+      - name: Upload repair history and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tube-arena-ai-repair-history
+          path: |
+            ${{ runner.temp }}/tube-arena-repair-history.md
+            ${{ runner.temp }}/tube-arena-ci-failure-*.log
+            ${{ runner.temp }}/tube-arena-copilot-*.log
+          if-no-files-found: ignore
+          retention-days: 14
