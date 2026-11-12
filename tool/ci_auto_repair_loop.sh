@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+RUNNER_TEMP="${RUNNER_TEMP:-/tmp}"
+HISTORY="$RUNNER_TEMP/tube-arena-repair-history.md"
+printf '# Tube Arena automated repair history\n\n' > "$HISTORY"
+
 EXPECTED_BRANCH="feature/complete-tube-arena"
 REPO="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
 BRANCH="${GITHUB_REF_NAME:?GITHUB_REF_NAME is required}"
@@ -16,6 +20,11 @@ fi
 if [[ -z "$COPILOT_GITHUB_TOKEN" ]]; then
   echo "::error::Missing repository secret COPILOT_GITHUB_TOKEN."
   echo "Create a fine-grained personal access token with Copilot Requests: Read, then add it under Settings > Secrets and variables > Actions."
+  {
+    echo "## Final result"
+    echo
+    echo "**BLOCKED** — the repair agent has no Copilot credential. Add the COPILOT_GITHUB_TOKEN repository secret to enable automatic repairs."
+  } >> "$GITHUB_STEP_SUMMARY"
   exit 78
 fi
 
@@ -23,8 +32,6 @@ command -v gh >/dev/null
 command -v jq >/dev/null
 command -v copilot >/dev/null
 
-HISTORY="$RUNNER_TEMP/tube-arena-repair-history.md"
-printf '# Tube Arena automated repair history\n\n' > "$HISTORY"
 
 find_run() {
   local sha="$1"
