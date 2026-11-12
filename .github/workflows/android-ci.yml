@@ -11,7 +11,8 @@ on:
 
 concurrency:
   group: tube-arena-android-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Do not cancel a build that the repair controller is waiting on.
+  cancel-in-progress: false
 
 permissions:
   contents: read
