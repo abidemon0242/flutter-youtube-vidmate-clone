@@ -178,7 +178,7 @@ PROMPT
 
   echo "Starting Copilot CLI diagnosis and repair."
   if ! env -u GH_TOKEN -u GITHUB_TOKEN COPILOT_GITHUB_TOKEN="$COPILOT_GITHUB_TOKEN" \
-      copilot -p "$prompt" --allow-tool=write --allow-tool='shell(*)' --no-ask-user \
+      copilot -p "$prompt" --allow-tool='shell, write' --no-ask-user \
       > "$agent_log" 2>&1; then
     cat "$agent_log"
     echo "::error::Copilot could not complete the repair attempt. Stopping."
