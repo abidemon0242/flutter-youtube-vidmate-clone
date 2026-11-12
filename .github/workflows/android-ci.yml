@@ -54,7 +54,7 @@ jobs:
       - name: Build debug APK
         run: flutter build apk --debug --no-pub
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: tube-arena-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
@@ -63,7 +63,7 @@ jobs:
       - name: Build optimized split release APKs
         run: flutter build apk --release --split-per-abi --no-pub
       - name: Upload split release APKs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: tube-arena-release-apks
           path: build/app/outputs/flutter-apk/*-release.apk
@@ -77,7 +77,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Download release APK artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: tube-arena-release-apks
           path: release-apks
@@ -108,6 +108,19 @@ jobs:
             return 1
           }
 
+          wait_for_android_boot() {
+            for attempt in $(seq 1 120); do
+              boot_completed="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              boot_animation="$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || true)"
+              if [ "$boot_completed" = "1" ] && [ "$boot_animation" = "stopped" ]; then
+                return 0
+              fi
+              sleep 5
+            done
+            echo "Android did not finish booting."
+            return 1
+          }
+
           adb wait-for-device
           if ! wait_for_package_manager; then
             echo "Package Manager did not become ready; rebooting emulator once."
@@ -115,6 +128,13 @@ jobs:
             adb wait-for-device
             wait_for_package_manager
           fi
+          wait_for_android_boot
+          adb shell settings put global window_animation_scale 0 || true
+          adb shell settings put global transition_animation_scale 0 || true
+          adb shell settings put global animator_duration_scale 0 || true
+          adb shell input keyevent 82 || true
+          sleep 15
+          adb shell am wait-for-broadcast-idle || true
 
           installed=false
           for attempt in 1 2 3; do
@@ -133,7 +153,7 @@ jobs:
 
           adb logcat -c
           echo "Launching Tube Arena..."
-          launch_output="$(adb shell am start -W -n com.tubearena.app/.MainActivity 2>&1)" || {
+          launch_output="$(adb shell am start -n com.tubearena.app/.MainActivity 2>&1)" || {
             echo "Activity launch command failed:"
             echo "$launch_output"
             adb logcat -d -b all -v threadtime | tail -n 500
@@ -142,7 +162,7 @@ jobs:
           echo "$launch_output"
 
           app_pid=""
-          for attempt in $(seq 1 20); do
+          for attempt in $(seq 1 60); do
             app_pid="$(adb shell pidof com.tubearena.app 2>/dev/null | tr -d '\r' || true)"
             if [ -n "$app_pid" ]; then
               break
@@ -176,7 +196,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
+          emulator-options: -no-window -no-audio -no-boot-anim -no-metrics -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 3072 -cores 4
           emulator-boot-timeout: 1200
           disable-animations: false
           script: bash "$RUNNER_TEMP/tube-arena-smoke.sh"
