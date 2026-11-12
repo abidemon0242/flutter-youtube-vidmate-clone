@@ -182,8 +182,10 @@ jobs:
           fi
 
           echo "Tube Arena is running with PID(s): $app_pid"
-          if adb logcat -d -b all -v threadtime | grep -E "FATAL EXCEPTION|Fatal signal| tombstoned |AndroidRuntime.*FATAL"; then
-            echo "FAIL: Android runtime crash detected."
+          logcat_file="$RUNNER_TEMP/tube-arena-logcat.txt"
+          adb logcat -d -b all -v threadtime > "$logcat_file"
+          if grep -n -E -B 15 -A 60 "FATAL EXCEPTION|Fatal signal| tombstoned |AndroidRuntime.*FATAL" "$logcat_file"; then
+            echo "FAIL: Android runtime crash detected. Full logcat will be uploaded."
             exit 1
           fi
           echo "PASS: Tube Arena launched and remained running."
@@ -200,3 +202,12 @@ jobs:
           emulator-boot-timeout: 1200
           disable-animations: false
           script: bash "$RUNNER_TEMP/tube-arena-smoke.sh"
+
+      - name: Upload emulator logcat diagnostics
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: tube-arena-emulator-logcat
+          path: ${{ runner.temp }}/tube-arena-logcat.txt
+          if-no-files-found: ignore
+          retention-days: 7
