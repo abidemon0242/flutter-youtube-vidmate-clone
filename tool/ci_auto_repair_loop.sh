@@ -79,7 +79,7 @@ dispatch_new_ci() {
   local sha="$1"
   local before_ids record run_id
   before_ids="$(gh run list --workflow android-ci.yml --branch "$BRANCH" --limit 100 --json databaseId | jq -r '.[].databaseId' | sort -n)"
-  echo "Dispatching a fresh Android CI run for exact commit $sha."
+  echo "Dispatching a fresh Android CI run for exact commit $sha." >&2
   gh workflow run android-ci.yml --repo "$REPO" --ref "$BRANCH"
   for attempt in $(seq 1 60); do
     record="$(gh run list --workflow android-ci.yml --branch "$BRANCH" --limit 100 \
@@ -91,13 +91,13 @@ dispatch_new_ci() {
         | sort_by(.createdAt) | last // empty' 2>/dev/null || true)"
     if [[ -n "$record" ]]; then
       run_id="$(jq -r '.databaseId' <<< "$record")"
-      echo "Captured newly dispatched Android CI run $run_id for $sha."
+      echo "Captured newly dispatched Android CI run $run_id for $sha." >&2
       printf '%s\n' "$run_id"
       return 0
     fi
     sleep 10
   done
-  echo "::error::The dispatched Android CI run for $sha did not appear within 10 minutes."
+  echo "::error::The dispatched Android CI run for $sha did not appear within 10 minutes." >&2
   return 2
 }
 
