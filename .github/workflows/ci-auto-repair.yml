@@ -34,7 +34,10 @@ jobs:
       - name: Install GitHub Copilot CLI
         run: npm install --global @github/copilot
 
-      - name: Run unlimited repair and retest loop
+      - name: Validate repair controller shell syntax
+        run: bash -n tool/ci_auto_repair_loop.sh
+
+      - name: Run bounded repair and retest loop
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
