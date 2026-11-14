@@ -19,6 +19,7 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - Share/export of completed downloads through Android's system share sheet.
 - Media notification and lock-screen controls for supported local and embedded playback.
 - Persistent light/dark theme and personalization settings.
+- Firebase-backed Google sign-in UI and authentication flow (requires owner-supplied Firebase configuration).
 
 ## Data sources and download boundaries
 
@@ -40,7 +41,8 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - Downloaded files are stored in app-private storage and exported through Android's share sheet.
 - No production signing key is included. Release builds must be signed with a key controlled by the app owner.
 - Real-device testing remains necessary for network, codec, notification, and file-sharing workflows.
+- Google sign-in is not active until `android/app/google-services.json` is added locally, Google is enabled in Firebase Authentication, and the app's SHA-1 fingerprints are registered. See [Google sign-in setup](docs/GOOGLE_SIGN_IN_SETUP.md).
 
 ## Build and verification
 
-The Android scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI checks formatting, static analysis, Flutter tests, debug/release APK builds, and an Android emulator install/launch smoke test. The emulator smoke test does not verify every feature. See [Release signing](docs/RELEASE_SIGNING.md).
+The Android scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI checks formatting, static analysis, Flutter tests, debug/release APK builds, and an Android emulator install/launch smoke test. The emulator smoke test does not verify every feature. See [Release signing](docs/RELEASE_SIGNING.md) and [Google sign-in setup](docs/GOOGLE_SIGN_IN_SETUP.md).
