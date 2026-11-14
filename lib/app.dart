@@ -8,7 +8,6 @@ import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/batch_download_screen.dart';
 import 'ui/screens/folder_contents_screen.dart';
 import 'ui/screens/local_media_player_screen.dart';
-import 'ui/screens/home_screen.dart';
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/library_screen.dart';
 import 'ui/screens/personalization_settings_screen.dart';
