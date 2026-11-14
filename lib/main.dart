@@ -8,6 +8,7 @@ import 'providers/theme_provider.dart';
 import 'services/background_download_service.dart';
 import 'services/local_file_manager_service.dart';
 import 'services/media_session_service.dart';
+import 'services/google_auth_service.dart';
 import 'services/personalization_service.dart';
 
 Future<void> main() async {
@@ -16,6 +17,8 @@ Future<void> main() async {
 
   final profile = PersonalizationService();
   await profile.initialize();
+  final googleAuth = GoogleAuthService();
+  await googleAuth.initialize();
 
   runApp(
     MultiProvider(
@@ -25,6 +28,7 @@ Future<void> main() async {
           create: (_) => DownloadsProvider()..initialize(),
         ),
         ChangeNotifierProvider<PersonalizationService>.value(value: profile),
+        ChangeNotifierProvider<GoogleAuthService>.value(value: googleAuth),
         Provider(create: (_) => YouTubeRepository()),
         Provider(create: (_) => BackgroundDownloadService()),
         Provider(create: (_) => LocalFileManagerService()),
