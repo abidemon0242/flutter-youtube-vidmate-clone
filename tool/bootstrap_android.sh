@@ -204,8 +204,8 @@ if settings_path.exists():
     settings_content = settings_path.read_text()
     if "com.google.gms.google-services" not in settings_content:
         settings_content, count = re.subn(
-            r'(?m)^(\s*id\("org\\.jetbrains\\.kotlin\\.android"[^\\n]*\n)',
-            r'\1    id("com.google.gms.google-services") version "4.4.4" apply false\n',
+            r'(?m)^(\s*id\("org\.jetbrains\.kotlin\.android"[^\n]*\n)',
+            lambda match: match.group(1) + '    id("com.google.gms.google-services") version "4.4.4" apply false\n',
             settings_content,
             count=1,
         )
@@ -219,8 +219,8 @@ if app_gradle.exists():
     if "apply(plugin = \"com.google.gms.google-services\")" not in app_content:
         app_content = insert_after_plugins_or_before_android(
             app_content,
-            'if (file("google-services.json").exists()) {\\n'
-            '    apply(plugin = "com.google.gms.google-services")\\n'
+            'if (file("google-services.json").exists()) {\n'
+            '    apply(plugin = "com.google.gms.google-services")\n'
             '}',
         )
         app_gradle.write_text(app_content)
