@@ -68,7 +68,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   trailing: user == null
                       ? FilledButton.tonal(
-                          onPressed: !googleAuth.isConfigured || googleAuth.isBusy
+                          onPressed:
+                              !googleAuth.isConfigured || googleAuth.isBusy
                               ? null
                               : () async {
                                   try {
@@ -77,7 +78,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     if (!mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Google sign-in failed: $error'),
+                                        content: Text(
+                                          'Google sign-in failed: $error',
+                                        ),
                                       ),
                                     );
                                   }
@@ -96,7 +99,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     if (!mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Sign-out failed: $error'),
+                                        content: Text(
+                                          'Sign-out failed: $error',
+                                        ),
                                       ),
                                     );
                                   }
