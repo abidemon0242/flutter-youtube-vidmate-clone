@@ -9,6 +9,7 @@ import 'ui/screens/batch_download_screen.dart';
 import 'ui/screens/folder_contents_screen.dart';
 import 'ui/screens/local_media_player_screen.dart';
 import 'ui/screens/home_screen.dart';
+import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/library_screen.dart';
 import 'ui/screens/personalization_settings_screen.dart';
 import 'ui/screens/playlist_import_screen.dart';
@@ -21,7 +22,7 @@ class TubeArenaApp extends StatelessWidget {
   static final GoRouter _router = GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (c, s) => const HomeScreen()),
+      GoRoute(path: '/', builder: (c, s) => const AppEntryScreen()),
       GoRoute(
         path: '/add-downloads',
         builder: (c, s) {
