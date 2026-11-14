@@ -34,7 +34,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
         _completed = preferences.getBool(_completedKey) ?? false;
         _loading = false;
       });
-    } catch (error) {
+    } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
     }
