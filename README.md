@@ -19,7 +19,7 @@ Tube Arena is an Android-first Flutter media browser and private offline media l
 - Share/export of completed downloads through Android's system share sheet.
 - Media notification and lock-screen controls for supported local and embedded playback.
 - Persistent light/dark theme and personalization settings.
-- Firebase-backed Google sign-in UI and authentication flow (requires owner-supplied Firebase configuration).
+- First-run Google sign-in onboarding, guest continuation, and Firebase-backed account session (requires owner-supplied Firebase configuration).
 
 ## Data sources and download boundaries
 
