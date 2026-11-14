@@ -29,6 +29,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   StreamSubscription<YoutubeVideoState>? _youtubePositionSubscription;
   bool _youtubeMediaSessionReady = false;
   bool _youtubeMediaSessionStarting = false;
+  List<VideoTrack> _videoTracks = const [];
+  bool _videoTrackSelectionSupported = false;
   late final PersonalizationService profile;
   late final MediaSessionService mediaSession;
 
@@ -363,6 +365,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
 
     try {
       await controller.initialize();
+      await _loadVideoTracks();
       if (mounted) {
         setState(() => ready = true);
         try {
@@ -381,6 +384,52 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       }
     } catch (_) {
       if (mounted) setState(() => failed = true);
+    }
+  }
+
+  Future<void> _loadVideoTracks() async {
+    try {
+      final supported = await controller.isVideoTrackSupportAvailable();
+      if (!supported || !mounted) return;
+      final tracks = await controller.getVideoTracks();
+      if (!mounted) return;
+      final sorted = [...tracks]
+        ..sort((a, b) => (b.height ?? 0).compareTo(a.height ?? 0));
+      setState(() {
+        _videoTrackSelectionSupported = true;
+        _videoTracks = sorted;
+      });
+    } catch (error) {
+      debugPrint('Video quality discovery is unavailable: $error');
+    }
+  }
+
+  String _videoTrackLabel(VideoTrack track) {
+    final label = track.label?.trim();
+    if (label != null && label.isNotEmpty) return label;
+    if (track.height != null && track.height! > 0) {
+      return '${track.height}p';
+    }
+    if (track.bitrate != null && track.bitrate! > 0) {
+      return '${(track.bitrate! / 1000).round()} kbps';
+    }
+    return 'Available track';
+  }
+
+  Future<void> _selectVideoTrack(String value) async {
+    if (!_videoTrackSelectionSupported) return;
+    try {
+      final track = value == 'auto'
+          ? null
+          : _videoTracks.where((item) => item.id == value).firstOrNull;
+      await controller.selectVideoTrack(track);
+      final refreshed = await controller.getVideoTracks();
+      if (mounted) setState(() => _videoTracks = refreshed);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not change video quality: $error')),
+      );
     }
   }
 
@@ -555,6 +604,24 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
               tooltip: 'Open in YouTube',
               onPressed: _openInYouTube,
               icon: const Icon(Icons.open_in_new),
+            )
+          else if (_videoTracks.isNotEmpty && _videoTrackSelectionSupported)
+            PopupMenuButton<String>(
+              tooltip: 'Video quality',
+              icon: const Icon(Icons.high_quality_outlined),
+              onSelected: _selectVideoTrack,
+              itemBuilder: (context) => [
+                const PopupMenuItem<String>(
+                  value: 'auto',
+                  child: Text('Auto'),
+                ),
+                ..._videoTracks.map(
+                  (track) => PopupMenuItem<String>(
+                    value: track.id,
+                    child: Text(_videoTrackLabel(track)),
+                  ),
+                ),
+              ],
             ),
         ],
       ),
