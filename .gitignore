@@ -12,6 +12,7 @@ coverage/
 .gradle/
 **/local.properties
 **/key.properties
+android/app/google-services.json
 **/GeneratedPluginRegistrant.java
 android/.gradle/
 android/app/debug/
