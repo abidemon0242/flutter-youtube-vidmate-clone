@@ -1,6 +1,6 @@
 # Google sign-in setup for Tube Arena
 
-Tube Arena uses Firebase Authentication with Google's native sign-in provider. The app remains usable without authentication, but the sign-in button stays disabled until the owner configures Firebase.
+Tube Arena presents Google sign-in during first-run onboarding. If Firebase has not been configured yet, the Google button stays disabled and the user can continue as a guest; Google sign-in can also be used later from Settings. Firebase Authentication restores a successful account session on subsequent launches.
 
 ## 1. Register the Android app
 
@@ -33,7 +33,7 @@ flutter test
 flutter build apk --debug
 ```
 
-Install the APK on an Android device with Google Play services, open Settings in Tube Arena, and use **Sign in**. Confirm that the signed-in account email appears, close and reopen the app to verify Firebase restores the session, then use **Sign out**.
+Install the APK on an Android device with Google Play services. On first launch, use **Continue with Google** in the onboarding screen. Confirm that the signed-in account appears in Settings, close and reopen the app to verify Firebase restores the session, then use **Sign out**. If you choose **Continue as guest**, the app opens without an account; you can sign in later from Settings.
 
 ## Notes
 
