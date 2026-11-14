@@ -46,6 +46,10 @@ jobs:
         run: |
           dart format --output=show lib/services/hls_resolution_service.dart
           dart format --output=show test/widget_test.dart
+      - name: Print formatting for recent changes
+        run: |
+          dart format --output=show lib/ui/screens/settings_screen.dart
+          dart format --output=show lib/ui/screens/watch_screen.dart
       - name: Verify Dart formatting
         run: dart format --output=none --set-exit-if-changed lib test
       - name: Analyze Dart source
