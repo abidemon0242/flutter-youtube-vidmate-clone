@@ -2,25 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'app.dart';
-import 'data/repositories/mock_youtube_repository.dart';
+import 'data/repositories/youtube_repository.dart';
 import 'providers/downloads_provider.dart';
-import 'services/ad_blocker_service.dart';
+import 'providers/theme_provider.dart';
 import 'services/background_download_service.dart';
 import 'services/local_file_manager_service.dart';
 import 'services/media_session_service.dart';
+import 'services/google_auth_service.dart';
+import 'services/personalization_service.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize services
   await _initializeServices();
+
+  final profile = PersonalizationService();
+  await profile.initialize();
+  final googleAuth = GoogleAuthService();
+  await googleAuth.initialize();
 
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => DownloadsProvider()),
-        Provider(create: (_) => MockYouTubeRepository()),
-        Provider(create: (_) => AdBlockerService()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(
+          create: (_) => DownloadsProvider()..initialize(),
+        ),
+        ChangeNotifierProvider<PersonalizationService>.value(value: profile),
+        ChangeNotifierProvider<GoogleAuthService>.value(value: googleAuth),
+        Provider(create: (_) => YouTubeRepository()),
         Provider(create: (_) => BackgroundDownloadService()),
         Provider(create: (_) => LocalFileManagerService()),
         Provider(create: (_) => MediaSessionService()),
@@ -32,15 +41,20 @@ void main() async {
 
 Future<void> _initializeServices() async {
   try {
-    // Initialize background download service
     await BackgroundDownloadService().initialize();
-
-    // Initialize media session for lock-screen controls
+  } catch (error, stackTrace) {
+    debugPrint(
+      'Background download initialization failed: $error\n$stackTrace',
+    );
+  }
+  try {
     await MediaSessionService().initialize();
-
-    // Initialize local file manager
+  } catch (error, stackTrace) {
+    debugPrint('Media session initialization failed: $error\n$stackTrace');
+  }
+  try {
     await LocalFileManagerService().initialize();
-  } catch (e) {
-    debugPrint('Service initialization warning: $e');
+  } catch (error, stackTrace) {
+    debugPrint('Local file manager initialization failed: $error\n$stackTrace');
   }
 }

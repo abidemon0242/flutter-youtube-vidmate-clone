@@ -17,9 +17,23 @@ class FFmpegMergeService {
 
   FFmpegMergeService._internal();
 
-
   bool _samePath(String first, String second) =>
       File(first).absolute.path == File(second).absolute.path;
+
+  Future<bool> _prepareOutput(String path) async {
+    try {
+      if (path.trim().isEmpty || await File(path).exists()) return false;
+      await Directory(File(path).parent.path).create(recursive: true);
+      return true;
+    } catch (error, stackTrace) {
+      logger.e(
+        'Could not prepare media output',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      return false;
+    }
+  }
 
   Future<bool> _run(List<String> arguments) async {
     try {
@@ -38,20 +52,46 @@ class FFmpegMergeService {
     required String audioPath,
     required String outputPath,
     required String quality,
+    bool normalizeForMp4 = false,
   }) async {
     if (_samePath(videoPath, outputPath) ||
         _samePath(audioPath, outputPath) ||
         !await File(videoPath).exists() ||
-        !await File(audioPath).exists()) {
+        !await File(audioPath).exists() ||
+        !await _prepareOutput(outputPath)) {
       logger.e('Cannot merge: an input file does not exist.');
       return false;
     }
-    await Directory(File(outputPath).parent.path).create(recursive: true);
     logger.i('Merging streams at $quality to $outputPath');
+    final codecArguments = normalizeForMp4
+        ? [
+            '-c:v',
+            'libx264',
+            '-preset',
+            'ultrafast',
+            '-crf',
+            '23',
+            '-c:a',
+            'aac',
+            '-b:a',
+            '192k',
+            '-movflags',
+            '+faststart',
+          ]
+        : ['-c:v', 'copy', '-c:a', 'copy'];
     return _run([
-      '-y', '-i', videoPath, '-i', audioPath,
-      '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac',
-      '-shortest', outputPath,
+      '-n',
+      '-i',
+      videoPath,
+      '-i',
+      audioPath,
+      '-map',
+      '0:v:0',
+      '-map',
+      '1:a:0',
+      ...codecArguments,
+      '-shortest',
+      outputPath,
     ]);
   }
 
@@ -61,11 +101,62 @@ class FFmpegMergeService {
     required String codec,
     required String bitrate,
   }) async {
-    if (_samePath(inputPath, outputPath) || !await File(inputPath).exists()) return false;
-    await Directory(File(outputPath).parent.path).create(recursive: true);
+    if (_samePath(inputPath, outputPath) ||
+        !await File(inputPath).exists() ||
+        !await _prepareOutput(outputPath))
+      return false;
     return _run([
-      '-y', '-i', inputPath, '-c:v', codec, '-b:v', bitrate,
-      '-c:a', 'aac', '-b:a', '128k', outputPath,
+      '-n',
+      '-i',
+      inputPath,
+      '-c:v',
+      codec,
+      '-b:v',
+      bitrate,
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128k',
+      outputPath,
+    ]);
+  }
+
+  /// Converts an MP4 source into a conservative 3GP profile for older
+  /// feature phones: QCIF (176x144) H.263 video at 15 fps and AMR-NB mono audio.
+  /// The configured FFmpeg build must include libopencore-amrnb.
+  Future<bool> convertTo3gp({
+    required String inputPath,
+    required String outputPath,
+  }) async {
+    if (_samePath(inputPath, outputPath) ||
+        !await File(inputPath).exists() ||
+        !await _prepareOutput(outputPath))
+      return false;
+    return _run([
+      '-n',
+      '-i',
+      inputPath,
+      '-vf',
+      'scale=176:144:force_original_aspect_ratio=decrease,pad=176:144:(ow-iw)/2:(oh-ih)/2',
+      '-r',
+      '15',
+      '-c:v',
+      'h263',
+      '-pix_fmt',
+      'yuv420p',
+      '-b:v',
+      '128k',
+      '-c:a',
+      'libopencore_amrnb',
+      '-ar',
+      '8000',
+      '-ac',
+      '1',
+      '-b:a',
+      '12.2k',
+      '-f',
+      '3gp',
+      outputPath,
     ]);
   }
 
@@ -74,17 +165,25 @@ class FFmpegMergeService {
     required String audioOutputPath,
     required String format,
   }) async {
-    if (_samePath(videoPath, audioOutputPath) || !await File(videoPath).exists()) return false;
+    if (_samePath(videoPath, audioOutputPath) ||
+        !await File(videoPath).exists())
+      return false;
     final normalizedFormat = format.toLowerCase();
     if (normalizedFormat != 'mp3' && normalizedFormat != 'm4a') {
       logger.e('Unsupported audio format: $format');
       return false;
     }
-    await Directory(File(audioOutputPath).parent.path).create(recursive: true);
+    if (!await _prepareOutput(audioOutputPath)) return false;
     return _run([
-      '-y', '-i', videoPath, '-vn', '-codec:a',
+      '-n',
+      '-i',
+      videoPath,
+      '-vn',
+      '-codec:a',
       normalizedFormat == 'mp3' ? 'libmp3lame' : 'aac',
-      '-b:a', '320k', audioOutputPath,
+      '-b:a',
+      '320k',
+      audioOutputPath,
     ]);
   }
 }

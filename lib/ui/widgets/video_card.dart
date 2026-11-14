@@ -1,105 +1,165 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
 
 class VideoCard extends StatelessWidget {
-  const VideoCard({
-    super.key,
-    required this.video,
-    this.onTap,
-    this.multiSelectMode = false,
-    this.isSelected = false,
-    this.onLongPress,
-    this.onCheckboxTap,
-  });
+  const VideoCard({super.key, required this.video, this.onTap});
 
   final VideoModel video;
   final VoidCallback? onTap;
-  final bool multiSelectMode;
-  final bool isSelected;
-  final VoidCallback? onLongPress;
-  final VoidCallback? onCheckboxTap;
+
+  void _showDownloadInfo(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Download options',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'This item is a YouTube watch-page link. Tube Arena does not extract YouTube streams, so resolution and format choices are not available for this source. You can download a direct media file that you own or have permission to save.',
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(sheetContext);
+                    context.push('/add-downloads');
+                  },
+                  icon: const Icon(Icons.link),
+                  label: const Text('Add a direct media link'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: onTap,
-      onLongPress: onLongPress,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.card : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: CachedNetworkImage(
-                    imageUrl: video.thumbnailUrl,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: 220,
-                    placeholder: (context, url) => Container(
-                      color: AppColors.card,
-                      height: 220,
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppColors.card,
-                      child: const Icon(Icons.broken_image_outlined),
-                    ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
                   ),
-                ),
-                Positioned(
-                  right: 10,
-                  bottom: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      video.duration,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-                if (multiSelectMode)
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: GestureDetector(
-                      onTap: onCheckboxTap,
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primaryStart : Colors.black.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.white, width: 2),
+                  child: video.thumbnailUrl.isEmpty
+                      ? Container(
+                          color: isDark
+                              ? AppColors.darkSurface
+                              : const Color(0xFFE8EEF5),
+                          width: double.infinity,
+                          height: 200,
+                          child: const Icon(
+                            Icons.video_library_outlined,
+                            size: 48,
+                          ),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: video.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: 200,
+                          placeholder: (context, url) => Container(
+                            color: isDark
+                                ? AppColors.darkSurface
+                                : const Color(0xFFE8EEF5),
+                            height: 200,
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            color: isDark
+                                ? AppColors.darkSurface
+                                : const Color(0xFFE8EEF5),
+                            child: const Icon(
+                              Icons.broken_image_outlined,
+                              size: 48,
+                            ),
+                          ),
                         ),
-                        child: isSelected
-                            ? const Icon(Icons.check, color: Colors.white, size: 18)
-                            : null,
+                ),
+                if (video.duration.isNotEmpty && video.duration != '—')
+                  Positioned(
+                    right: 12,
+                    bottom: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        video.duration,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ),
               ],
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 10, 8, 0),
+              padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(
-                    radius: 18,
-                    backgroundImage: CachedNetworkImageProvider(video.channelAvatar),
+                    radius: 20,
+                    backgroundColor: isDark
+                        ? AppColors.darkSurface
+                        : const Color(0xFFE8EEF5),
+                    backgroundImage: video.channelAvatar.isEmpty
+                        ? null
+                        : CachedNetworkImageProvider(video.channelAvatar),
+                    child: video.channelAvatar.isEmpty
+                        ? Icon(
+                            Icons.person_outline,
+                            size: 22,
+                            color: isDark
+                                ? AppColors.textSecondary
+                                : const Color(0xFF5A6A7A),
+                          )
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -110,39 +170,78 @@ class VideoCard extends StatelessWidget {
                           video.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
+                          style: TextStyle(
+                            color: isDark
+                                ? AppColors.textPrimary
+                                : const Color(0xFF1A1A2E),
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
+                            height: 1.3,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text(
-                              video.channelName,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
+                            Flexible(
+                              child: Text(
+                                video.channelName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: isDark
+                                      ? AppColors.textSecondary
+                                      : const Color(0xFF5A6A7A),
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                             if (video.isVerified) ...[
-                              const SizedBox(width: 6),
-                              const Icon(Icons.verified, size: 12, color: AppColors.primaryStart),
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.verified,
+                                size: 14,
+                                color: AppColors.primaryStart,
+                              ),
                             ],
                           ],
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          '${video.views} · 4 days ago',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          video.views,
+                          style: TextStyle(
+                            color: isDark
+                                ? AppColors.textSecondary
+                                : const Color(0xFF5A6A7A),
                             fontSize: 12,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.more_vert, color: AppColors.textSecondary),
+                  PopupMenuButton<String>(
+                    tooltip: 'Video options',
+                    onSelected: (value) {
+                      if (value == 'download') _showDownloadInfo(context);
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'download',
+                        child: Row(
+                          children: [
+                            Icon(Icons.download_outlined),
+                            SizedBox(width: 12),
+                            Text('Download options'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: isDark
+                          ? AppColors.textSecondary
+                          : const Color(0xFF5A6A7A),
+                    ),
+                  ),
                 ],
               ),
             ),

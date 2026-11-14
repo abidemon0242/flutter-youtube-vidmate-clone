@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
+import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'models/video_model.dart';
+import 'providers/theme_provider.dart';
 import 'ui/screens/downloads_screen.dart';
-import 'ui/screens/home_screen.dart';
+import 'ui/screens/batch_download_screen.dart';
+import 'ui/screens/folder_contents_screen.dart';
+import 'ui/screens/local_media_player_screen.dart';
+import 'ui/screens/onboarding_screen.dart';
 import 'ui/screens/library_screen.dart';
+import 'ui/screens/personalization_settings_screen.dart';
+import 'ui/screens/playlist_import_screen.dart';
+import 'ui/screens/settings_screen.dart';
 import 'ui/screens/watch_screen.dart';
 
 class TubeArenaApp extends StatelessWidget {
@@ -14,24 +21,48 @@ class TubeArenaApp extends StatelessWidget {
   static final GoRouter _router = GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
+      GoRoute(path: '/', builder: (c, s) => const AppEntryScreen()),
       GoRoute(
-        path: '/watch',
-        builder: (context, state) {
-          final video = state.extra;
-          return WatchScreen(video: video is VideoModel ? video : VideoModel.demo);
+        path: '/add-downloads',
+        builder: (c, s) {
+          final extra = s.extra;
+          final urls = extra is String
+              ? [extra]
+              : extra is List
+              ? extra.whereType<String>().toList()
+              : null;
+          return BatchDownloadScreen(initialUrls: urls);
         },
       ),
-      GoRoute(path: '/downloads', builder: (context, state) => const DownloadsScreen()),
+      GoRoute(
+        path: '/playlists',
+        builder: (c, s) => const PlaylistImportScreen(),
+      ),
+      GoRoute(
+        path: '/personalization',
+        builder: (c, s) => const PersonalizationSettingsScreen(),
+      ),
+      GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
+      GoRoute(
+        path: '/local-player',
+        builder: (c, s) => LocalMediaPlayerScreen(filePath: s.extra as String),
+      ),
+      GoRoute(
+        path: '/watch',
+        builder: (c, s) {
+          final v = s.extra;
+          return WatchScreen(video: v is VideoModel ? v : VideoModel.demo);
+        },
+      ),
+      GoRoute(path: '/downloads', builder: (c, s) => const DownloadsScreen()),
       GoRoute(
         path: '/library',
-        builder: (context, state) => const LibraryScreen(),
+        builder: (c, s) => const LibraryScreen(),
         routes: [
           GoRoute(
             path: ':folder',
-            builder: (context, state) => LibraryFolderScreen(
-              folderName: state.pathParameters['folder']!,
-            ),
+            builder: (c, s) =>
+                FolderContentsScreen(folderName: s.pathParameters['folder']!),
           ),
         ],
       ),
@@ -39,10 +70,15 @@ class TubeArenaApp extends StatelessWidget {
   );
 
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-        title: 'Tube Arena',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        routerConfig: _router,
-      );
+  Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    return MaterialApp.router(
+      title: 'Tube Arena',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeProvider.themeMode,
+      routerConfig: _router,
+    );
+  }
 }

@@ -31,10 +31,16 @@ class LocalFile {
 }
 
 class LocalFileManagerService {
-  static final LocalFileManagerService _instance = LocalFileManagerService._internal();
+  static final LocalFileManagerService _instance =
+      LocalFileManagerService._internal();
   final logger = Logger();
 
   late Directory _baseDirectory;
+  bool _initialized = false;
+  String? _initializationError;
+
+  bool get isReady => _initialized;
+  String? get initializationError => _initializationError;
 
   factory LocalFileManagerService() {
     return _instance;
@@ -50,14 +56,20 @@ class LocalFileManagerService {
       final tubeArenaDir = Directory('${documentsDirectory.path}/TubeArena');
       await tubeArenaDir.create(recursive: true);
       _baseDirectory = tubeArenaDir;
+      _initialized = true;
+      _initializationError = null;
       logger.i('Tube Arena base directory is ready');
       logger.i('File manager initialized at: ${_baseDirectory.path}');
     } catch (e) {
+      _initialized = false;
+      _initializationError = e.toString();
       logger.e('Error initializing file manager: $e');
+      rethrow;
     }
   }
 
   Future<bool> _isManagedDirectory(Directory directory) async {
+    if (!_initialized) return false;
     final basePath = await _baseDirectory.resolveSymbolicLinks();
     final targetPath = await directory.resolveSymbolicLinks();
     return targetPath.startsWith('$basePath${Platform.pathSeparator}');
@@ -80,7 +92,8 @@ class LocalFileManagerService {
   Future<bool> createFolder(String folderName) async {
     try {
       final safeName = _validatedFolderName(folderName);
-      if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
+      if (safeName == null || safeName.toLowerCase() == 'downloads')
+        return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
       if (!folder.existsSync()) {
         await folder.create(recursive: true);
@@ -98,7 +111,8 @@ class LocalFileManagerService {
   Future<bool> deleteFolder(String folderName) async {
     try {
       final safeName = _validatedFolderName(folderName);
-      if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
+      if (safeName == null || safeName.toLowerCase() == 'downloads')
+        return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
       if (folder.existsSync() && await _isManagedDirectory(folder)) {
         await folder.delete(recursive: true);
@@ -117,8 +131,12 @@ class LocalFileManagerService {
     try {
       final safeOldName = _validatedFolderName(oldName);
       final safeNewName = _validatedFolderName(newName);
-      if (safeOldName == null || safeNewName == null || safeOldName == safeNewName ||
-          safeOldName.toLowerCase() == 'downloads' || safeNewName.toLowerCase() == 'downloads') return false;
+      if (safeOldName == null ||
+          safeNewName == null ||
+          safeOldName == safeNewName ||
+          safeOldName.toLowerCase() == 'downloads' ||
+          safeNewName.toLowerCase() == 'downloads')
+        return false;
       final oldFolder = Directory('${_baseDirectory.path}/$safeOldName');
       final newFolder = Directory('${_baseDirectory.path}/$safeNewName');
 
@@ -142,16 +160,20 @@ class LocalFileManagerService {
       final items = _baseDirectory.listSync(followLinks: false);
       final folders = <LocalFile>[];
       for (final item in items.whereType<Directory>()) {
-        if (item.path.split(Platform.pathSeparator).last.toLowerCase() == 'downloads') continue;
+        if (item.path.split(Platform.pathSeparator).last.toLowerCase() ==
+            'downloads')
+          continue;
         if (!await _isManagedDirectory(item)) continue;
         final stat = item.statSync();
-        folders.add(LocalFile(
-          path: item.path,
-          name: item.path.split(Platform.pathSeparator).last,
-          size: 0,
-          createdAt: stat.modified,
-          isDirectory: true,
-        ));
+        folders.add(
+          LocalFile(
+            path: item.path,
+            name: item.path.split(Platform.pathSeparator).last,
+            size: 0,
+            createdAt: stat.modified,
+            isDirectory: true,
+          ),
+        );
       }
 
       logger.i('Found ${folders.length} folders');
@@ -173,25 +195,53 @@ class LocalFileManagerService {
       }
 
       final items = folder.listSync(followLinks: false);
-      final files = items
-          .where((item) => item is File)
-          .map((item) {
-            final stat = item.statSync();
-            return LocalFile(
-              path: item.path,
-              name: item.path.split('/').last,
-              size: stat.size,
-              createdAt: stat.modified,
-              isDirectory: false,
-            );
-          })
-          .toList();
+      final files = items.where((item) => item is File).map((item) {
+        final stat = item.statSync();
+        return LocalFile(
+          path: item.path,
+          name: item.path.split('/').last,
+          size: stat.size,
+          createdAt: stat.modified,
+          isDirectory: false,
+        );
+      }).toList();
 
       logger.i('Found ${files.length} files in $folderName');
       return files;
     } catch (e) {
       logger.e('Error getting files: $e');
       return [];
+    }
+  }
+
+  /// Rename a file without allowing paths or overwrites outside the library.
+  Future<bool> renameFile(String filePath, String newName) async {
+    try {
+      final safeName = newName.trim();
+      if (safeName.isEmpty ||
+          safeName == '.' ||
+          safeName == '..' ||
+          safeName.contains('/') ||
+          safeName.contains('\\') ||
+          safeName.contains(RegExp(r'[\x00-\x1F]'))) {
+        return false;
+      }
+      final file = File(filePath);
+      if (!await file.exists()) return false;
+      final parent = file.parent;
+      if (!await _isManagedDirectory(parent)) return false;
+      final destination = File('${parent.path}/$safeName');
+      if (await destination.exists()) return false;
+      final resolvedSource = await file.resolveSymbolicLinks();
+      final basePath = await _baseDirectory.resolveSymbolicLinks();
+      if (!resolvedSource.startsWith('$basePath${Platform.pathSeparator}')) {
+        return false;
+      }
+      await file.rename(destination.path);
+      return true;
+    } catch (error) {
+      logger.e('Error renaming file: $error');
+      return false;
     }
   }
 
@@ -224,7 +274,10 @@ class LocalFileManagerService {
   }
 
   /// Move multiple files to folder
-  Future<bool> moveFilesInBatch(List<String> filePaths, String targetFolder) async {
+  Future<bool> moveFilesInBatch(
+    List<String> filePaths,
+    String targetFolder,
+  ) async {
     try {
       bool allSuccessful = true;
       for (final filePath in filePaths) {
@@ -296,7 +349,9 @@ class LocalFileManagerService {
           totalSize += item.lengthSync();
         }
       }
-      logger.i('Total storage size: ${(totalSize / (1024 * 1024)).toStringAsFixed(2)} MB');
+      logger.i(
+        'Total storage size: ${(totalSize / (1024 * 1024)).toStringAsFixed(2)} MB',
+      );
       return totalSize;
     } catch (e) {
       logger.e('Error calculating storage size: $e');

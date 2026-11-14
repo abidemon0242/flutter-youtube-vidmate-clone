@@ -1,0 +1,36 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Android / Gradle local state
+.gradle/
+**/local.properties
+**/key.properties
+android/app/google-services.json
+**/GeneratedPluginRegistrant.java
+android/.gradle/
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# Signing material (never commit)
+*.jks
+*.keystore
+*.p12
+
+# IDE and editor files
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# Operating system files
+.DS_Store
+Thumbs.db

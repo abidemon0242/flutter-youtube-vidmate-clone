@@ -1,28 +1,48 @@
 # Tube Arena
 
-Tube Arena is an Android-first Flutter prototype for a YouTube-inspired media browser and local media library.
+Tube Arena is an Android-first Flutter media browser and private offline media library.
 
-## Working prototype features
+## Implemented features
 
-- Mock video feed with category filtering and local search
-- Sample network video playback
-- Local folder creation and browsing inside the app's private storage
-- Download-list state management and safe file deletion when a saved path is supplied
-- Basic navigation between Home, Watch, Downloads, and Library
+- Public video search and Bangladesh regional metadata through community Invidious catalog instances.
+- Public channel subscriptions through YouTube RSS.
+- Public playlist import and local playlist history; private playlists are not supported.
+- YouTube playback through the official embedded player; direct media URLs and local files use the native player.
+- Category filtering, recent search history, and on-device recommendations with local consent controls.
+- Batch downloads for direct media files that the user owns or is authorized to save.
+- Completed HLS VOD resolution selection, estimated sizes, and FFmpeg stream merging where required.
+- Download progress, pause/resume/cancel/retry, and persistent task history.
+- Wi-Fi-only preference with best-effort pausing for regular downloads.
+- Private local media library with folder creation, browsing, rename, move, and safe deletion.
+- Local audio/video playback, MP3 extraction, and local video/audio conversion.
+- 3GP conversion preset using H.263 video and AMR-NB audio.
+- Share/export of completed downloads through Android's system share sheet.
+- Media notification and lock-screen controls for supported local and embedded playback.
+- Persistent light/dark theme and personalization settings.
+- First-run Google sign-in onboarding, guest continuation, and Firebase-backed account session (requires owner-supplied Firebase configuration).
 
-## Service foundations (not yet connected end-to-end)
+## Data sources and download boundaries
 
-The repository also contains service-level foundations for YouTube metadata/stream extraction, background downloads, FFmpeg processing, media-session controls, and ad/tracker URL classification. These are not currently wired into the visible Watch/Download flow as a complete downloader.
+- No YouTube Data API key is used or required.
+- Public search, regional trending metadata, and public playlist metadata use independently operated Invidious instances. Availability can vary.
+- Public channel subscriptions use YouTube RSS. The app does not access private account subscriptions, watch history, or private playlists.
+- YouTube watch pages are played with the official YouTube player; Tube Arena does not extract or download YouTube streams.
+- Downloads accept direct media-file URLs and completed HLS VOD manifests only. Live HLS playlists are not supported.
+- Only download content you own or are authorized to save.
 
-In particular:
-- The home feed uses mock data, not live YouTube search or recommendations.
-- The Watch screen uses a sample video URL.
-- The Download action is explicitly disabled in the prototype; it does not yet start a real download from the UI.
-- The ad-blocking class classifies URLs but does not intercept player or WebView network traffic.
-- Media-session controls are not yet connected to the video player.
+## Known limitations
 
-## Android build notes
+- Public Invidious instances can be slow or temporarily unavailable.
+- The official YouTube player controls ads, quality, and playback availability. Tube Arena cannot remove YouTube ads or force a YouTube stream quality.
+- Adaptive HLS streams require successful FFmpeg processing. Pause/cancel are unavailable while FFmpeg is processing.
+- Wi-Fi-only is best-effort, not a system-level firewall. Regular downloads pause when the app receives connectivity changes; HLS downloads only check Wi-Fi before starting and are not automatically paused if the connection changes.
+- Android may delay background connectivity events and notifications.
+- 3GP compatibility depends on the available FFmpeg encoders and the receiving phone.
+- Downloaded files are stored in app-private storage and exported through Android's share sheet.
+- No production signing key is included. Release builds must be signed with a key controlled by the app owner.
+- Real-device testing remains necessary for network, codec, notification, and file-sharing workflows.
+- Google sign-in is not active until `android/app/google-services.json` is added locally, Google is enabled in Firebase Authentication, and the app's SHA-1 fingerprints are registered. See [Google sign-in setup](docs/GOOGLE_SIGN_IN_SETUP.md).
 
-The Android CI workflow generates the missing Gradle scaffolding, applies the required Android SDK levels, runs Dart analysis and tests, builds a debug APK, and attempts an emulator launch smoke test.
+## Build and verification
 
-The checked-in Android directory is intentionally minimal; use the CI-generated Android project as the current build verification path.
+The Android scaffold is generated from Flutter's stable template by `bash tool/bootstrap_android.sh`. Run it locally after installing Flutter and Android SDK tools, then run `flutter pub get`. CI checks formatting, static analysis, Flutter tests, debug/release APK builds, and an Android emulator install/launch smoke test. The emulator smoke test does not verify every feature. See [Release signing](docs/RELEASE_SIGNING.md) and [Google sign-in setup](docs/GOOGLE_SIGN_IN_SETUP.md).

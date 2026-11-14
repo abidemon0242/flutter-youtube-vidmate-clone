@@ -3,13 +3,16 @@ name: Tube Arena Android CI
 on:
   push:
     branches:
-      - "**"
+      - main
   pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
-  group: tube-arena-android-ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: tube-arena-android-ci-${{ github.event.pull_request.number || github.ref }}
+  # Do not cancel a build that the repair controller is waiting on.
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -22,120 +25,48 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.9'
           channel: stable
           cache: true
-
       - name: Generate missing Android project scaffolding
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/tube-arena-native"
-          cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/TubeArenaManifest.xml"
-          flutter create --platforms=android --org com.tubearena --project-name app "$RUNNER_TEMP/tube-arena-native"
-          rm -rf android
-          cp -R "$RUNNER_TEMP/tube-arena-native/android" android
-          cp "$RUNNER_TEMP/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
-          python3 - <<'PY'
-          from pathlib import Path
-          manifest = Path("android/app/src/main/AndroidManifest.xml")
-          text = manifest.read_text()
-          text = text.replace(' package="com.tubearena.app"', '')
-          if 'android:name="io.flutter.embedding.android.NormalTheme"' not in text:
-              text = text.replace(
-                  '        <intent-filter>',
-                  '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\n        <intent-filter>',
-                  1,
-              )
-          if 'android:name="flutterEmbedding"' not in text:
-              text = text.replace(
-                  '    </application>',
-                  '        <meta-data android:name="flutterEmbedding" android:value="2" />\n    </application>',
-                  1,
-              )
-          manifest.write_text(text)
-          PY
-
-      - name: Configure Android SDK levels for plugin compatibility
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
-
-          paths = [Path("android/app/build.gradle"), Path("android/app/build.gradle.kts")]
-          min_replacements = [
-              ("minSdkVersion flutter.minSdkVersion", "minSdkVersion 24"),
-              ("minSdkVersion = flutter.minSdkVersion", "minSdkVersion = 24"),
-              ("minSdk = flutter.minSdkVersion", "minSdk = 24"),
-          ]
-          min_updated = False
-          compile_updated = False
-          for path in paths:
-              if not path.exists():
-                  continue
-              content = path.read_text()
-              original = content
-              for old, new in min_replacements:
-                  content = content.replace(old, new)
-              if content != original:
-                  min_updated = True
-              content, count = re.subn(
-                  r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*)?)(?:flutter\.compileSdkVersion|\d+)(\s*(?://.*)?$)",
-                  r"\g<1>36\g<2>",
-                  content,
-              )
-              if count:
-                  compile_updated = True
-              if content != original:
-                  path.write_text(content)
-          if not min_updated:
-              raise SystemExit("Could not set Android minSdk to 24 in generated Gradle configuration.")
-          if not compile_updated:
-              raise SystemExit("Could not set Android compileSdk to 36 in generated Gradle configuration.")
-          PY
-
+        run: bash tool/bootstrap_android.sh
       - name: Ensure declared asset directories exist
         run: mkdir -p assets/images assets/icons
-
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Format Dart source
+      - name: Print formatter output for the two failing files
+        run: |
+          dart format --output=show lib/services/hls_resolution_service.dart
+          dart format --output=show test/widget_test.dart
+      - name: Format Dart sources
         run: dart format lib test
-
+      - name: Verify Dart formatting
+        run: dart format --output=none --set-exit-if-changed lib test
       - name: Analyze Dart source
         run: flutter analyze --no-pub
-
       - name: Run Flutter tests
         run: flutter test --no-pub --reporter expanded
-
       - name: Build debug APK
         run: flutter build apk --debug --no-pub
-
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: tube-arena-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 7
-
       - name: Build optimized split release APKs
         run: flutter build apk --release --split-per-abi --no-pub
-
       - name: Upload split release APKs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: tube-arena-release-apks
           path: build/app/outputs/flutter-apk/*-release.apk
@@ -143,129 +74,143 @@ jobs:
           retention-days: 14
 
   android-emulator-smoke-test:
-    name: Install and launch on Android emulator
+    name: Install and launch release APK on Android emulator
     needs: flutter-checks
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
+      - name: Download release APK artifacts
+        uses: actions/download-artifact@v5
         with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-
-      - name: Generate missing Android project scaffolding
+          name: tube-arena-release-apks
+          path: release-apks
+      - name: Verify x86_64 release APK and INTERNET permission
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/tube-arena-native"
-          cp android/app/src/main/AndroidManifest.xml "$RUNNER_TEMP/TubeArenaManifest.xml"
-          flutter create --platforms=android --org com.tubearena --project-name app "$RUNNER_TEMP/tube-arena-native"
-          rm -rf android
-          cp -R "$RUNNER_TEMP/tube-arena-native/android" android
-          cp "$RUNNER_TEMP/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
-          python3 - <<'PY'
-          from pathlib import Path
-          manifest = Path("android/app/src/main/AndroidManifest.xml")
-          text = manifest.read_text()
-          text = text.replace(' package="com.tubearena.app"', '')
-          if 'android:name="io.flutter.embedding.android.NormalTheme"' not in text:
-              text = text.replace(
-                  '        <intent-filter>',
-                  '        <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />\n        <intent-filter>',
-                  1,
-              )
-          if 'android:name="flutterEmbedding"' not in text:
-              text = text.replace(
-                  '    </application>',
-                  '        <meta-data android:name="flutterEmbedding" android:value="2" />\n    </application>',
-                  1,
-              )
-          manifest.write_text(text)
-          PY
-
-      - name: Configure Android SDK levels for plugin compatibility
+          apk="release-apks/app-x86_64-release.apk"
+          test -s "$apk"
+          aapt="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -n "$aapt"
+          "$aapt" dump permissions "$apk" | grep -q "android.permission.INTERNET"
+          echo "Release APK exists and declares INTERNET permission."
+      - name: Prepare emulator smoke-test script
         shell: bash
         run: |
+          cat > "$RUNNER_TEMP/tube-arena-smoke.sh" <<'SMOKE'
+          #!/usr/bin/env bash
           set -euo pipefail
-          python3 - <<'PY'
-          import re
-          from pathlib import Path
 
-          paths = [Path("android/app/build.gradle"), Path("android/app/build.gradle.kts")]
-          min_replacements = [
-              ("minSdkVersion flutter.minSdkVersion", "minSdkVersion 24"),
-              ("minSdkVersion = flutter.minSdkVersion", "minSdkVersion = 24"),
-              ("minSdk = flutter.minSdkVersion", "minSdk = 24"),
-          ]
-          min_updated = False
-          compile_updated = False
-          for path in paths:
-              if not path.exists():
-                  continue
-              content = path.read_text()
-              original = content
-              for old, new in min_replacements:
-                  content = content.replace(old, new)
-              if content != original:
-                  min_updated = True
-              content, count = re.subn(
-                  r"(?m)^(\s*compileSdk(?:Version)?\s*(?:=\s*)?)(?:flutter\.compileSdkVersion|\d+)(\s*(?://.*)?$)",
-                  r"\g<1>36\g<2>",
-                  content,
-              )
-              if count:
-                  compile_updated = True
-              if content != original:
-                  path.write_text(content)
-          if not min_updated:
-              raise SystemExit("Could not set Android minSdk to 24 in generated Gradle configuration.")
-          if not compile_updated:
-              raise SystemExit("Could not set Android compileSdk to 36 in generated Gradle configuration.")
-          PY
+          wait_for_package_manager() {
+            for attempt in $(seq 1 60); do
+              if adb shell service check package 2>/dev/null | grep -q "found"; then
+                return 0
+              fi
+              sleep 5
+            done
+            return 1
+          }
 
-      - name: Ensure declared asset directories exist
-        run: mkdir -p assets/images assets/icons
+          wait_for_android_boot() {
+            for attempt in $(seq 1 120); do
+              boot_completed="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              boot_animation="$(adb shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || true)"
+              if [ "$boot_completed" = "1" ] && [ "$boot_animation" = "stopped" ]; then
+                return 0
+              fi
+              sleep 5
+            done
+            echo "Android did not finish booting."
+            return 1
+          }
 
-      - name: Build debug APK for emulator
-        run: |
-          flutter pub get
-          flutter build apk --debug
+          adb wait-for-device
+          if ! wait_for_package_manager; then
+            echo "Package Manager did not become ready; rebooting emulator once."
+            adb reboot
+            adb wait-for-device
+            wait_for_package_manager
+          fi
+          wait_for_android_boot
+          adb shell settings put global window_animation_scale 0 || true
+          adb shell settings put global transition_animation_scale 0 || true
+          adb shell settings put global animator_duration_scale 0 || true
+          adb shell input keyevent 82 || true
+          sleep 15
+          adb shell am wait-for-broadcast-idle || true
 
-      - name: Start Android Debug Bridge
-        run: |
-          adb start-server
-          adb version
-          adb devices
+          installed=false
+          for attempt in 1 2 3; do
+            if adb install -r release-apks/app-x86_64-release.apk; then
+              installed=true
+              break
+            fi
+            echo "Release APK installation attempt $attempt failed."
+            if [ "$attempt" -lt 3 ]; then
+              adb reboot
+              adb wait-for-device
+              wait_for_package_manager
+            fi
+          done
+          test "$installed" = true
 
-      - name: Boot emulator, install and launch app
+          adb logcat -c
+          echo "Launching Tube Arena..."
+          launch_output="$(adb shell am start -n com.tubearena.app/.MainActivity 2>&1)" || {
+            echo "Activity launch command failed:"
+            echo "$launch_output"
+            adb logcat -d -b all -v threadtime | tail -n 500
+            exit 1
+          }
+          echo "$launch_output"
+
+          app_pid=""
+          for attempt in $(seq 1 60); do
+            app_pid="$(adb shell pidof com.tubearena.app 2>/dev/null | tr -d '\r' || true)"
+            if [ -n "$app_pid" ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          if [ -z "$app_pid" ]; then
+            echo "FAIL: Tube Arena process was not alive after launch."
+            echo "--- Activity state ---"
+            adb shell dumpsys activity activities | tail -n 100 || true
+            echo "--- Process state ---"
+            adb shell dumpsys activity processes | tail -n 100 || true
+            echo "--- Android logcat (last 500 lines) ---"
+            adb logcat -d -b all -v threadtime | tail -n 500
+            exit 1
+          fi
+
+          echo "Tube Arena is running with PID(s): $app_pid"
+          logcat_file="$RUNNER_TEMP/tube-arena-logcat.txt"
+          adb logcat -d -b all -v threadtime > "$logcat_file"
+          if grep -n -E -B 15 -A 60 "FATAL EXCEPTION|Fatal signal| tombstoned |AndroidRuntime.*FATAL" "$logcat_file"; then
+            echo "FAIL: Android runtime crash detected. Full logcat will be uploaded."
+            exit 1
+          fi
+          echo "PASS: Tube Arena launched and remained running."
+          SMOKE
+          chmod +x "$RUNNER_TEMP/tube-arena-smoke.sh"
+      - name: Boot emulator, install and launch release APK
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 30
+          api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
+          emulator-options: -no-window -no-audio -no-boot-anim -no-metrics -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 3072 -cores 4
           emulator-boot-timeout: 1200
-          disable-animations: true
-          script: |
-            set -euo pipefail
-            adb install build/app/outputs/flutter-apk/app-debug.apk
-            adb logcat -c
-            adb shell am start -n com.tubearena.app/.MainActivity
-            sleep 15
-            app_pid="$(adb shell pidof com.tubearena.app || true)"
-            test -n "$app_pid"
-            if adb logcat -d -t 1500 | grep -E "FATAL EXCEPTION|AndroidRuntime"; then
-              echo "Android runtime crash detected."
-              exit 1
-            fi
+          disable-animations: false
+          script: bash "$RUNNER_TEMP/tube-arena-smoke.sh"
+
+      - name: Upload emulator logcat diagnostics
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: tube-arena-emulator-logcat
+          path: ${{ runner.temp }}/tube-arena-logcat.txt
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,34 +1,26 @@
 # Tube Arena — Quick Start
 
-Tube Arena is currently an **Android-first Flutter prototype**. A browser/web preview is not a supported run target because the project includes native Android media plugins.
+Tube Arena is an Android-first Flutter app. The Android scaffold is generated locally or in CI with `bash tool/bootstrap_android.sh`.
 
-## Get an Android debug build
+## Build
 
-1. Open the repository's **Actions** tab.
-2. Open a completed **Tube Arena Android CI** run.
-3. In the **Flutter analyze, tests and Android build** job, check that analysis, tests and APK build passed.
-4. Download the `tube-arena-debug-apk` artifact if it is available.
-5. Transfer the APK to your Android device and install it.
+1. Install Flutter stable and Android SDK tools.
+2. Run `bash tool/bootstrap_android.sh` from the repository root.
+3. Run `flutter pub get`.
+4. Build with `flutter build apk --debug`, or download a debug APK artifact from GitHub Actions.
 
-The emulator smoke-test job is a separate check. An APK artifact may exist even if that later smoke test fails; check the individual job results.
+## Feature boundaries
 
-## Build locally
+- Explore uses public Invidious search and regional catalog metadata; it is not the official YouTube Trending feed.
+- YouTube watch pages play through the official embedded player. Tube Arena does not extract YouTube streams.
+- Batch downloads accept direct media-file URLs and completed HLS VOD manifests. Live HLS playlists are not supported.
+- HLS master manifests can expose available resolutions and estimated sizes; FFmpeg merges separate audio/video streams when required.
+- Retry reuses the saved direct media URL; it does not refresh or extract YouTube streams.
+- The Downloads screen provides **Share / export file** for completed files stored in app-private storage.
+- 3GP conversion uses H.263/AMR-NB; codec and feature-phone compatibility vary.
+- Android notification permission is requested when starting a batch. Notifications may be hidden if permission is denied.
+- Pause/cancel are unavailable during FFmpeg processing.
+- Wi-Fi-only is best-effort. Regular downloads pause on connectivity changes; HLS downloads only check Wi-Fi before starting.
+- The emulator smoke test verifies install and launch, not every app workflow.
 
-With Flutter and the Android SDK installed:
-
-```bash
-flutter pub get
-dart format lib test
-flutter analyze
-flutter test
-flutter build apk --debug
-```
-
-## Current prototype scope
-
-- Mock video feed, local search and category filtering
-- Sample network video playback
-- Local folder creation and browsing
-- Downloads list UI and safe file-record deletion
-
-Real YouTube downloads, download progress callbacks, network ad interception, and player-connected lock-screen controls are **not yet integrated end-to-end**. See [README.md](README.md) for details.
+See README.md for data sources, limitations, and release requirements.
