@@ -389,7 +389,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
 
   Future<void> _loadVideoTracks() async {
     try {
-      final supported = await controller.isVideoTrackSupportAvailable();
+      final supported = controller.isVideoTrackSupportAvailable();
       if (!supported || !mounted) return;
       final tracks = await controller.getVideoTracks();
       if (!mounted) return;
