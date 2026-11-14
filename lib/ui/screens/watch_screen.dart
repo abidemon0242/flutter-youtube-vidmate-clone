@@ -419,9 +419,15 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   Future<void> _selectVideoTrack(String value) async {
     if (!_videoTrackSelectionSupported) return;
     try {
-      final track = value == 'auto'
-          ? null
-          : _videoTracks.where((item) => item.id == value).firstOrNull;
+      VideoTrack? track;
+      if (value != 'auto') {
+        for (final candidate in _videoTracks) {
+          if (candidate.id == value) {
+            track = candidate;
+            break;
+          }
+        }
+      }
       await controller.selectVideoTrack(track);
       final refreshed = await controller.getVideoTracks();
       if (mounted) setState(() => _videoTracks = refreshed);
