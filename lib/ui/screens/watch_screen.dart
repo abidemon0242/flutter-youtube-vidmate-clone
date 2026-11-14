@@ -617,10 +617,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
               icon: const Icon(Icons.high_quality_outlined),
               onSelected: _selectVideoTrack,
               itemBuilder: (context) => [
-                const PopupMenuItem<String>(
-                  value: 'auto',
-                  child: Text('Auto'),
-                ),
+                const PopupMenuItem<String>(value: 'auto', child: Text('Auto')),
                 ..._videoTracks.map(
                   (track) => PopupMenuItem<String>(
                     value: track.id,
