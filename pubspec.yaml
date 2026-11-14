@@ -28,6 +28,9 @@ dependencies:
   logger: ^2.0.0
   xml: ^6.5.0
   shared_preferences: ^2.3.3
+  firebase_core: ^5.1.0
+  firebase_auth: ^7.0.1
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:
