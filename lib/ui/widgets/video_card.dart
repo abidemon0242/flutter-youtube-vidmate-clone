@@ -1,5 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
@@ -13,6 +13,7 @@ class VideoCard extends StatelessWidget {
     this.isSelected = false,
     this.onLongPress,
     this.onCheckboxTap,
+    this.onMore,
   });
 
   final VideoModel video;
@@ -21,6 +22,7 @@ class VideoCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onLongPress;
   final VoidCallback? onCheckboxTap;
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -41,35 +43,27 @@ class VideoCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     width: double.infinity,
                     height: 220,
-                    placeholder: (context, url) => Container(
-                      color: AppColors.card,
-                      height: 220,
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      color: AppColors.card,
-                      child: const Icon(Icons.broken_image_outlined),
-                    ),
+                    placeholder: (context, url) => Container(color: AppColors.card, height: 220),
+                    errorWidget: (context, url, error) =>
+                        Container(color: AppColors.card, height: 220, child: const Icon(Icons.broken_image_outlined)),
                   ),
                 ),
-                Positioned(
-                  right: 10,
-                  bottom: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.75),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      video.duration,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
+                if (video.duration.isNotEmpty)
+                  Positioned(
+                    right: 10,
+                    bottom: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.75),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        video.duration,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
                       ),
                     ),
                   ),
-                ),
                 if (multiSelectMode)
                   Positioned(
                     top: 10,
@@ -84,9 +78,7 @@ class VideoCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: Colors.white, width: 2),
                         ),
-                        child: isSelected
-                            ? const Icon(Icons.check, color: Colors.white, size: 18)
-                            : null,
+                        child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
                       ),
                     ),
                   ),
@@ -99,7 +91,13 @@ class VideoCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundImage: CachedNetworkImageProvider(video.channelAvatar),
+                    backgroundColor: AppColors.card,
+                    backgroundImage: video.channelAvatar.isEmpty
+                        ? null
+                        : CachedNetworkImageProvider(video.channelAvatar),
+                    child: video.channelAvatar.isEmpty
+                        ? Text(video.channelName.isEmpty ? '?' : video.channelName.characters.first.toUpperCase())
+                        : null,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -119,11 +117,12 @@ class VideoCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Text(
-                              video.channelName,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 12,
+                            Flexible(
+                              child: Text(
+                                video.channelName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                               ),
                             ),
                             if (video.isVerified) ...[
@@ -132,17 +131,17 @@ class VideoCard extends StatelessWidget {
                             ],
                           ],
                         ),
-                        Text(
-                          '${video.views} · 4 days ago',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
+                        if (video.metaLine.isNotEmpty)
+                          Text(video.metaLine, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                       ],
                     ),
                   ),
-                  const Icon(Icons.more_vert, color: AppColors.textSecondary),
+                  if (onMore != null && video.isYoutube)
+                    IconButton(
+                      tooltip: 'Download',
+                      onPressed: onMore,
+                      icon: const Icon(Icons.download_outlined, color: AppColors.textSecondary),
+                    ),
                 ],
               ),
             ),

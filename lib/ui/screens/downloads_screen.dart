@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../models/video_model.dart';
 import '../../providers/downloads_provider.dart';
+import '../widgets/download_options_sheet.dart';
 
 class DownloadsScreen extends StatelessWidget {
   const DownloadsScreen({super.key});
@@ -11,79 +14,258 @@ class DownloadsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final downloads = context.watch<DownloadsProvider>();
-    return Scaffold(
-      appBar: AppBar(title: const Text('Downloads'), actions: [
-        if (downloads.items.isNotEmpty)
-          Padding(padding: const EdgeInsets.only(right: 16), child: Center(child: Text('${downloads.items.length} items'))),
-      ]),
-      body: downloads.items.isEmpty
-          ? const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.download_outlined, size: 64, color: AppColors.textSecondary),
-              SizedBox(height: 16),
-              Text('No downloads yet', style: TextStyle(color: AppColors.textSecondary, fontSize: 18, fontWeight: FontWeight.w600)),
-              SizedBox(height: 8),
-              Text('Downloads will appear here when enabled.', style: TextStyle(color: AppColors.textSecondary)),
-            ]))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: downloads.items.length,
-              itemBuilder: (context, index) {
-                final item = downloads.items[index];
-                final selected = downloads.selectedIds.contains(item.id);
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: Checkbox(value: selected, onChanged: (_) => downloads.toggleSelection(item.id)),
-                    title: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis),
-                    subtitle: Text('${item.format} • ${item.size}'),
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (action) {
-                        if (action == 'delete') {
-                          downloads.deleteFileFor(item).then((deleted) {
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(deleted ? 'Download deleted.' : 'Could not delete this file.')),
-                            );
-                          });
-                        }
-                      },
-                      itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete'))],
-                    ),
+    final selecting = downloads.hasSelection;
+    return PopScope(
+      canPop: !selecting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) downloads.clearSelection();
+      },
+      child: Scaffold(
+        appBar: selecting
+            ? AppBar(
+                leading: IconButton(
+                  tooltip: 'Cancel selection',
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: downloads.clearSelection,
+                ),
+                title: Text('${downloads.selectedIds.length} selected'),
+                actions: [
+                  TextButton(onPressed: downloads.selectAll, child: const Text('Select all')),
+                  IconButton(
+                    tooltip: 'Remove from list (keep files)',
+                    icon: const Icon(Icons.playlist_remove_rounded),
+                    onPressed: downloads.removeSelected,
                   ),
-                );
-              },
-            ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: AppColors.background,
-        selectedItemColor: AppColors.primaryStart,
-        unselectedItemColor: AppColors.textSecondary,
-        currentIndex: 1,
-        onTap: (index) {
-          if (index == 0) context.go('/');
-          if (index == 2) context.go('/library');
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.download_rounded), label: 'Downloads'),
-          BottomNavigationBarItem(icon: Icon(Icons.library_books_rounded), label: 'Library'),
+                ],
+              )
+            : AppBar(
+                automaticallyImplyLeading: false,
+                title: const Text('Downloads'),
+                actions: [
+                  if (downloads.items.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 16),
+                      child: Center(child: Text('${downloads.items.length} items')),
+                    ),
+                ],
+              ),
+        body: downloads.items.isEmpty
+            ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.download_outlined, size: 64, color: AppColors.textSecondary),
+                      SizedBox(height: 16),
+                      Text(
+                        'No downloads yet',
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Open a video and tap Download, or paste a YouTube link on Home.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: downloads.items.length,
+                itemBuilder: (context, index) => _DownloadTile(entry: downloads.items[index]),
+              ),
+        floatingActionButton: selecting
+            ? FloatingActionButton.extended(
+                onPressed: () => _confirmDeleteSelected(context, downloads),
+                backgroundColor: AppColors.danger,
+                label: const Text('Delete selected'),
+                icon: const Icon(Icons.delete_forever_rounded),
+              )
+            : null,
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteSelected(BuildContext context, DownloadsProvider downloads) async {
+    final count = downloads.selectedIds.length;
+    final ok = await _confirm(context, 'Delete $count download(s)?', 'The files will be removed from this device.');
+    if (!ok || !context.mounted) return;
+    final removed = await downloads.deleteSelectedFiles();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$removed download(s) deleted')));
+  }
+}
+
+Future<bool> _confirm(BuildContext context, String title, String body) async =>
+    await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Delete', style: TextStyle(color: AppColors.danger)),
+          ),
         ],
       ),
-      floatingActionButton: downloads.hasSelection
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                downloads.deleteSelectedFiles().then((count) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('$count download(s) deleted')),
-                  );
-                });
-              },
-              backgroundColor: AppColors.danger,
-              label: const Text('Delete Selected'),
-              icon: const Icon(Icons.delete_forever_rounded),
-            )
-          : null,
+    ) ??
+    false;
+
+class _DownloadTile extends StatelessWidget {
+  const _DownloadTile({required this.entry});
+  final DownloadEntry entry;
+
+  String get _status => switch (entry.status) {
+    DownloadStatus.queued => 'Waiting...',
+    DownloadStatus.downloading =>
+      '${(entry.progress * 100).toStringAsFixed(0)}% · ${formatBytes(entry.receivedBytes)} of ${formatBytes(entry.totalBytes)}',
+    DownloadStatus.paused => 'Paused · ${(entry.progress * 100).toStringAsFixed(0)}%',
+    DownloadStatus.merging => 'Combining video and audio...',
+    DownloadStatus.completed => formatBytes(entry.totalBytes),
+    DownloadStatus.failed => entry.error ?? 'Failed',
+    DownloadStatus.canceled => 'Canceled',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final downloads = context.read<DownloadsProvider>();
+    final selecting = context.select<DownloadsProvider, bool>((d) => d.hasSelection);
+    final selected = context.select<DownloadsProvider, bool>((d) => d.isSelected(entry.id));
+    final done = entry.status == DownloadStatus.completed;
+
+    void play() => context.push(
+      '/watch',
+      extra: VideoModel(
+        id: 'local:${entry.savedPath}',
+        title: entry.title,
+        channelName: entry.channelName,
+        thumbnailUrl: entry.thumbnailUrl,
+        localPath: entry.savedPath,
+      ),
+    );
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: selecting ? () => downloads.toggleSelection(entry.id) : (done ? play : null),
+        onLongPress: () => downloads.toggleSelection(entry.id),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              if (selecting)
+                Checkbox(value: selected, onChanged: (_) => downloads.toggleSelection(entry.id))
+              else
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 96,
+                    height: 54,
+                    child: entry.thumbnailUrl.isEmpty
+                        ? const ColoredBox(color: AppColors.darkSurface, child: Icon(Icons.movie_outlined))
+                        : CachedNetworkImage(
+                            imageUrl: entry.thumbnailUrl,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, _, _) =>
+                                const ColoredBox(color: AppColors.darkSurface, child: Icon(Icons.movie_outlined)),
+                          ),
+                  ),
+                ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${entry.option.label} · ${entry.option.container.toUpperCase()}',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                    Text(
+                      _status,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: entry.status == DownloadStatus.failed ? AppColors.danger : AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (entry.isActive || entry.status == DownloadStatus.paused) ...[
+                      const SizedBox(height: 6),
+                      LinearProgressIndicator(
+                        value: entry.status == DownloadStatus.merging || entry.status == DownloadStatus.queued
+                            ? null
+                            : entry.progress,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (!selecting) ...[
+                if (entry.status == DownloadStatus.downloading || entry.status == DownloadStatus.queued)
+                  IconButton(
+                    tooltip: 'Pause',
+                    onPressed: () => downloads.pause(entry.id),
+                    icon: const Icon(Icons.pause_rounded),
+                  ),
+                if (entry.status == DownloadStatus.paused)
+                  IconButton(
+                    tooltip: 'Resume',
+                    onPressed: () => downloads.resume(entry.id),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                  ),
+                if (entry.status == DownloadStatus.failed || entry.status == DownloadStatus.canceled)
+                  IconButton(
+                    tooltip: 'Retry',
+                    onPressed: () => downloads.retry(entry.id),
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                if (done)
+                  IconButton(tooltip: 'Play', onPressed: play, icon: const Icon(Icons.play_circle_outline_rounded)),
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  onSelected: (action) async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    switch (action) {
+                      case 'cancel':
+                        await downloads.cancel(entry.id);
+                      case 'remove':
+                        await downloads.remove(entry, deleteFile: false);
+                        messenger.showSnackBar(const SnackBar(content: Text('Removed from list. The file was kept.')));
+                      case 'delete':
+                        if (!await _confirm(context, 'Delete this download?', entry.title)) return;
+                        final deleted = await downloads.remove(entry);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(deleted ? 'Download deleted.' : 'Removed from list (no file to delete).'),
+                          ),
+                        );
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    if (entry.isActive || entry.status == DownloadStatus.paused)
+                      const PopupMenuItem(value: 'cancel', child: Text('Cancel download')),
+                    const PopupMenuItem(value: 'remove', child: Text('Remove from list')),
+                    const PopupMenuItem(value: 'delete', child: Text('Delete file')),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

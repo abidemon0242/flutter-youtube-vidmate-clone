@@ -35,6 +35,14 @@ class LocalFileManagerService {
   final logger = Logger();
 
   late Directory _baseDirectory;
+  Future<void>? _ready;
+
+  static const downloadsFolderName = 'Downloads';
+
+  /// Built-in folders cannot be renamed or deleted.
+  static bool isProtectedFolder(String name) => name.toLowerCase() == downloadsFolderName.toLowerCase();
+
+  static const _hiddenSuffixes = ['.part', '.tmp', '.json'];
 
   factory LocalFileManagerService() {
     return _instance;
@@ -42,18 +50,24 @@ class LocalFileManagerService {
 
   LocalFileManagerService._internal();
 
-  /// Initialize file manager with base directory
-  Future<void> initialize() async {
+  /// Initialize file manager with base directory. Safe to call repeatedly;
+  /// every public method waits for it, so nothing runs before it is ready.
+  Future<void> initialize() => _ready ??= _initialize();
+
+  Future<void> _initialize() async {
     try {
       logger.i('Initializing LocalFileManagerService...');
       final documentsDirectory = await getApplicationDocumentsDirectory();
       final tubeArenaDir = Directory('${documentsDirectory.path}/TubeArena');
       await tubeArenaDir.create(recursive: true);
+      await Directory('${tubeArenaDir.path}/$downloadsFolderName').create(recursive: true);
       _baseDirectory = tubeArenaDir;
       logger.i('Tube Arena base directory is ready');
       logger.i('File manager initialized at: ${_baseDirectory.path}');
     } catch (e) {
       logger.e('Error initializing file manager: $e');
+      _ready = null; // allow a later retry
+      rethrow;
     }
   }
 
@@ -79,6 +93,7 @@ class LocalFileManagerService {
   /// Create a custom folder
   Future<bool> createFolder(String folderName) async {
     try {
+      await initialize();
       final safeName = _validatedFolderName(folderName);
       if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
@@ -97,6 +112,7 @@ class LocalFileManagerService {
   /// Delete a folder
   Future<bool> deleteFolder(String folderName) async {
     try {
+      await initialize();
       final safeName = _validatedFolderName(folderName);
       if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
@@ -115,16 +131,20 @@ class LocalFileManagerService {
   /// Rename a folder
   Future<bool> renameFolder(String oldName, String newName) async {
     try {
+      await initialize();
       final safeOldName = _validatedFolderName(oldName);
       final safeNewName = _validatedFolderName(newName);
-      if (safeOldName == null || safeNewName == null || safeOldName == safeNewName ||
-          safeOldName.toLowerCase() == 'downloads' || safeNewName.toLowerCase() == 'downloads') return false;
+      if (safeOldName == null ||
+          safeNewName == null ||
+          safeOldName == safeNewName ||
+          safeOldName.toLowerCase() == 'downloads' ||
+          safeNewName.toLowerCase() == 'downloads') {
+        return false;
+      }
       final oldFolder = Directory('${_baseDirectory.path}/$safeOldName');
       final newFolder = Directory('${_baseDirectory.path}/$safeNewName');
 
-      if (oldFolder.existsSync() &&
-          await _isManagedDirectory(oldFolder) &&
-          !newFolder.existsSync()) {
+      if (oldFolder.existsSync() && await _isManagedDirectory(oldFolder) && !newFolder.existsSync()) {
         await oldFolder.rename(newFolder.path);
         logger.i('Folder renamed: $oldName -> $newName');
         return true;
@@ -139,21 +159,29 @@ class LocalFileManagerService {
   /// Get all folders
   Future<List<LocalFile>> getFolders() async {
     try {
-      final items = _baseDirectory.listSync(followLinks: false);
+      await initialize();
+      final items = await _baseDirectory.list(followLinks: false).toList();
       final folders = <LocalFile>[];
       for (final item in items.whereType<Directory>()) {
-        if (item.path.split(Platform.pathSeparator).last.toLowerCase() == 'downloads') continue;
         if (!await _isManagedDirectory(item)) continue;
         final stat = item.statSync();
-        folders.add(LocalFile(
-          path: item.path,
-          name: item.path.split(Platform.pathSeparator).last,
-          size: 0,
-          createdAt: stat.modified,
-          isDirectory: true,
-        ));
+        folders.add(
+          LocalFile(
+            path: item.path,
+            name: item.path.split(Platform.pathSeparator).last,
+            size: 0,
+            createdAt: stat.modified,
+            isDirectory: true,
+          ),
+        );
       }
 
+      // Downloads first, then the rest alphabetically.
+      folders.sort((a, b) {
+        if (isProtectedFolder(a.name)) return -1;
+        if (isProtectedFolder(b.name)) return 1;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
       logger.i('Found ${folders.length} folders');
       return folders;
     } catch (e) {
@@ -165,6 +193,7 @@ class LocalFileManagerService {
   /// Get files in a folder
   Future<List<LocalFile>> getFilesInFolder(String folderName) async {
     try {
+      await initialize();
       final safeName = _validatedFolderName(folderName);
       if (safeName == null) return [];
       final folder = Directory('${_baseDirectory.path}/$safeName');
@@ -172,20 +201,17 @@ class LocalFileManagerService {
         return [];
       }
 
-      final items = folder.listSync(followLinks: false);
-      final files = items
-          .where((item) => item is File)
-          .map((item) {
-            final stat = item.statSync();
-            return LocalFile(
-              path: item.path,
-              name: item.path.split('/').last,
-              size: stat.size,
-              createdAt: stat.modified,
-              isDirectory: false,
-            );
-          })
-          .toList();
+      final items = await folder.list(followLinks: false).toList();
+      final files = <LocalFile>[];
+      for (final item in items.whereType<File>()) {
+        final name = item.uri.pathSegments.last;
+        if (name.startsWith('.') || _hiddenSuffixes.any(name.endsWith)) continue;
+        final stat = await item.stat();
+        files.add(
+          LocalFile(path: item.path, name: name, size: stat.size, createdAt: stat.modified, isDirectory: false),
+        );
+      }
+      files.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
       logger.i('Found ${files.length} files in $folderName');
       return files;
@@ -198,6 +224,7 @@ class LocalFileManagerService {
   /// Move file to different folder
   Future<bool> moveFile(String filePath, String targetFolder) async {
     try {
+      await initialize();
       final safeTarget = _validatedFolderName(targetFolder);
       if (safeTarget == null) return false;
       final file = File(filePath);
@@ -242,6 +269,7 @@ class LocalFileManagerService {
   /// Delete a file
   Future<bool> deleteFile(String filePath) async {
     try {
+      await initialize();
       final file = File(filePath);
       if (await file.exists()) {
         final basePath = await _baseDirectory.resolveSymbolicLinks();
@@ -281,15 +309,12 @@ class LocalFileManagerService {
   /// Get total storage size of all downloaded files
   Future<int> getTotalStorageSize() async {
     try {
+      await initialize();
       final downloadsDirectory = Directory('${_baseDirectory.path}/Downloads');
-      if (!await downloadsDirectory.exists() ||
-          !await _isManagedDirectory(downloadsDirectory)) {
+      if (!await downloadsDirectory.exists() || !await _isManagedDirectory(downloadsDirectory)) {
         return 0;
       }
-      final items = downloadsDirectory.listSync(
-        recursive: true,
-        followLinks: false,
-      );
+      final items = downloadsDirectory.listSync(recursive: true, followLinks: false);
       int totalSize = 0;
       for (final item in items) {
         if (item is File) {
@@ -307,6 +332,7 @@ class LocalFileManagerService {
   /// Clear all downloads
   Future<bool> clearAllDownloads() async {
     try {
+      await initialize();
       final downloadsDirectory = Directory('${_baseDirectory.path}/Downloads');
       if (!await downloadsDirectory.exists()) return true;
       if (!await _isManagedDirectory(downloadsDirectory)) return false;

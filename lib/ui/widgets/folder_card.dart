@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../../core/constants/app_colors.dart';
 
@@ -27,9 +27,7 @@ class FolderCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primaryStart.withValues(alpha: 0.2) : AppColors.card,
           borderRadius: BorderRadius.circular(18),
-          border: isSelected
-              ? Border.all(color: AppColors.primaryStart, width: 2)
-              : null,
+          border: isSelected ? Border.all(color: AppColors.primaryStart, width: 2) : null,
         ),
         child: Stack(
           children: [
@@ -50,10 +48,7 @@ class FolderCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '$fileCount file${fileCount != 1 ? 's' : ''}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                 ),
               ],
             ),
@@ -64,10 +59,7 @@ class FolderCard extends StatelessWidget {
                 child: Container(
                   width: 24,
                   height: 24,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryStart,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: BoxDecoration(color: AppColors.primaryStart, borderRadius: BorderRadius.circular(12)),
                   child: const Icon(Icons.check, size: 14, color: Colors.white),
                 ),
               ),

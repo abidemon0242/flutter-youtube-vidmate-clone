@@ -47,13 +47,10 @@ class AdBlockerService {
   Uri? _parseUri(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return null;
-    final uri = Uri.tryParse(
-      trimmed.contains('://') ? trimmed : 'https://$trimmed',
-    );
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty ||
-        uri.userInfo.isNotEmpty) return null;
+    final uri = Uri.tryParse(trimmed.contains('://') ? trimmed : 'https://$trimmed');
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https') || uri.host.isEmpty || uri.userInfo.isNotEmpty) {
+      return null;
+    }
     return uri;
   }
 
@@ -62,20 +59,17 @@ class AdBlockerService {
     if (uri == null) return false;
 
     final host = uri.host.toLowerCase();
-    final hostBlocked = _blockedHosts.any(
-      (domain) => host == domain || host.endsWith('.$domain'),
-    );
+    final hostBlocked = _blockedHosts.any((domain) => host == domain || host.endsWith('.$domain'));
     if (hostBlocked) {
       logger.d('Blocked advertising host: $host');
       return true;
     }
 
-    final url = '${host}${uri.path}?${uri.query}'.toLowerCase();
+    final url = '$host${uri.path}?${uri.query}'.toLowerCase();
     return _blockedUrlFragments.any(url.contains);
   }
 
-  List<String> filterAdUrls(List<String> urls) =>
-      urls.where((url) => !isAdDomain(url)).toList();
+  List<String> filterAdUrls(List<String> urls) => urls.where((url) => !isAdDomain(url)).toList();
 
   bool shouldBlockRequest(String url, String? method) {
     final uri = _parseUri(url);
@@ -89,8 +83,7 @@ class AdBlockerService {
         pathAndQuery.contains('/metrics');
   }
 
-  int getBlockedCount(List<String> urls) =>
-      urls.where(isAdDomain).length;
+  int getBlockedCount(List<String> urls) => urls.where(isAdDomain).length;
 
   Map<String, dynamic> getStatistics(List<String> requestedUrls) {
     final blockedUrls = requestedUrls.where(isAdDomain).toList();

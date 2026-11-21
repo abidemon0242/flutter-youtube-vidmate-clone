@@ -1,46 +1,51 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import 'app.dart';
-import 'data/repositories/mock_youtube_repository.dart';
+import 'data/repositories/feed_repository.dart';
 import 'providers/downloads_provider.dart';
-import 'services/ad_blocker_service.dart';
-import 'services/background_download_service.dart';
 import 'services/local_file_manager_service.dart';
 import 'services/media_session_service.dart';
+import 'services/youtube_extraction_service.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize services
-  await _initializeServices();
+  final youtube = YoutubeExtractionService();
+  final fileManager = LocalFileManagerService();
+  final mediaSession = MediaSessionService();
+  final downloads = DownloadsProvider(source: YoutubeDownloadSource(youtube));
 
+  // Show the UI immediately; services finish setting up in the background and
+  // each one is awaited lazily by the code that needs it.
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => DownloadsProvider()),
-        Provider(create: (_) => MockYouTubeRepository()),
-        Provider(create: (_) => AdBlockerService()),
-        Provider(create: (_) => BackgroundDownloadService()),
-        Provider(create: (_) => LocalFileManagerService()),
-        Provider(create: (_) => MediaSessionService()),
+        Provider<YoutubeExtractionService>.value(value: youtube),
+        Provider<FeedRepository>(create: (_) => FeedRepository(youtube)),
+        ChangeNotifierProvider<DownloadsProvider>.value(value: downloads),
+        Provider<LocalFileManagerService>.value(value: fileManager),
+        Provider<MediaSessionService>.value(value: mediaSession),
       ],
       child: const TubeArenaApp(),
     ),
   );
+
+  unawaited(_initializeInBackground(fileManager, downloads, mediaSession));
 }
 
-Future<void> _initializeServices() async {
+Future<void> _initializeInBackground(
+  LocalFileManagerService fileManager,
+  DownloadsProvider downloads,
+  MediaSessionService mediaSession,
+) async {
   try {
-    // Initialize background download service
-    await BackgroundDownloadService().initialize();
-
-    // Initialize media session for lock-screen controls
-    await MediaSessionService().initialize();
-
-    // Initialize local file manager
-    await LocalFileManagerService().initialize();
-  } catch (e) {
-    debugPrint('Service initialization warning: $e');
+    await fileManager.initialize();
+  } catch (error) {
+    debugPrint('Storage setup failed: $error');
   }
+  await downloads.load();
+  await mediaSession.initialize();
 }
