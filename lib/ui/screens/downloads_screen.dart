@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/video_model.dart';
 import '../../providers/downloads_provider.dart';
 import '../widgets/download_options_sheet.dart';
@@ -50,23 +51,23 @@ class DownloadsScreen extends StatelessWidget {
                 ],
               ),
         body: downloads.items.isEmpty
-            ? const Center(
+            ? Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.download_outlined, size: 64, color: AppColors.textSecondary),
+                      Icon(Icons.download_outlined, size: 64, color: context.textSecondary),
                       SizedBox(height: 16),
                       Text(
                         'No downloads yet',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 18, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: context.textSecondary, fontSize: 18, fontWeight: FontWeight.w600),
                       ),
                       SizedBox(height: 8),
                       Text(
                         'Open a video and tap Download, or paste a YouTube link on Home.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.textSecondary),
+                        style: TextStyle(color: context.textSecondary),
                       ),
                     ],
                   ),
@@ -168,12 +169,17 @@ class _DownloadTile extends StatelessWidget {
                     width: 96,
                     height: 54,
                     child: entry.thumbnailUrl.isEmpty
-                        ? const ColoredBox(color: AppColors.darkSurface, child: Icon(Icons.movie_outlined))
+                        ? ColoredBox(
+                            color: context.placeholderColor,
+                            child: Icon(Icons.movie_outlined, color: context.textSecondary),
+                          )
                         : CachedNetworkImage(
                             imageUrl: entry.thumbnailUrl,
                             fit: BoxFit.cover,
-                            errorWidget: (_, _, _) =>
-                                const ColoredBox(color: AppColors.darkSurface, child: Icon(Icons.movie_outlined)),
+                            errorWidget: (_, _, _) => ColoredBox(
+                              color: context.placeholderColor,
+                              child: Icon(Icons.movie_outlined, color: context.textSecondary),
+                            ),
                           ),
                   ),
                 ),
@@ -186,19 +192,19 @@ class _DownloadTile extends StatelessWidget {
                       entry.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: TextStyle(fontWeight: FontWeight.w600, color: context.textPrimary),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${entry.option.label} · ${entry.option.container.toUpperCase()}',
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      style: TextStyle(color: context.textSecondary, fontSize: 12),
                     ),
                     Text(
                       _status,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: entry.status == DownloadStatus.failed ? AppColors.danger : AppColors.textSecondary,
+                        color: entry.status == DownloadStatus.failed ? AppColors.danger : context.textSecondary,
                         fontSize: 12,
                       ),
                     ),

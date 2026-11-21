@@ -18,6 +18,7 @@ For a properly signed release build, see "Release signing" in `README.md`.
 
 ## Using the app
 
+- **Theme:** tap the sun/moon icon on Home or Library and pick Light, Dark or Use device setting.
 - **Home:** browse categories, search, or tap the link icon to paste a YouTube URL. Long-press videos to select several and download them together.
 - **Watch:** tap Download to choose a quality or audio only. Allow notifications to get lock-screen playback controls.
 - **Downloads:** pause, resume, retry or cancel. Tap a finished download to play it. Long-press to select, then delete.

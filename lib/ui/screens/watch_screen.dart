@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/video_model.dart';
 import '../../services/media_session_service.dart';
 import '../../services/youtube_extraction_service.dart';
@@ -190,7 +191,7 @@ class _WatchScreenState extends State<WatchScreen> {
             const SizedBox(height: 8),
             Text(
               [video.channelName, video.metaLine].where((s) => s.isNotEmpty).join(' • '),
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              style: TextStyle(color: context.textSecondary, fontSize: 12),
             ),
             const SizedBox(height: 20),
             Wrap(
@@ -212,9 +213,9 @@ class _WatchScreenState extends State<WatchScreen> {
             ),
             if (!video.isYoutube && !video.isLocal) ...[
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'This is a sample video. Open a YouTube video to stream or download it.',
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: context.textSecondary),
               ),
             ],
           ],

@@ -8,6 +8,7 @@ Tube Arena is an Android Flutter app for browsing YouTube, streaming videos and 
 - Watch screen with real YouTube streaming, local-file playback, play/pause/replay, a seek bar, ±10 s skip, fullscreen, and lock-screen / notification media controls.
 - Download sheet with real options: video (up to the highest quality available, with video and audio combined by FFmpeg) or audio only. File sizes and the actual container (MP4, WebM, MKV, M4A) are shown.
 - Download manager: live progress, pause, resume, retry, cancel, multi-select, remove from list, and delete file (with confirmation). The list is saved, and downloads interrupted by closing the app come back as paused and resume from where they stopped.
+- Light and dark themes, or follow the phone's setting. Switch from the sun/moon button on Home or Library; the choice is remembered.
 - Library: a built-in Downloads folder plus your own folders (create, rename, delete). Tap a file to play it offline.
 
 Downloads run while the app is open (including when it's in the background but still alive). They aren't scheduled by the operating system, so if Android stops the app, open it again and tap Resume.

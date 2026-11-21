@@ -7,6 +7,7 @@ import '../../data/repositories/feed_repository.dart';
 import '../../models/video_model.dart';
 import '../../services/youtube_extraction_service.dart';
 import '../widgets/download_options_sheet.dart';
+import '../widgets/theme_mode_button.dart';
 import '../widgets/video_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -259,6 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
     actions: [
       IconButton(onPressed: _openLink, tooltip: 'Open YouTube link', icon: const Icon(Icons.add_link_rounded)),
       IconButton(onPressed: _search, tooltip: 'Search', icon: const Icon(Icons.search_rounded)),
+      const ThemeModeButton(),
     ],
   );
 

@@ -14,4 +14,11 @@ class AppColors {
   static const danger = Color(0xFFEA4335);
   static const warning = Color(0xFFF4B400);
   static const background = Color(0xFF0C1117);
+
+  // Light theme
+  static const lightBackground = Color(0xFFF4F6FA);
+  static const lightSurface = Color(0xFFFFFFFF);
+  static const lightCard = Color(0xFFFFFFFF);
+  static const lightTextPrimary = Color(0xFF101820);
+  static const lightTextSecondary = Color(0xFF55657A);
 }

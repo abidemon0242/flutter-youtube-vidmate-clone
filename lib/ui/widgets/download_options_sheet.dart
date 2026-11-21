@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/video_model.dart';
 import '../../providers/downloads_provider.dart';
 import '../../services/youtube_extraction_service.dart';
@@ -30,7 +31,7 @@ Future<void> showDownloadOptionsSheet(BuildContext context, VideoModel video) as
   final option = await showModalBottomSheet<DownloadOption>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: AppColors.darkSurface,
+    backgroundColor: context.surfaceColor,
     showDragHandle: true,
     builder: (_) => _DownloadOptionsSheet(video: video),
   );
@@ -145,7 +146,7 @@ class _Header extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
     child: Text(
       text,
-      style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+      style: TextStyle(color: context.textSecondary, fontWeight: FontWeight.w600),
     ),
   );
 }

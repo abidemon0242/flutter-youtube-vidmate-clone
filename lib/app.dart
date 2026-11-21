@@ -1,8 +1,9 @@
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
 
-import 'core/constants/app_colors.dart';
 import 'core/theme/app_theme.dart';
+import 'providers/theme_controller.dart';
 import 'models/video_model.dart';
 import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/home_screen.dart';
@@ -73,9 +74,9 @@ class _TubeArenaAppState extends State<TubeArenaApp> {
   Widget build(BuildContext context) => MaterialApp.router(
     title: 'Tube Arena',
     debugShowCheckedModeBanner: false,
-    theme: AppTheme.darkTheme,
+    theme: AppTheme.lightTheme,
     darkTheme: AppTheme.darkTheme,
-    themeMode: ThemeMode.dark,
+    themeMode: context.watch<ThemeController>().mode,
     routerConfig: _router,
   );
 }
@@ -98,10 +99,6 @@ class AppShell extends StatelessWidget {
       child: Scaffold(
         body: shell,
         bottomNavigationBar: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppColors.background,
-          selectedItemColor: AppColors.primaryStart,
-          unselectedItemColor: AppColors.textSecondary,
           currentIndex: shell.currentIndex,
           onTap: _go,
           items: const [

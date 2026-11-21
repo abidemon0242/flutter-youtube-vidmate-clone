@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/video_model.dart';
 
 class VideoCard extends StatelessWidget {
@@ -38,15 +39,25 @@ class VideoCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: CachedNetworkImage(
-                    imageUrl: video.thumbnailUrl,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: 220,
-                    placeholder: (context, url) => Container(color: AppColors.card, height: 220),
-                    errorWidget: (context, url, error) =>
-                        Container(color: AppColors.card, height: 220, child: const Icon(Icons.broken_image_outlined)),
-                  ),
+                  child: video.thumbnailUrl.isEmpty
+                      ? Container(
+                          color: context.placeholderColor,
+                          height: 220,
+                          width: double.infinity,
+                          child: Icon(Icons.movie_outlined, size: 40, color: context.textSecondary),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: video.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: 220,
+                          placeholder: (context, url) => Container(color: context.placeholderColor, height: 220),
+                          errorWidget: (context, url, error) => Container(
+                            color: context.placeholderColor,
+                            height: 220,
+                            child: Icon(Icons.broken_image_outlined, color: context.textSecondary),
+                          ),
+                        ),
                 ),
                 if (video.duration.isNotEmpty)
                   Positioned(
@@ -91,7 +102,8 @@ class VideoCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: AppColors.card,
+                    backgroundColor: context.placeholderColor,
+                    foregroundColor: context.textPrimary,
                     backgroundImage: video.channelAvatar.isEmpty
                         ? null
                         : CachedNetworkImageProvider(video.channelAvatar),
@@ -108,11 +120,7 @@ class VideoCard extends StatelessWidget {
                           video.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(color: context.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
                         Row(
@@ -122,7 +130,7 @@ class VideoCard extends StatelessWidget {
                                 video.channelName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                style: TextStyle(color: context.textSecondary, fontSize: 12),
                               ),
                             ),
                             if (video.isVerified) ...[
@@ -132,7 +140,7 @@ class VideoCard extends StatelessWidget {
                           ],
                         ),
                         if (video.metaLine.isNotEmpty)
-                          Text(video.metaLine, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          Text(video.metaLine, style: TextStyle(color: context.textSecondary, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -140,7 +148,7 @@ class VideoCard extends StatelessWidget {
                     IconButton(
                       tooltip: 'Download',
                       onPressed: onMore,
-                      icon: const Icon(Icons.download_outlined, color: AppColors.textSecondary),
+                      icon: Icon(Icons.download_outlined, color: context.textSecondary),
                     ),
                 ],
               ),

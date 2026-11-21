@@ -7,6 +7,7 @@ import '../../models/video_model.dart';
 import '../../providers/downloads_provider.dart';
 import '../../services/local_file_manager_service.dart';
 import '../widgets/folder_card.dart';
+import '../widgets/theme_mode_button.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -191,6 +192,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     icon: const Icon(Icons.create_new_folder_rounded),
                     tooltip: 'Create folder',
                   ),
+                  const ThemeModeButton(),
                 ],
               ),
         body: _loading

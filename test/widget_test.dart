@@ -2,10 +2,16 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tube_arena/core/theme/app_theme.dart';
 import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/providers/downloads_provider.dart';
+import 'package:tube_arena/providers/theme_controller.dart';
 import 'package:tube_arena/services/ad_blocker_service.dart';
 import 'package:tube_arena/services/youtube_extraction_service.dart';
+import 'package:tube_arena/ui/widgets/theme_mode_button.dart';
 
 /// Serves fixed byte payloads per itag. When [gate] is set, every stream
 /// waits for it before finishing, so tests can pause mid-download.
@@ -262,6 +268,61 @@ void main() {
       expect(blocker.shouldBlockRequest('https://example.com/metrics', 'GET'), isFalse);
       expect(blocker.shouldBlockRequest('https://github.com/issue-tracker', 'GET'), isFalse);
       expect(blocker.shouldBlockRequest('https://shop.example/pixel.gif?u=1', 'GET'), isTrue);
+    });
+  });
+
+  group('theme', () {
+    test('defaults to the device setting', () async {
+      SharedPreferences.setMockInitialValues({});
+      expect((await ThemeController.load()).mode, ThemeMode.system);
+    });
+
+    test('remembers the chosen theme', () async {
+      SharedPreferences.setMockInitialValues({});
+      final controller = await ThemeController.load();
+      await controller.setMode(ThemeMode.light);
+      expect((await ThemeController.load()).mode, ThemeMode.light);
+      await controller.toggle(Brightness.light);
+      expect(controller.mode, ThemeMode.dark);
+      expect((await ThemeController.load()).mode, ThemeMode.dark);
+    });
+
+    test('ignores an unknown saved value', () async {
+      SharedPreferences.setMockInitialValues({'theme_mode': 'purple'});
+      expect((await ThemeController.load()).mode, ThemeMode.system);
+    });
+
+    test('light and dark themes have matching brightness', () {
+      expect(AppTheme.lightTheme.colorScheme.brightness, Brightness.light);
+      expect(AppTheme.darkTheme.colorScheme.brightness, Brightness.dark);
+      expect(AppTheme.lightTheme.colorScheme.onSurface, isNot(AppTheme.darkTheme.colorScheme.onSurface));
+    });
+
+    testWidgets('theme menu switches the app between light and dark', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final controller = ThemeController(initial: ThemeMode.light);
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: controller,
+          child: Builder(
+            builder: (context) => MaterialApp(
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: context.watch<ThemeController>().mode,
+              home: Scaffold(appBar: AppBar(actions: const [ThemeModeButton()])),
+            ),
+          ),
+        ),
+      );
+      BuildContext scaffold() => tester.element(find.byType(Scaffold));
+      expect(Theme.of(scaffold()).brightness, Brightness.light);
+
+      await tester.tap(find.byType(ThemeModeButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dark'));
+      await tester.pumpAndSettle();
+      expect(controller.mode, ThemeMode.dark);
+      expect(Theme.of(scaffold()).brightness, Brightness.dark);
     });
   });
 }

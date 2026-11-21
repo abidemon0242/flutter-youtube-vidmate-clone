@@ -6,12 +6,15 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'data/repositories/feed_repository.dart';
 import 'providers/downloads_provider.dart';
+import 'providers/theme_controller.dart';
 import 'services/local_file_manager_service.dart';
 import 'services/media_session_service.dart';
 import 'services/youtube_extraction_service.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Read the saved theme first (at most 1 second) so the app doesn't flash the wrong theme.
+  final theme = await ThemeController.load();
 
   final youtube = YoutubeExtractionService();
   final fileManager = LocalFileManagerService();
@@ -23,6 +26,7 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider<ThemeController>.value(value: theme),
         Provider<YoutubeExtractionService>.value(value: youtube),
         Provider<FeedRepository>(create: (_) => FeedRepository(youtube)),
         ChangeNotifierProvider<DownloadsProvider>.value(value: downloads),
