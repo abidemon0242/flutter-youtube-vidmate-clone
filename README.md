@@ -4,8 +4,10 @@ Tube Arena is an Android Flutter app for browsing YouTube, streaming videos and 
 
 ## Features
 
-- Live YouTube feed by category, search, and "paste a link" to open any video. If YouTube can't be reached, sample videos are shown with a Retry banner.
-- Watch screen with real YouTube streaming, local-file playback, play/pause/replay, a seek bar, ±10 s skip, fullscreen, and lock-screen / notification media controls.
+- Live YouTube feed by category, search, and "paste a link" to open any video. The feed and search results scroll endlessly (the next page loads near the bottom, without duplicates, and "No more results" marks the end). If YouTube can't be reached, sample videos are shown with a Retry banner.
+- Watch screen with real YouTube streaming, local-file playback, play/pause/replay, a seek bar, ±10 s skip, fullscreen, and lock-screen / notification media controls. Below the player: the description (tap to expand) with views and upload date, and related videos that open in the player.
+- Quality picker (gear button on the player). Progressive MP4 streams are usually 360p only, so the app also asks YouTube for HLS streams, which usually go up to 1080p and include audio. If HLS isn't offered for a video, it plays at 360p. Your choice is remembered as the preferred quality, and switching keeps the position, fullscreen and the notification.
+- Background playback: the video keeps playing (as audio) with the screen locked or in another app, controlled from the notification and lock screen. Stop in the notification pauses playback and removes the notification; leaving the watch screen ends playback. You can turn background playback off in the player's settings sheet.
 - Download sheet with real options: video (up to the highest quality available, with video and audio combined by FFmpeg) or audio only. File sizes and the actual container (MP4, WebM, MKV, M4A) are shown.
 - Download manager: live progress, pause, resume, retry, cancel, multi-select, remove from list, and delete file (with confirmation). The list is saved, and downloads interrupted by closing the app come back as paused and resume from where they stopped.
 - Light and dark themes, or follow the phone's setting. Switch from the sun/moon button on Home or Library; the choice is remembered.

@@ -11,22 +11,29 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
   void Function()? _listener;
   ({bool playing, AudioProcessingState state, Duration position, DateTime at})? _last;
 
+  /// Binds the session to [controller]. Replacing one controller with another
+  /// (for example when switching quality) keeps the notification in place.
   void attach(VideoPlayerController controller, MediaItem item) {
-    detach();
+    _unbind();
     _controller = controller;
-    mediaItem.add(item);
+    if (mediaItem.value != item) mediaItem.add(item);
     _listener = _broadcast;
     controller.addListener(_listener!);
     _broadcast();
   }
 
+  /// Unbinds and reports idle, which removes the notification.
   void detach() {
+    _unbind();
+    playbackState.add(PlaybackState(processingState: AudioProcessingState.idle));
+  }
+
+  void _unbind() {
     final controller = _controller;
     if (controller != null && _listener != null) controller.removeListener(_listener!);
     _controller = null;
     _listener = null;
     _last = null;
-    playbackState.add(PlaybackState(processingState: AudioProcessingState.idle));
   }
 
   bool isAttachedTo(VideoPlayerController controller) => identical(_controller, controller);
@@ -96,12 +103,22 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
     if (c != null) await c.seekTo(c.value.position + const Duration(seconds: 10));
   }
 
+  /// Notification Stop: pause the player and remove the notification. The
+  /// watch screen re-attaches if playback is started again from the app.
   @override
   Future<void> stop() async {
-    await _controller?.pause();
+    try {
+      await _controller?.pause();
+    } catch (_) {
+      // The controller may already be disposed.
+    }
     detach();
     await super.stop();
   }
+
+  /// The app was swiped away from recents: don't keep playing invisibly.
+  @override
+  Future<void> onTaskRemoved() => stop();
 }
 
 class MediaSessionService {
@@ -153,6 +170,8 @@ class MediaSessionService {
       ),
     );
   }
+
+  bool isAttachedTo(VideoPlayerController controller) => _handler?.isAttachedTo(controller) ?? false;
 
   void detach(VideoPlayerController controller) {
     final handler = _handler;

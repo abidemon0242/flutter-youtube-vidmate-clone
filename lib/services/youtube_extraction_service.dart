@@ -1,6 +1,9 @@
 import 'package:logger/logger.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
+import '../data/paged_feed.dart';
+import '../models/playback_quality.dart';
+import '../models/video_details.dart';
 import '../models/video_model.dart';
 
 /// What a download produces.
@@ -105,6 +108,8 @@ class YoutubeExtractionService {
   late final YoutubeExplode _youtube;
   final _logger = Logger();
   final Map<String, ({StreamManifest manifest, DateTime fetchedAt})> _manifestCache = {};
+  final Map<String, ({List<PlaybackQuality> qualities, DateTime fetchedAt})> _hlsCache = {};
+  final Map<String, Video> _videoCache = {};
 
   /// Manifests (and their URLs) are reused for a short time only.
   static const _manifestTtl = Duration(minutes: 30);
@@ -113,15 +118,80 @@ class YoutubeExtractionService {
 
   // ---------------------------------------------------------------- search
 
-  Future<List<VideoModel>> search(String query, {String category = 'All'}) async {
+  Future<List<VideoModel>> search(String query, {String category = 'All'}) async =>
+      (await searchPage(query, category: category)).videos;
+
+  /// First page of search results; follow [VideoPage.loadNext] for more.
+  Future<VideoPage> searchPage(String query, {String category = 'All'}) async {
     try {
-      final results = await _youtube.search.search(query);
-      return results.map((video) => _toModel(video, category)).toList();
+      return _searchPage(await _youtube.search.search(query), category);
     } on Exception catch (error) {
       _logger.w('YouTube search failed: $error');
       throw YoutubeServiceException(_friendly(error));
     }
   }
+
+  VideoPage _searchPage(VideoSearchList list, String category) => VideoPage(
+    list.map((video) => _toModel(video, category)).toList(),
+    loadNext: () async {
+      try {
+        final next = await list.nextPage();
+        return next == null ? null : _searchPage(next, category);
+      } on Exception catch (error) {
+        _logger.w('Loading more results failed: $error');
+        throw YoutubeServiceException(_friendly(error));
+      }
+    },
+  );
+
+  // ----------------------------------------------------- details / related
+
+  Future<Video> _fullVideo(String videoId) async {
+    final cached = _videoCache[videoId];
+    if (cached != null) return cached;
+    final video = await _youtube.videos.get(videoId);
+    if (_videoCache.length >= 20) _videoCache.remove(_videoCache.keys.first);
+    _videoCache[videoId] = video;
+    return video;
+  }
+
+  /// Description, view count and upload date for the watch screen.
+  Future<VideoDetails> details(String videoId) async {
+    try {
+      final video = await _fullVideo(videoId);
+      return VideoDetails(
+        description: video.description.trim(),
+        viewCount: video.engagement.viewCount,
+        likeCount: video.engagement.likeCount,
+        uploadDate: video.uploadDate ?? video.publishDate,
+      );
+    } on Exception catch (error) {
+      throw YoutubeServiceException(_friendly(error));
+    }
+  }
+
+  /// Videos related to [videoId]; an empty last page when there are none.
+  Future<VideoPage> related(String videoId) async {
+    try {
+      final list = await _youtube.videos.getRelatedVideos(await _fullVideo(videoId));
+      return list == null ? const VideoPage.last([]) : _relatedPage(list, videoId);
+    } on Exception catch (error) {
+      _logger.w('Related videos failed for $videoId: $error');
+      throw YoutubeServiceException(_friendly(error));
+    }
+  }
+
+  VideoPage _relatedPage(RelatedVideosList list, String sourceId) => VideoPage(
+    list.where((v) => v.id.value != sourceId).map((video) => _toModel(video, 'All')).toList(),
+    loadNext: () async {
+      try {
+        final next = await list.nextPage();
+        return next == null ? null : _relatedPage(next, sourceId);
+      } on Exception catch (error) {
+        throw YoutubeServiceException(_friendly(error));
+      }
+    },
+  );
 
   Future<VideoModel> getVideo(String urlOrId) async {
     final id = extractVideoId(urlOrId);
@@ -163,11 +233,30 @@ class YoutubeExtractionService {
   }
 
   /// A progressive (video+audio) URL for in-app playback, or null.
-  Future<Uri?> playbackUrl(String videoId) async {
-    final m = await manifest(videoId);
-    if (m.muxed.isNotEmpty) return m.muxed.withHighestBitrate().url;
-    if (m.hls.isNotEmpty) return m.hls.first.url;
-    return null;
+  Future<Uri?> playbackUrl(String videoId) async => pickPlaybackQuality(await playbackQualities(videoId), 360)?.url;
+
+  /// Playable qualities from the regular manifest: progressive MP4 (usually
+  /// only 360p) plus any HLS streams that include audio.
+  Future<List<PlaybackQuality>> playbackQualities(String videoId) async =>
+      playbackQualitiesFromStreams((await manifest(videoId)).streams);
+
+  /// Extra HLS qualities (often up to 1080p) from the iOS YouTube client, which
+  /// is the client that returns an HLS manifest for regular videos. Returns an
+  /// empty list when YouTube doesn't offer them; never throws.
+  Future<List<PlaybackQuality>> hlsQualities(String videoId) async {
+    final cached = _hlsCache[videoId];
+    if (cached != null && DateTime.now().difference(cached.fetchedAt) < _manifestTtl) return cached.qualities;
+    try {
+      final m = await _youtube.videos.streamsClient
+          .getManifest(videoId, ytClients: [YoutubeApiClient.ios], requireWatchPage: false)
+          .timeout(const Duration(seconds: 20));
+      final qualities = playbackQualitiesFromStreams(m.streams).where((q) => q.isHls).toList();
+      _hlsCache[videoId] = (qualities: qualities, fetchedAt: DateTime.now());
+      return qualities;
+    } catch (error) {
+      _logger.i('No HLS qualities for $videoId: $error');
+      return const [];
+    }
   }
 
   Future<DownloadOptions> getDownloadOptions(String videoId) async => buildDownloadOptions(await manifest(videoId));
@@ -242,6 +331,36 @@ class YoutubeExtractionService {
     }
     return 'Could not reach YouTube. Please try again.';
   }
+}
+
+/// Streams the in-app player can play directly (audio and video in one URL).
+List<PlaybackQuality> playbackQualitiesFromStreams(Iterable<StreamInfo> streams) {
+  final result = <PlaybackQuality>[];
+  for (final stream in streams) {
+    final bool isHls;
+    if (stream is MuxedStreamInfo) {
+      isHls = false;
+    } else if (stream is HlsMuxedStreamInfo) {
+      isHls = true;
+    } else {
+      continue; // video-only or audio-only: needs a second track
+    }
+    final video = stream as VideoStreamInfo;
+    final parsed = parseQualityLabel(video.qualityLabel, fallbackFps: video.framerate.framesPerSecond.round());
+    final resolution = video.videoResolution;
+    final shortSide = resolution.width < resolution.height ? resolution.width : resolution.height;
+    result.add(
+      PlaybackQuality(
+        height: parsed?.height ?? shortSide,
+        fps: parsed?.fps ?? video.framerate.framesPerSecond.round(),
+        url: stream.url,
+        isHls: isHls,
+        tag: stream.tag,
+        bitrate: stream.bitrate.bitsPerSecond,
+      ),
+    );
+  }
+  return mergePlaybackQualities(result);
 }
 
 /// Pure stream-selection logic, kept separate so it can be unit tested.

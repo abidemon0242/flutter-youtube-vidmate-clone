@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -9,10 +10,16 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/paged_feed.dart';
+import '../../models/playback_quality.dart';
+import '../../models/video_details.dart';
 import '../../models/video_model.dart';
+import '../../providers/playback_settings.dart';
 import '../../services/media_session_service.dart';
 import '../../services/youtube_extraction_service.dart';
+import '../widgets/compact_video_tile.dart';
 import '../widgets/download_options_sheet.dart';
+import '../widgets/video_description.dart';
 
 class WatchScreen extends StatefulWidget {
   const WatchScreen({super.key, required this.video});
@@ -23,7 +30,7 @@ class WatchScreen extends StatefulWidget {
   State<WatchScreen> createState() => _WatchScreenState();
 }
 
-class _WatchScreenState extends State<WatchScreen> {
+class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   VideoPlayerController? _controller;
   String? _error;
   bool _saved = false;
@@ -31,6 +38,25 @@ class _WatchScreenState extends State<WatchScreen> {
   bool _showControls = true;
   Timer? _hideTimer;
   late final MediaSessionService _mediaSession;
+  late final YoutubeExtractionService _youtube;
+  late final PlaybackSettings _settings;
+
+  // Streaming quality.
+  List<PlaybackQuality> _qualities = const [];
+  PlaybackQuality? _quality;
+  bool _switching = false;
+  bool _userPickedQuality = false;
+  bool _lookingForHd = false;
+  bool _hdChecked = false;
+
+  bool _attaching = false;
+  bool _pausedForBackground = false;
+
+  // Details under the player (YouTube videos only).
+  Future<VideoDetails>? _details;
+  PagedFeed? _related;
+  String? _relatedError;
+  bool _relatedLoading = false;
 
   static bool _askedForNotifications = false;
 
@@ -39,39 +65,84 @@ class _WatchScreenState extends State<WatchScreen> {
     super.initState();
     // Resolved here, not lazily: dispose() must not look up providers.
     _mediaSession = context.read<MediaSessionService>();
+    _youtube = context.read<YoutubeExtractionService>();
+    _settings = context.read<PlaybackSettings>();
+    WidgetsBinding.instance.addObserver(this);
     _open();
+    final id = widget.video.youtubeId;
+    if (widget.video.isYoutube && !widget.video.isLocal && id != null) {
+      _details = _youtube.details(id);
+      _loadRelated();
+    }
   }
+
+  /// Background playback is always allowed at the player level so the setting
+  /// can change at any time; when it is off the screen pauses on its own.
+  static VideoPlayerOptions get _options => VideoPlayerOptions(allowBackgroundPlayback: true);
+
+  VideoPlayerController _networkController(PlaybackQuality quality) => VideoPlayerController.networkUrl(
+    quality.url,
+    formatHint: quality.isHls ? VideoFormat.hls : null,
+    videoPlayerOptions: _options,
+  );
 
   Future<void> _open() async {
     setState(() => _error = null);
     try {
       final video = widget.video;
-      final VideoPlayerController controller;
+      VideoPlayerController controller;
+      PlaybackQuality? quality;
       if (video.isLocal) {
         final file = File(video.localPath!);
         if (!await file.exists()) throw const YoutubeServiceException('This file is no longer on the device.');
-        controller = VideoPlayerController.file(file);
+        controller = VideoPlayerController.file(file, videoPlayerOptions: _options);
+        await controller.initialize();
       } else if (video.isYoutube) {
-        final url = await context.read<YoutubeExtractionService>().playbackUrl(video.youtubeId!);
-        if (url == null) {
+        final id = video.youtubeId!;
+        var qualities = await _youtube.playbackQualities(id);
+        if (qualities.isEmpty) {
+          qualities = await _youtube.hlsQualities(id);
+          _hdChecked = true;
+        }
+        quality = pickPlaybackQuality(qualities, _settings.preferredHeight);
+        if (quality == null) {
           throw const YoutubeServiceException(
             'Streaming is not available for this video, but you can still download it.',
           );
         }
-        controller = VideoPlayerController.networkUrl(url);
+        _qualities = qualities;
+        controller = _networkController(quality);
+        try {
+          await controller.initialize();
+        } catch (_) {
+          // An HLS stream that won't open falls back to the progressive one.
+          final fallback = qualities.where((q) => !q.isHls).firstOrNull;
+          await controller.dispose();
+          if (fallback == null || fallback == quality) rethrow;
+          quality = fallback;
+          controller = _networkController(fallback);
+          await controller.initialize();
+        }
       } else {
-        controller = VideoPlayerController.networkUrl(Uri.parse(video.playbackUrl ?? VideoModel.samplePlaybackUrl));
+        controller = VideoPlayerController.networkUrl(
+          Uri.parse(video.playbackUrl ?? VideoModel.samplePlaybackUrl),
+          videoPlayerOptions: _options,
+        );
+        await controller.initialize();
       }
-      await controller.initialize();
       if (!mounted) {
         await controller.dispose();
         return;
       }
       controller.addListener(_onPlayerChanged);
-      setState(() => _controller = controller);
+      setState(() {
+        _controller = controller;
+        _quality = quality;
+      });
       unawaited(_attachMediaSession(controller));
       await controller.play();
       _scheduleHide();
+      if (video.isYoutube && !_hdChecked) unawaited(_findHdQualities(video.youtubeId!));
     } on YoutubeServiceException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -79,24 +150,137 @@ class _WatchScreenState extends State<WatchScreen> {
     }
   }
 
-  Future<void> _attachMediaSession(VideoPlayerController controller) async {
-    if (!_askedForNotifications && Platform.isAndroid) {
-      _askedForNotifications = true;
-      try {
-        await Permission.notification.request();
-      } catch (_) {}
+  /// Looks for HLS streams above 360p after playback has started, and moves
+  /// to the preferred quality once, unless the user already picked one.
+  Future<void> _findHdQualities(String id) async {
+    setState(() => _lookingForHd = true);
+    final extra = await _youtube.hlsQualities(id);
+    if (!mounted) return;
+    setState(() {
+      _hdChecked = true;
+      _lookingForHd = false;
+      _qualities = mergePlaybackQualities([..._qualities, ...extra]);
+    });
+    final current = _quality;
+    if (_userPickedQuality || current == null) return;
+    final best = pickPlaybackQuality(_qualities, _settings.preferredHeight);
+    if (best != null && best.height > current.height) await _switchQuality(best, automatic: true);
+  }
+
+  /// Opens [quality] in a new player while the current one keeps playing,
+  /// then swaps them at the same position. Fullscreen, controls and the
+  /// media session carry over; on failure the current stream stays.
+  Future<void> _switchQuality(PlaybackQuality quality, {bool automatic = false}) async {
+    final old = _controller;
+    if (old == null || _switching || quality.key == _quality?.key) return;
+    setState(() => _switching = true);
+    final next = _networkController(quality);
+    try {
+      await next.initialize();
+      if (!mounted || !identical(_controller, old)) {
+        await next.dispose();
+        return;
+      }
+      final wasPlaying = old.value.isPlaying;
+      final position = old.value.position;
+      await old.pause();
+      await next.seekTo(position);
+      old.removeListener(_onPlayerChanged);
+      next.addListener(_onPlayerChanged);
+      setState(() {
+        _controller = next;
+        _quality = quality;
+      });
+      final hadSession = _mediaSession.isAttachedTo(old);
+      if (hadSession) unawaited(_attachMediaSession(next));
+      if (wasPlaying) await next.play();
+      await old.dispose();
+    } catch (_) {
+      await next.dispose();
+      if (mounted && !automatic) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${quality.label} could not be played here. Staying on ${_quality?.label}.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _switching = false);
     }
-    await _mediaSession.attach(
-      controller,
-      id: widget.video.id,
-      title: widget.video.title,
-      artist: widget.video.channelName,
-      artUri: widget.video.thumbnailUrl,
-    );
+  }
+
+  Future<void> _attachMediaSession(VideoPlayerController controller) async {
+    _attaching = true;
+    try {
+      if (!_askedForNotifications && Platform.isAndroid) {
+        _askedForNotifications = true;
+        try {
+          await Permission.notification.request();
+        } catch (_) {}
+      }
+      if (!identical(_controller, controller)) return;
+      await _mediaSession.attach(
+        controller,
+        id: widget.video.id,
+        title: widget.video.title,
+        artist: widget.video.channelName,
+        artUri: widget.video.thumbnailUrl,
+      );
+    } finally {
+      _attaching = false;
+    }
   }
 
   void _onPlayerChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final controller = _controller;
+    // After "Stop" in the notification the session is released; starting
+    // playback again from the app brings the notification back.
+    if (controller != null &&
+        controller.value.isPlaying &&
+        !_attaching &&
+        !_switching &&
+        !_mediaSession.isAttachedTo(controller)) {
+      unawaited(_attachMediaSession(controller));
+    }
+    setState(() {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _controller;
+    if (controller == null) return;
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      if (!_settings.backgroundPlayback && controller.value.isPlaying) {
+        _pausedForBackground = true;
+        controller.pause();
+      }
+    } else if (state == AppLifecycleState.resumed && _pausedForBackground) {
+      _pausedForBackground = false;
+      controller.play();
+    }
+  }
+
+  Future<void> _loadRelated() async {
+    final id = widget.video.youtubeId!;
+    setState(() {
+      _relatedLoading = true;
+      _relatedError = null;
+    });
+    try {
+      final page = await _youtube.related(id);
+      if (!mounted) return;
+      setState(() => _related = PagedFeed(page));
+    } on YoutubeServiceException catch (error) {
+      if (mounted) setState(() => _relatedError = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _relatedError = 'Could not load related videos.');
+    } finally {
+      if (mounted) setState(() => _relatedLoading = false);
+    }
+  }
+
+  void _openRelated(VideoModel video) {
+    // Replace this screen so only one player exists at a time.
+    context.pushReplacement('/watch', extra: video);
   }
 
   bool get _ended {
@@ -151,8 +335,76 @@ class _WatchScreenState extends State<WatchScreen> {
     await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   }
 
+  Future<void> _openPlaybackSettings() async {
+    _hideTimer?.cancel();
+    final picked = await showModalBottomSheet<PlaybackQuality>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => ListenableBuilder(
+        listenable: _settings,
+        builder: (sheetContext, _) => SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.8),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                if (_qualities.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                    child: Text('Quality', style: Theme.of(sheetContext).textTheme.titleLarge),
+                  ),
+                  for (final q in _qualities)
+                    ListTile(
+                      title: Text(q.label),
+                      subtitle: Text(q.isHls ? 'Adaptive stream (HLS)' : 'MP4'),
+                      trailing: q.key == _quality?.key
+                          ? const Icon(Icons.check_rounded, color: AppColors.primaryStart)
+                          : null,
+                      onTap: () => Navigator.pop(sheetContext, q),
+                    ),
+                  if (_lookingForHd)
+                    ListTile(
+                      leading: const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      title: Text(
+                        'Looking for higher qualities...',
+                        style: TextStyle(color: sheetContext.textSecondary),
+                      ),
+                    )
+                  else if (_qualities.every((q) => q.height <= 360))
+                    ListTile(
+                      leading: Icon(Icons.info_outline_rounded, color: sheetContext.textSecondary),
+                      title: Text(
+                        'YouTube only offers this quality for streaming here. Downloads can go higher.',
+                        style: TextStyle(color: sheetContext.textSecondary, fontSize: 13),
+                      ),
+                    ),
+                  const Divider(),
+                ],
+                SwitchListTile(
+                  title: const Text('Play in background'),
+                  subtitle: const Text('Keep playing with the screen off or in another app'),
+                  value: _settings.backgroundPlayback,
+                  onChanged: _settings.setBackgroundPlayback,
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    _scheduleHide();
+    if (picked == null) return;
+    _userPickedQuality = true;
+    unawaited(_settings.setPreferredHeight(picked.height));
+    await _switchQuality(picked);
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
     final controller = _controller;
     if (controller != null) {
@@ -160,6 +412,7 @@ class _WatchScreenState extends State<WatchScreen> {
       _mediaSession.detach(controller);
       controller.dispose();
     }
+    _related?.dispose();
     if (_fullscreen) _restoreSystemUi();
     super.dispose();
   }
@@ -189,7 +442,10 @@ class _WatchScreenState extends State<WatchScreen> {
           children: [
             ClipRRect(borderRadius: BorderRadius.circular(20), child: player),
             const SizedBox(height: 16),
-            Text(video.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text(
+              video.title,
+              style: TextStyle(color: context.textPrimary, fontSize: 18, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 8),
             Text(
               [video.channelName, video.metaLine].where((s) => s.isNotEmpty).join(' • '),
@@ -220,9 +476,71 @@ class _WatchScreenState extends State<WatchScreen> {
                 style: TextStyle(color: context.textSecondary),
               ),
             ],
+            if (_details != null) ...[
+              const SizedBox(height: 16),
+              FutureBuilder<VideoDetails>(
+                future: _details,
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) return VideoDescription(details: snapshot.data!);
+                  if (snapshot.hasError) return const SizedBox.shrink();
+                  return const LinearProgressIndicator(minHeight: 2);
+                },
+              ),
+            ],
+            if (video.isYoutube && !video.isLocal) _relatedSection(),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _relatedSection() {
+    final related = _related;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        Text(
+          'Related videos',
+          style: TextStyle(color: context.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 8),
+        if (_relatedLoading)
+          const Padding(
+            padding: EdgeInsets.all(24),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_relatedError != null)
+          Row(
+            children: [
+              Expanded(
+                child: Text(_relatedError!, style: TextStyle(color: context.textSecondary)),
+              ),
+              TextButton(onPressed: _loadRelated, child: const Text('Retry')),
+            ],
+          )
+        else if (related != null)
+          ListenableBuilder(
+            listenable: related,
+            builder: (context, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (related.isEmpty && !related.hasMore)
+                  Text('No related videos found.', style: TextStyle(color: context.textSecondary)),
+                for (final v in related.items) CompactVideoTile(video: v, onTap: () => _openRelated(v)),
+                if (related.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (related.error != null)
+                  TextButton(onPressed: related.loadMore, child: Text('${related.error} Retry'))
+                else if (related.hasMore)
+                  TextButton(onPressed: related.loadMore, child: const Text('Show more')),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -318,6 +636,21 @@ class _WatchScreenState extends State<WatchScreen> {
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 const Spacer(),
+                if (_switching)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    ),
+                  ),
+                TextButton.icon(
+                  onPressed: _openPlaybackSettings,
+                  style: TextButton.styleFrom(foregroundColor: Colors.white),
+                  icon: const Icon(Icons.settings_rounded, size: 20),
+                  label: Text(_quality?.label ?? 'Settings', style: const TextStyle(fontSize: 12)),
+                ),
                 IconButton(
                   tooltip: _fullscreen ? 'Exit fullscreen' : 'Fullscreen',
                   color: Colors.white,

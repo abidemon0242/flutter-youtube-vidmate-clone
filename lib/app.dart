@@ -47,8 +47,10 @@ GoRouter buildRouter() => GoRouter(
       path: '/watch',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final video = state.extra;
-        return WatchScreen(video: video is VideoModel ? video : VideoModel.demo);
+        final extra = state.extra;
+        final video = extra is VideoModel ? extra : VideoModel.demo;
+        // Keyed by video so opening a related video builds a fresh player.
+        return WatchScreen(key: ValueKey(video.id), video: video);
       },
     ),
   ],
