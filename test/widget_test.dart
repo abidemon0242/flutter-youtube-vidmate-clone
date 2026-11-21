@@ -180,6 +180,16 @@ void main() {
       expect(reloaded.items.single.status, DownloadStatus.failed);
     });
 
+    test('markFileRemoved flags the completed entry for a deleted file', () async {
+      final provider = makeProvider(FakeSource({18: List.filled(100, 1)}));
+      final entry = await startDownload(provider, muxed);
+      await waitFor(() => entry.status == DownloadStatus.completed);
+      await File(entry.savedPath).delete();
+      provider.markFileRemoved(entry.savedPath);
+      expect(entry.status, DownloadStatus.failed);
+      expect(entry.error, 'File was removed from the device.');
+    });
+
     test('remove with deleteFile deletes the file; without it keeps the file', () async {
       final provider = makeProvider(FakeSource({18: List.filled(100, 1)}));
       final entry = await startDownload(provider, muxed);

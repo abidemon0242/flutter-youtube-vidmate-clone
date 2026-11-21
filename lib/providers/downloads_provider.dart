@@ -489,6 +489,21 @@ class DownloadsProvider extends ChangeNotifier {
     return fileDeleted;
   }
 
+  /// Called when a file was deleted outside this screen (e.g. from the
+  /// Library), so the entry no longer claims to be a completed download.
+  void markFileRemoved(String path) {
+    var changed = false;
+    for (final entry in _items) {
+      if (entry.status == DownloadStatus.completed && entry.savedPath == path) {
+        entry
+          ..status = DownloadStatus.failed
+          ..error = 'File was removed from the device.';
+        changed = true;
+      }
+    }
+    if (changed) _changed();
+  }
+
   /// Back-compat: deletes the file and record. Returns false if the file is
   /// outside the managed folder (in which case nothing is removed).
   Future<bool> deleteFileFor(DownloadEntry item) async {

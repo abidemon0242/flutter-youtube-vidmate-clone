@@ -93,11 +93,21 @@ class _HomeScreenState extends State<HomeScreen> {
       _snack('That is not a valid YouTube link.');
       return;
     }
+    final youtube = context.read<YoutubeExtractionService>();
+    final navigator = Navigator.of(context, rootNavigator: true);
+    // Looking a video up can take a few seconds; block repeat taps meanwhile.
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const PopScope(canPop: false, child: Center(child: CircularProgressIndicator())),
+    );
     try {
-      final video = await context.read<YoutubeExtractionService>().getVideo(link);
+      final video = await youtube.getVideo(link);
+      navigator.pop();
       if (mounted) context.push('/watch', extra: video);
-    } on YoutubeServiceException catch (error) {
-      _snack(error.message);
+    } catch (error) {
+      navigator.pop();
+      _snack(error is YoutubeServiceException ? error.message : 'Could not open this video.');
     }
   }
 

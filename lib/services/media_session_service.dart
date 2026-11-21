@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
   VideoPlayerController? _controller;
   void Function()? _listener;
+  ({bool playing, AudioProcessingState state, Duration position, DateTime at})? _last;
 
   void attach(VideoPlayerController controller, MediaItem item) {
     detach();
@@ -24,6 +25,7 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
     if (controller != null && _listener != null) controller.removeListener(_listener!);
     _controller = null;
     _listener = null;
+    _last = null;
     playbackState.add(PlaybackState(processingState: AudioProcessingState.idle));
   }
 
@@ -38,6 +40,23 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
       mediaItem.add(mediaItem.value?.copyWith(duration: duration));
     }
     final ended = value.isInitialized && duration > Duration.zero && value.position >= duration;
+    final state = !value.isInitialized
+        ? AudioProcessingState.loading
+        : value.isBuffering
+        ? AudioProcessingState.buffering
+        : ended
+        ? AudioProcessingState.completed
+        : AudioProcessingState.ready;
+    // The player notifies many times per second. Android extrapolates the
+    // position while playing, so only publish when something changes:
+    // play/pause, buffering/ended, or a seek (position off by > 1.5 s).
+    final now = DateTime.now();
+    final last = _last;
+    if (last != null && last.playing == value.isPlaying && last.state == state) {
+      final expected = last.position + (last.playing ? now.difference(last.at) : Duration.zero);
+      if ((value.position - expected).abs() < const Duration(milliseconds: 1500)) return;
+    }
+    _last = (playing: value.isPlaying, state: state, position: value.position, at: now);
     playbackState.add(
       PlaybackState(
         controls: [
@@ -48,13 +67,7 @@ class TubeArenaAudioHandler extends BaseAudioHandler with SeekHandler {
         ],
         systemActions: const {MediaAction.seek},
         androidCompactActionIndices: const [0, 1, 2],
-        processingState: !value.isInitialized
-            ? AudioProcessingState.loading
-            : value.isBuffering
-            ? AudioProcessingState.buffering
-            : ended
-            ? AudioProcessingState.completed
-            : AudioProcessingState.ready,
+        processingState: state,
         playing: value.isPlaying,
         updatePosition: value.position,
         bufferedPosition: value.buffered.isEmpty ? Duration.zero : value.buffered.last.end,

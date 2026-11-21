@@ -242,6 +242,7 @@ class _LibraryFolderScreenState extends State<LibraryFolderScreen> {
   void _reload() => setState(() => _future = _files.getFilesInFolder(widget.folderName));
 
   Future<void> _delete(LocalFile file) async {
+    final downloads = context.read<DownloadsProvider>();
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -258,6 +259,7 @@ class _LibraryFolderScreenState extends State<LibraryFolderScreen> {
     );
     if (ok != true) return;
     final deleted = await _files.deleteFile(file.path);
+    if (deleted) downloads.markFileRemoved(file.path);
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,

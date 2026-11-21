@@ -30,13 +30,15 @@ class _WatchScreenState extends State<WatchScreen> {
   bool _fullscreen = false;
   bool _showControls = true;
   Timer? _hideTimer;
-  late final MediaSessionService _mediaSession = context.read<MediaSessionService>();
+  late final MediaSessionService _mediaSession;
 
   static bool _askedForNotifications = false;
 
   @override
   void initState() {
     super.initState();
+    // Resolved here, not lazily: dispose() must not look up providers.
+    _mediaSession = context.read<MediaSessionService>();
     _open();
   }
 
