@@ -25,7 +25,7 @@ val hasReleaseSigning = releaseStoreFile != null && file(releaseStoreFile).exist
 
 android {
     namespace = "com.tubearena.app"
-    compileSdk = maxOf(36, flutter.compileSdkVersion)
+    compileSdk = maxOf(37, flutter.compileSdkVersion)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
