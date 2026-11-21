@@ -7,7 +7,9 @@ import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/video_model.dart';
 import '../../providers/downloads_provider.dart';
+import '../../services/youtube_extraction_service.dart';
 import '../widgets/download_options_sheet.dart';
+import '../widgets/file_actions.dart';
 
 class DownloadsScreen extends StatelessWidget {
   const DownloadsScreen({super.key});
@@ -45,12 +47,25 @@ class DownloadsScreen extends StatelessWidget {
                 actions: [
                   if (downloads.items.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(right: 16),
+                      padding: const EdgeInsets.only(right: 4),
                       child: Center(child: Text('${downloads.items.length} items')),
                     ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Download settings',
+                    onSelected: (value) {
+                      if (value == 'wifi') downloads.setWifiOnly(!downloads.wifiOnly);
+                    },
+                    itemBuilder: (_) => [
+                      CheckedPopupMenuItem(
+                        value: 'wifi',
+                        checked: downloads.wifiOnly,
+                        child: const Text('Download on Wi-Fi only'),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-        body: downloads.items.isEmpty
+        body: downloads.items.isEmpty && !downloads.waitingForWifi
             ? Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
@@ -73,10 +88,24 @@ class DownloadsScreen extends StatelessWidget {
                   ),
                 ),
               )
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: downloads.items.length,
-                itemBuilder: (context, index) => _DownloadTile(entry: downloads.items[index]),
+            : Column(
+                children: [
+                  if (downloads.waitingForWifi)
+                    MaterialBanner(
+                      leading: const Icon(Icons.wifi_off_rounded),
+                      content: const Text('Waiting for Wi-Fi. Downloads continue when Wi-Fi is back.'),
+                      actions: [
+                        TextButton(onPressed: () => downloads.setWifiOnly(false), child: const Text('Use mobile data')),
+                      ],
+                    ),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: downloads.items.length,
+                      itemBuilder: (context, index) => _DownloadTile(entry: downloads.items[index]),
+                    ),
+                  ),
+                ],
               ),
         floatingActionButton: selecting
             ? FloatingActionButton.extended(
@@ -121,8 +150,8 @@ class _DownloadTile extends StatelessWidget {
   const _DownloadTile({required this.entry});
   final DownloadEntry entry;
 
-  String get _status => switch (entry.status) {
-    DownloadStatus.queued => 'Waiting...',
+  String _status(bool waitingForWifi) => switch (entry.status) {
+    DownloadStatus.queued => waitingForWifi ? 'Waiting for Wi-Fi' : 'Waiting...',
     DownloadStatus.downloading =>
       '${(entry.progress * 100).toStringAsFixed(0)}% · ${formatBytes(entry.receivedBytes)} of ${formatBytes(entry.totalBytes)}',
     DownloadStatus.paused => 'Paused · ${(entry.progress * 100).toStringAsFixed(0)}%',
@@ -137,7 +166,9 @@ class _DownloadTile extends StatelessWidget {
     final downloads = context.read<DownloadsProvider>();
     final selecting = context.select<DownloadsProvider, bool>((d) => d.hasSelection);
     final selected = context.select<DownloadsProvider, bool>((d) => d.isSelected(entry.id));
+    final waitingForWifi = context.select<DownloadsProvider, bool>((d) => d.waitingForWifi);
     final done = entry.status == DownloadStatus.completed;
+    final audio = entry.option.kind == DownloadKind.audio;
 
     void play() => context.push(
       '/watch',
@@ -200,7 +231,7 @@ class _DownloadTile extends StatelessWidget {
                       style: TextStyle(color: context.textSecondary, fontSize: 12),
                     ),
                     Text(
-                      _status,
+                      _status(waitingForWifi),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -247,6 +278,10 @@ class _DownloadTile extends StatelessWidget {
                     switch (action) {
                       case 'cancel':
                         await downloads.cancel(entry.id);
+                      case 'save':
+                        await saveFileToPhone(context, entry.savedPath, audio: audio);
+                      case 'share':
+                        await shareFile(context, entry.savedPath, title: entry.title, audio: audio);
                       case 'remove':
                         await downloads.remove(entry, deleteFile: false);
                         messenger.showSnackBar(const SnackBar(content: Text('Removed from list. The file was kept.')));
@@ -263,6 +298,10 @@ class _DownloadTile extends StatelessWidget {
                   itemBuilder: (_) => [
                     if (entry.isActive || entry.status == DownloadStatus.paused)
                       const PopupMenuItem(value: 'cancel', child: Text('Cancel download')),
+                    if (done) ...const [
+                      PopupMenuItem(value: 'save', child: Text('Save to phone')),
+                      PopupMenuItem(value: 'share', child: Text('Share')),
+                    ],
                     const PopupMenuItem(value: 'remove', child: Text('Remove from list')),
                     const PopupMenuItem(value: 'delete', child: Text('Delete file')),
                   ],

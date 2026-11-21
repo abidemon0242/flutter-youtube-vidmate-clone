@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../data/repositories/feed_repository.dart';
 import '../../models/video_model.dart';
+import '../../providers/downloads_provider.dart';
+import '../../services/batch_download.dart';
 import '../../services/youtube_extraction_service.dart';
 import '../widgets/download_options_sheet.dart';
 import '../widgets/theme_mode_button.dart';
@@ -24,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<FeedResult> _future = _load();
   final Map<String, VideoModel> _selected = {};
   bool _batchRunning = false;
+  String _batchLabel = '';
 
   bool get _selecting => _selected.isNotEmpty;
   String get _categoryName => FeedRepository.categories[_category];
@@ -118,33 +121,36 @@ class _HomeScreenState extends State<HomeScreen> {
       _snack('Sample videos cannot be downloaded.');
       return;
     }
-    setState(() => _batchRunning = true);
+    setState(() {
+      _batchRunning = true;
+      _batchLabel = batchProgressLabel(0, downloadable.length);
+    });
     final youtube = context.read<YoutubeExtractionService>();
-    var started = 0;
-    final failed = <String>[];
-    for (final video in downloadable) {
-      try {
+    final downloads = context.read<DownloadsProvider>();
+    // Fetch manifests a few at a time instead of one by one.
+    final result = await runBatch<VideoModel>(
+      downloadable,
+      (video) async {
         final option = (await youtube.getDownloadOptions(video.youtubeId!)).recommended;
-        if (option == null || !mounted) throw const YoutubeServiceException('No formats');
-        await startDownload(context, video, option, notify: false);
-        started++;
-      } catch (_) {
-        failed.add(video.title);
-      }
-    }
+        if (option == null) throw const YoutubeServiceException('No downloadable formats');
+        await downloads.start(
+          videoId: video.youtubeId!,
+          title: video.title,
+          channelName: video.channelName,
+          thumbnailUrl: video.thumbnailUrl,
+          option: option,
+        );
+      },
+      onProgress: (done, total) {
+        if (mounted) setState(() => _batchLabel = batchProgressLabel(done, total));
+      },
+    );
     if (!mounted) return;
     setState(() {
       _batchRunning = false;
       _selected.clear();
     });
-    final skipped = videos.length - downloadable.length;
-    _snack(
-      [
-        'Started $started download(s) at up to 720p.',
-        if (failed.isNotEmpty) '${failed.length} failed.',
-        if (skipped > 0) '$skipped sample video(s) skipped.',
-      ].join(' '),
-    );
+    _snack(batchSummary<VideoModel>(result, (v) => v.title, skipped: videos.length - downloadable.length));
   }
 
   void _snack(String message) {
@@ -233,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
         floatingActionButton: _selecting
             ? FloatingActionButton.extended(
                 onPressed: _batchRunning ? null : _downloadSelected,
-                label: Text(_batchRunning ? 'Starting...' : 'Download selected (${_selected.length})'),
+                label: Text(_batchRunning ? _batchLabel : 'Download selected (${_selected.length})'),
                 icon: _batchRunning
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.download_rounded),

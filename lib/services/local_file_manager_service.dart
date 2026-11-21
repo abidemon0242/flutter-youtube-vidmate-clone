@@ -50,6 +50,15 @@ class LocalFileManagerService {
 
   LocalFileManagerService._internal();
 
+  /// A separate instance rooted at [baseDirectory] (the TubeArena folder).
+  /// Used by tests; the app uses the shared default instance.
+  LocalFileManagerService.withBaseDirectory(Directory baseDirectory) {
+    _ready = () async {
+      await Directory('${baseDirectory.path}/$downloadsFolderName').create(recursive: true);
+      _baseDirectory = baseDirectory;
+    }();
+  }
+
   /// Initialize file manager with base directory. Safe to call repeatedly;
   /// every public method waits for it, so nothing runs before it is ready.
   Future<void> initialize() => _ready ??= _initialize();
@@ -222,31 +231,48 @@ class LocalFileManagerService {
   }
 
   /// Move file to different folder
-  Future<bool> moveFile(String filePath, String targetFolder) async {
+  Future<bool> moveFile(String filePath, String targetFolder) async => await moveFileTo(filePath, targetFolder) != null;
+
+  /// Moves a Library file into [targetFolder] (created if missing) and
+  /// returns its new path, or null when it can't be moved. A name that is
+  /// already taken in the target folder gets a " (2)" style suffix.
+  Future<String?> moveFileTo(String filePath, String targetFolder) async {
     try {
       await initialize();
       final safeTarget = _validatedFolderName(targetFolder);
-      if (safeTarget == null) return false;
+      if (safeTarget == null) return null;
       final file = File(filePath);
-      if (await file.exists()) {
-        final basePath = await _baseDirectory.resolveSymbolicLinks();
-        final sourcePath = await file.resolveSymbolicLinks();
-        final allowedPrefix = '$basePath${Platform.pathSeparator}';
-        if (!sourcePath.startsWith(allowedPrefix)) return false;
-        final target = Directory('${_baseDirectory.path}/$safeTarget');
-        await target.create(recursive: true);
-        if (!await _isManagedDirectory(target)) return false;
-        final fileName = file.uri.pathSegments.last;
-        final newPath = '${target.path}/$fileName';
-        if (await File(newPath).exists()) return false;
-        await file.rename(newPath);
-        logger.i('File moved: $filePath -> $newPath');
-        return true;
+      if (!await file.exists()) return null;
+      final basePath = await _baseDirectory.resolveSymbolicLinks();
+      final sourcePath = await file.resolveSymbolicLinks();
+      if (!sourcePath.startsWith('$basePath${Platform.pathSeparator}')) return null;
+      final target = Directory('${_baseDirectory.path}/$safeTarget');
+      await target.create(recursive: true);
+      if (!await _isManagedDirectory(target)) return null;
+      final targetPath = await target.resolveSymbolicLinks();
+      if (file.parent.absolute.path == target.absolute.path || File(sourcePath).parent.path == targetPath) {
+        return null;
       }
-      return false;
+      final fileName = file.uri.pathSegments.last;
+      final dot = fileName.lastIndexOf('.');
+      final base = dot > 0 ? fileName.substring(0, dot) : fileName;
+      final extension = dot > 0 ? fileName.substring(dot) : '';
+      var newPath = '${target.path}/$fileName';
+      for (var n = 2; await File(newPath).exists(); n++) {
+        newPath = '${target.path}/$base ($n)$extension';
+      }
+      try {
+        await file.rename(newPath);
+      } on FileSystemException {
+        // Different volume: fall back to copy + delete.
+        await file.copy(newPath);
+        await file.delete();
+      }
+      logger.i('File moved: $filePath -> $newPath');
+      return newPath;
     } catch (e) {
       logger.e('Error moving file: $e');
-      return false;
+      return null;
     }
   }
 

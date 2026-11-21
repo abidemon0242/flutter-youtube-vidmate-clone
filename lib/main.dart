@@ -7,8 +7,11 @@ import 'app.dart';
 import 'data/repositories/feed_repository.dart';
 import 'providers/downloads_provider.dart';
 import 'providers/theme_controller.dart';
+import 'services/device_storage_service.dart';
+import 'services/download_notification_service.dart';
 import 'services/local_file_manager_service.dart';
 import 'services/media_session_service.dart';
+import 'services/network_monitor.dart';
 import 'services/youtube_extraction_service.dart';
 
 Future<void> main() async {
@@ -19,7 +22,14 @@ Future<void> main() async {
   final youtube = YoutubeExtractionService();
   final fileManager = LocalFileManagerService();
   final mediaSession = MediaSessionService();
-  final downloads = DownloadsProvider(source: YoutubeDownloadSource(youtube));
+  final storage = DeviceStorageService();
+  final downloads = DownloadsProvider(
+    source: YoutubeDownloadSource(youtube),
+    freeSpace: storage.freeBytes,
+    network: ConnectivityNetworkMonitor(),
+  );
+  // Mirrors download progress into a notification + foreground service.
+  DownloadNotificationController(downloads, MethodChannelDownloadNotifier());
 
   // Show the UI immediately; services finish setting up in the background and
   // each one is awaited lazily by the code that needs it.
@@ -32,6 +42,7 @@ Future<void> main() async {
         ChangeNotifierProvider<DownloadsProvider>.value(value: downloads),
         Provider<LocalFileManagerService>.value(value: fileManager),
         Provider<MediaSessionService>.value(value: mediaSession),
+        Provider<DeviceStorageService>.value(value: storage),
       ],
       child: const TubeArenaApp(),
     ),

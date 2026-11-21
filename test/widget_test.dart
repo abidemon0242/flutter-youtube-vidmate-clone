@@ -70,6 +70,7 @@ void main() {
   late Directory downloads;
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     root = await Directory.systemTemp.createTemp('tube_arena_test');
     downloads = Directory('${root.path}/TubeArena/Downloads');
   });

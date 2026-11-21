@@ -43,17 +43,26 @@ Future<void> startDownload(BuildContext context, VideoModel video, DownloadOptio
   final downloads = context.read<DownloadsProvider>();
   final messenger = ScaffoldMessenger.of(context);
   final router = GoRouter.of(context);
-  final entry = await downloads.start(
-    videoId: video.youtubeId!,
-    title: video.title,
-    channelName: video.channelName,
-    thumbnailUrl: video.thumbnailUrl,
-    option: option,
-  );
+  final DownloadEntry entry;
+  try {
+    entry = await downloads.start(
+      videoId: video.youtubeId!,
+      title: video.title,
+      channelName: video.channelName,
+      thumbnailUrl: video.thumbnailUrl,
+      option: option,
+    );
+  } on DownloadException catch (error) {
+    if (notify) messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    if (notify) return;
+    rethrow;
+  }
   if (!notify) return;
   final message = entry.status == DownloadStatus.completed
       ? 'Already downloaded: ${option.label}'
-      : 'Downloading ${option.label}. Keep Tube Arena open until it finishes.';
+      : downloads.waitingForWifi
+      ? 'Queued ${option.label}. It will start on Wi-Fi.'
+      : 'Downloading ${option.label}. Progress is shown in the notification.';
   messenger.showSnackBar(
     SnackBar(
       content: Text(message),

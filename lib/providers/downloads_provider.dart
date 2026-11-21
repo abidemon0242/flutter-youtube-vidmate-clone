@@ -4,8 +4,10 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/ffmpeg_merge_service.dart';
+import '../services/network_monitor.dart';
 import '../services/youtube_extraction_service.dart';
 
 enum DownloadStatus { queued, downloading, paused, merging, completed, failed, canceled }
@@ -34,8 +36,9 @@ class DownloadEntry {
   final String thumbnailUrl;
   final DownloadOption option;
 
-  /// Final file path. Only exists on disk once [status] is completed.
-  final String savedPath;
+  /// Final file path. Only exists on disk once [status] is completed. Changes
+  /// when the file is moved to another Library folder.
+  String savedPath;
   final DateTime createdAt;
 
   DownloadStatus status;
@@ -117,7 +120,37 @@ class YoutubeDownloadSource implements DownloadSource {
 
 typedef MergeFunction = Future<bool> Function(String videoPath, String audioPath, String outputPath);
 
+/// Returns the free bytes on the volume holding [path], or null when unknown.
+typedef FreeSpaceResolver = Future<int?> Function(String path);
+
+/// A download could not be started. [message] is safe to show to users.
+class DownloadException implements Exception {
+  const DownloadException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 class _Cancelled implements Exception {}
+
+/// Bytes kept free on top of the download itself, so the phone never fills up.
+const downloadSpaceReserve = 50 * 1024 * 1024;
+
+/// Bytes needed on disk to download [streamBytes]. Merged downloads need room
+/// for the parts and the combined file at the same time.
+int estimateRequiredBytes(int streamBytes, {required bool needsMerge}) =>
+    streamBytes <= 0 ? 0 : (needsMerge ? streamBytes * 2 : streamBytes) + downloadSpaceReserve;
+
+String formatByteCount(int bytes) {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  var value = bytes.toDouble();
+  var unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return '${value >= 10 || unit == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1)} ${units[unit]}';
+}
 
 /// Owns the download queue: start, progress, pause/resume, retry, cancel,
 /// merge, persistence and deletion. Downloads run while the app process is
@@ -128,11 +161,19 @@ class DownloadsProvider extends ChangeNotifier {
     DownloadSource? source,
     MergeFunction? merge,
     Future<Directory> Function()? downloadsDirectoryResolver,
+    FreeSpaceResolver? freeSpace,
+    NetworkMonitor? network,
     this.maxConcurrent = 2,
   }) : _source = source,
        _merge =
            merge ?? ((v, a, o) => FFmpegMergeService().mergeVideoAndAudio(videoPath: v, audioPath: a, outputPath: o)),
-       _downloadsDirectoryResolver = downloadsDirectoryResolver ?? defaultDownloadsDirectory;
+       _downloadsDirectoryResolver = downloadsDirectoryResolver ?? defaultDownloadsDirectory,
+       _freeSpace = freeSpace,
+       _network = network {
+    _networkSubscription = network?.onWifiChanged.listen(_onWifiChanged);
+  }
+
+  static const wifiOnlyPreferenceKey = 'download_wifi_only';
 
   static Future<Directory> defaultDownloadsDirectory() async {
     final documents = await getApplicationDocumentsDirectory();
@@ -142,7 +183,13 @@ class DownloadsProvider extends ChangeNotifier {
   DownloadSource? _source;
   final MergeFunction _merge;
   final Future<Directory> Function() _downloadsDirectoryResolver;
+  final FreeSpaceResolver? _freeSpace;
+  final NetworkMonitor? _network;
+  StreamSubscription<bool>? _networkSubscription;
   final int maxConcurrent;
+
+  bool _wifiOnly = false;
+  bool? _onWifi;
 
   final List<DownloadEntry> _items = [];
   final Set<String> _selectedIds = {};
@@ -155,6 +202,58 @@ class DownloadsProvider extends ChangeNotifier {
   DateTime _lastNotify = DateTime.fromMillisecondsSinceEpoch(0);
 
   set source(DownloadSource value) => _source = value;
+
+  /// When true, downloads only run on Wi-Fi (or another unmetered network).
+  bool get wifiOnly => _wifiOnly;
+
+  /// True when queued downloads are held back until Wi-Fi is available.
+  bool get waitingForWifi => _wifiOnly && _onWifi == false;
+
+  Future<void> setWifiOnly(bool value) async {
+    if (_wifiOnly == value) return;
+    _wifiOnly = value;
+    if (value) await _refreshWifi();
+    notifyListeners();
+    try {
+      await (await SharedPreferences.getInstance()).setBool(wifiOnlyPreferenceKey, value);
+    } catch (error) {
+      debugPrint('Could not save the Wi-Fi setting: $error');
+    }
+    if (waitingForWifi) {
+      await _holdForWifi();
+    } else {
+      _pump();
+    }
+  }
+
+  Future<void> _refreshWifi() async {
+    final network = _network;
+    if (network == null) return;
+    try {
+      _onWifi = await network.isOnWifi();
+    } catch (_) {
+      _onWifi = null;
+    }
+  }
+
+  Future<void> _onWifiChanged(bool onWifi) async {
+    if (_onWifi == onWifi) return;
+    _onWifi = onWifi;
+    notifyListeners();
+    if (waitingForWifi) {
+      await _holdForWifi();
+    } else {
+      _pump();
+    }
+  }
+
+  // Wi-Fi was lost: running downloads go back to the queue and continue from
+  // the bytes already saved once Wi-Fi returns.
+  Future<void> _holdForWifi() async {
+    for (final entry in _items.where((e) => e.status == DownloadStatus.downloading).toList()) {
+      await _stop(entry, DownloadStatus.queued);
+    }
+  }
 
   List<DownloadEntry> get items => List.unmodifiable(_items);
   List<String> get selectedIds => List.unmodifiable(_selectedIds.toList());
@@ -180,6 +279,13 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> load() => _loading ??= _load();
 
   Future<void> _load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _wifiOnly = prefs.getBool(wifiOnlyPreferenceKey) ?? _wifiOnly;
+    } catch (error) {
+      debugPrint('Could not read download settings: $error');
+    }
+    await _refreshWifi();
     try {
       final file = await _stateFile();
       if (await file.exists()) {
@@ -255,6 +361,12 @@ class DownloadsProvider extends ChangeNotifier {
     }
     final directory = await _downloadsDirectoryResolver();
     await directory.create(recursive: true);
+    await _ensureSpace(directory.path, option.sizeBytes, needsMerge: option.needsMerge);
+    // Another start() for the same item may have finished while we awaited.
+    final raced = byId(id);
+    if (raced != null) return raced;
+    // From here on everything is synchronous, so concurrent starts (batch
+    // downloads) can never pick the same file name.
     final entry = DownloadEntry(
       id: id,
       videoId: videoId,
@@ -262,13 +374,52 @@ class DownloadsProvider extends ChangeNotifier {
       channelName: channelName,
       thumbnailUrl: thumbnailUrl,
       option: option,
-      savedPath: await _uniquePath(directory, '${safeFileName(title)} (${option.label})', option.extension),
+      savedPath: _uniquePath(directory, '${safeFileName(title)} (${option.label})', option.extension),
       totalBytes: option.sizeBytes,
     );
     _items.insert(0, entry);
     _changed();
     _pump();
     return entry;
+  }
+
+  /// Throws a [DownloadException] when the device clearly lacks room for
+  /// [streamBytes]. Unknown sizes or free space never block a download.
+  Future<void> _ensureSpace(String directory, int streamBytes, {required bool needsMerge}) async {
+    final resolver = _freeSpace;
+    final needed = estimateRequiredBytes(streamBytes, needsMerge: needsMerge);
+    if (resolver == null || needed <= 0) return;
+    int? free;
+    try {
+      free = await resolver(directory);
+    } catch (_) {
+      free = null;
+    }
+    if (free != null && free < needed) {
+      throw DownloadException(
+        'Not enough storage. This download needs about ${formatByteCount(needed)} '
+        'but only ${formatByteCount(free)} is free.',
+      );
+    }
+  }
+
+  /// Keeps a download record in sync after its file was moved inside the
+  /// Library. A record that was marked missing is restored when the file exists.
+  void updatePath(String oldPath, String newPath) {
+    var changed = false;
+    for (final entry in _items) {
+      if (entry.savedPath != oldPath) continue;
+      entry.savedPath = newPath;
+      if (entry.status == DownloadStatus.failed && entry.error == 'File was removed from the device.') {
+        if (File(newPath).existsSync()) {
+          entry
+            ..status = DownloadStatus.completed
+            ..error = null;
+        }
+      }
+      changed = true;
+    }
+    if (changed) _changed();
   }
 
   Future<void> pause(String id) async {
@@ -317,7 +468,7 @@ class DownloadsProvider extends ChangeNotifier {
   // ------------------------------------------------------------- execution
 
   void _pump() {
-    if (_source == null) return;
+    if (_source == null || waitingForWifi) return;
     for (final entry in _items.reversed) {
       if (_running.length >= maxConcurrent) break;
       if (entry.status == DownloadStatus.queued && !_running.contains(entry.id)) {
@@ -352,6 +503,9 @@ class DownloadsProvider extends ChangeNotifier {
       }
       final total = sizes.fold<int>(0, (a, b) => a + b);
       if (total > 0) entry.totalBytes = total;
+      if (entry.receivedBytes == 0) {
+        await _ensureSpace(File(entry.savedPath).parent.path, total, needsMerge: option.needsMerge);
+      }
 
       var doneBefore = 0;
       for (var i = 0; i < parts.length; i++) {
@@ -379,7 +533,11 @@ class DownloadsProvider extends ChangeNotifier {
       if (!_stopRequested.contains(entry.id)) {
         entry
           ..status = DownloadStatus.failed
-          ..error = error is YoutubeServiceException ? error.message : 'Download failed. Tap retry.';
+          ..error = switch (error) {
+            YoutubeServiceException(:final message) => message,
+            DownloadException(:final message) => message,
+            _ => 'Download failed. Tap retry.',
+          };
         debugPrint('Download ${entry.id} failed: $error');
       }
     } finally {
@@ -526,9 +684,11 @@ class DownloadsProvider extends ChangeNotifier {
     return removed;
   }
 
+  // Anything under the TubeArena folder (Downloads and the user's own Library
+  // folders) is managed, so moved files can still be deleted from here.
   Future<bool> _isManaged(File file) async {
     try {
-      final root = await (await _downloadsDirectoryResolver()).resolveSymbolicLinks();
+      final root = await (await _downloadsDirectoryResolver()).parent.resolveSymbolicLinks();
       final resolved = await file.resolveSymbolicLinks();
       return resolved.startsWith('$root${Platform.pathSeparator}');
     } catch (_) {
@@ -553,7 +713,7 @@ class DownloadsProvider extends ChangeNotifier {
     }
   }
 
-  Future<String> _uniquePath(Directory dir, String base, String extension) async {
+  String _uniquePath(Directory dir, String base, String extension) {
     bool taken(String path) => File(path).existsSync() || _items.any((e) => e.savedPath == path);
     var candidate = '${dir.path}/$base$extension';
     var n = 2;
@@ -566,6 +726,7 @@ class DownloadsProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _networkSubscription?.cancel();
     for (final subscription in _subscriptions.values) {
       subscription.cancel();
     }

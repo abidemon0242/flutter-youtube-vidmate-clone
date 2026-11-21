@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/video_model.dart';
 import '../../providers/downloads_provider.dart';
+import '../../services/device_storage_service.dart';
 import '../../services/local_file_manager_service.dart';
+import '../widgets/file_actions.dart';
 import '../widgets/folder_card.dart';
 import '../widgets/theme_mode_button.dart';
 
@@ -267,10 +269,84 @@ class _LibraryFolderScreenState extends State<LibraryFolderScreen> {
     _reload();
   }
 
-  static bool _isAudio(String name) {
-    final lower = name.toLowerCase();
-    return lower.endsWith('.m4a') || lower.endsWith('.mp3') || lower.endsWith('.opus');
+  static bool _isAudio(String name) => isAudioFile(name);
+
+  /// Asks for a destination: an existing folder or a new one. Returns its name.
+  Future<String?> _pickFolder() async {
+    final folders = (await _files.getFolders()).map((f) => f.name).where((name) => name != widget.folderName).toList();
+    if (!mounted) return null;
+    const newFolder = '\u0000new';
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text('Move to folder', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            ),
+            for (final name in folders)
+              ListTile(
+                leading: const Icon(Icons.folder_rounded),
+                title: Text(name),
+                onTap: () => Navigator.pop(sheetContext, name),
+              ),
+            ListTile(
+              leading: const Icon(Icons.create_new_folder_rounded),
+              title: const Text('New folder...'),
+              onTap: () => Navigator.pop(sheetContext, newFolder),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice != newFolder || !mounted) return choice;
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('New folder'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'Folder name'),
+          onSubmitted: (value) => Navigator.pop(dialogContext, value.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.isEmpty) return null;
+    if (LocalFileManagerService.isProtectedFolder(name) || folders.any((f) => f.toLowerCase() == name.toLowerCase())) {
+      return folders.firstWhere((f) => f.toLowerCase() == name.toLowerCase(), orElse: () => name);
+    }
+    if (!await _files.createFolder(name)) {
+      if (mounted) _snack('That folder name is not allowed.');
+      return null;
+    }
+    return name;
   }
+
+  Future<void> _move(LocalFile file) async {
+    final downloads = context.read<DownloadsProvider>();
+    final target = await _pickFolder();
+    if (target == null || target == widget.folderName) return;
+    final newPath = await _files.moveFileTo(file.path, target);
+    if (newPath != null) downloads.updatePath(file.path, newPath);
+    if (!mounted) return;
+    _snack(newPath != null ? 'Moved to $target.' : 'Could not move the file.');
+    _reload();
+  }
+
+  void _snack(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   @override
   Widget build(BuildContext context) {
@@ -321,10 +397,20 @@ class _LibraryFolderScreenState extends State<LibraryFolderScreen> {
                     '/watch',
                     extra: VideoModel.local(path: file.path, title: file.name),
                   ),
-                  trailing: IconButton(
-                    tooltip: 'Delete',
-                    onPressed: () => _delete(file),
-                    icon: const Icon(Icons.delete_outline_rounded),
+                  trailing: PopupMenuButton<String>(
+                    tooltip: 'File options',
+                    onSelected: (action) => switch (action) {
+                      'move' => _move(file),
+                      'save' => saveFileToPhone(context, file.path),
+                      'share' => shareFile(context, file.path, title: file.name),
+                      _ => _delete(file),
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'move', child: Text('Move to folder')),
+                      PopupMenuItem(value: 'save', child: Text('Save to phone')),
+                      PopupMenuItem(value: 'share', child: Text('Share')),
+                      PopupMenuItem(value: 'delete', child: Text('Delete')),
+                    ],
                   ),
                 );
               },
