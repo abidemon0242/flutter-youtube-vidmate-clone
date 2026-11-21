@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 import '../../data/repositories/feed_repository.dart';
 import '../../models/video_model.dart';
 import '../../providers/downloads_provider.dart';
@@ -206,27 +207,34 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (snapshot.connectionState != ConnectionState.done) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  final result = snapshot.data ?? const FeedResult(videos: [], isSample: true);
+                  final result = snapshot.data ?? FeedResult.empty();
                   return RefreshIndicator(
                     onRefresh: () async {
                       _reload(refresh: true);
                       await _future;
                     },
-                    child: ListView.builder(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
-                      itemCount: result.videos.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == 0) return _statusBanner(result);
-                        final video = result.videos[index - 1];
-                        return VideoCard(
-                          video: video,
-                          multiSelectMode: _selecting,
-                          isSelected: _selected.containsKey(video.id),
-                          onLongPress: () => _toggle(video),
-                          onCheckboxTap: () => _toggle(video),
-                          onMore: () => showDownloadOptionsSheet(context, video),
-                          onTap: () => _selecting ? _toggle(video) : context.push('/watch', extra: video),
+                    child: ListenableBuilder(
+                      listenable: result.feed,
+                      builder: (context, _) {
+                        final videos = result.feed.items;
+                        return ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+                          itemCount: videos.length + 2,
+                          itemBuilder: (context, index) {
+                            if (index == 0) return _statusBanner(result);
+                            if (index == videos.length + 1) return _footer(result);
+                            final video = videos[index - 1];
+                            return VideoCard(
+                              video: video,
+                              multiSelectMode: _selecting,
+                              isSelected: _selected.containsKey(video.id),
+                              onLongPress: () => _toggle(video),
+                              onCheckboxTap: () => _toggle(video),
+                              onMore: () => showDownloadOptionsSheet(context, video),
+                              onTap: () => _selecting ? _toggle(video) : context.push('/watch', extra: video),
+                            );
+                          },
                         );
                       },
                     ),
@@ -245,6 +253,45 @@ class _HomeScreenState extends State<HomeScreen> {
                     : const Icon(Icons.download_rounded),
               )
             : null,
+      ),
+    );
+  }
+
+  /// Built only when the list is scrolled near its end (ListView builds
+  /// lazily), which is what triggers loading the next page.
+  Widget _footer(FeedResult result) {
+    final feed = result.feed;
+    if (feed.canAutoLoad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) feed.loadMore();
+      });
+    }
+    if (feed.isLoading || feed.canAutoLoad) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (feed.error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Column(
+          children: [
+            Text(
+              feed.error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: context.textSecondary),
+            ),
+            TextButton(onPressed: feed.loadMore, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+    if (result.isSample || feed.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: Text('No more results', style: TextStyle(color: context.textSecondary)),
       ),
     );
   }

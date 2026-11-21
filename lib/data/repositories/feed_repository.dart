@@ -1,9 +1,16 @@
 import '../../models/video_model.dart';
 import '../../services/youtube_extraction_service.dart';
+import '../paged_feed.dart';
 
 class FeedResult {
-  const FeedResult({required this.videos, this.isSample = false, this.message});
-  final List<VideoModel> videos;
+  FeedResult({required this.feed, this.isSample = false, this.message});
+
+  FeedResult.empty() : this(feed: PagedFeed.fixed(const []), isSample: true);
+
+  /// The videos loaded so far; call [PagedFeed.loadMore] for the next page.
+  final PagedFeed feed;
+
+  List<VideoModel> get videos => feed.items;
 
   /// True when YouTube could not be reached and sample videos are shown.
   final bool isSample;
@@ -13,9 +20,12 @@ class FeedResult {
 /// Home feed: live YouTube search results per category, falling back to a
 /// small set of sample videos when YouTube is unreachable.
 class FeedRepository {
-  FeedRepository(this._youtube);
+  FeedRepository(YoutubeExtractionService youtube) : _search = youtube.searchPage;
 
-  final YoutubeExtractionService _youtube;
+  /// For tests: any function that returns the first page of results.
+  FeedRepository.withSearch(this._search);
+
+  final Future<VideoPage> Function(String query, {String category}) _search;
   final Map<String, FeedResult> _cache = {};
 
   static const categories = ['All', 'Music', 'Tech', 'Movies', 'Tutorials', 'Live', 'News', 'Gaming', 'Design'];
@@ -40,12 +50,11 @@ class FeedRepository {
         ? (category == 'All' ? trimmed : '$trimmed $category')
         : _categoryQueries[category] ?? category;
     try {
-      final videos = await _youtube.search(search, category: category);
-      final result = FeedResult(videos: videos);
+      final result = FeedResult(feed: PagedFeed(await _search(search, category: category)));
       _cache[key] = result;
       return result;
     } on YoutubeServiceException catch (error) {
-      return FeedResult(videos: _samples(category, trimmed), isSample: true, message: error.message);
+      return FeedResult(feed: PagedFeed.fixed(_samples(category, trimmed)), isSample: true, message: error.message);
     }
   }
 
