@@ -15,6 +15,10 @@ cp android/app/src/main/AndroidManifest.xml "$TEMP_DIR/TubeArenaManifest.xml"
 if [[ -f android/key.properties ]]; then
   cp android/key.properties "$TEMP_DIR/TubeArenaKeyProperties.properties"
 fi
+# Preserve the Firebase Android client config before regenerating the platform folder.
+if [[ -f android/app/google-services.json ]]; then
+  cp android/app/google-services.json "$TEMP_DIR/GoogleServices.json"
+fi
 
 flutter create --platforms=android --org com.tubearena --project-name app "$TEMP_DIR/native"
 rm -rf android
@@ -22,6 +26,10 @@ cp -R "$TEMP_DIR/native/android" android
 cp "$TEMP_DIR/TubeArenaManifest.xml" android/app/src/main/AndroidManifest.xml
 if [[ -f "$TEMP_DIR/TubeArenaKeyProperties.properties" ]]; then
   cp "$TEMP_DIR/TubeArenaKeyProperties.properties" android/key.properties
+fi
+if [[ -f "$TEMP_DIR/GoogleServices.json" ]]; then
+  mkdir -p android/app
+  cp "$TEMP_DIR/GoogleServices.json" android/app/google-services.json
 fi
 
 python3 - <<'PY'
