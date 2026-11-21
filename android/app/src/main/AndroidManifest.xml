@@ -55,7 +55,6 @@
             </intent-filter>
         </receiver>
 
-        <!-- flutter_downloader 1.12 runs on WorkManager; no extra service entry is needed. -->
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

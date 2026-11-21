@@ -248,6 +248,20 @@ void main() {
       expect(blocker.isAdDomain('https://doubleclick.net/x'), isTrue);
       expect(blocker.isAdDomain('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), isFalse);
       expect(blocker.isAdDomain('notaurl'), isFalse);
+      expect(blocker.isAdDomain('https://www.youtube.com/api/stats/ads?ver=2'), isTrue);
+      expect(blocker.isAdDomain('https://www.facebook.com/tr?id=1'), isTrue);
+    });
+
+    test('ad blocker avoids false positives', () {
+      final blocker = AdBlockerService();
+      expect(blocker.isAdDomain('https://yastatic.yandex.net/lib.js'), isFalse);
+      expect(blocker.isAdDomain('https://segment.com/docs'), isFalse);
+      expect(blocker.isAdDomain('https://example.com/blog/adsense-tips'), isFalse);
+      expect(blocker.isAdDomain('https://example.com/trip?ref=facebook.com/tr'), isFalse);
+      expect(blocker.shouldBlockRequest('https://example.com/analytics/report', 'GET'), isFalse);
+      expect(blocker.shouldBlockRequest('https://example.com/metrics', 'GET'), isFalse);
+      expect(blocker.shouldBlockRequest('https://github.com/issue-tracker', 'GET'), isFalse);
+      expect(blocker.shouldBlockRequest('https://shop.example/pixel.gif?u=1', 'GET'), isTrue);
     });
   });
 }

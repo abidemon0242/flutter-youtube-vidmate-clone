@@ -32,7 +32,7 @@ jobs:
       skip: ${{ steps.retry-budget.outputs.skip }}
     steps:
       - name: Check out the exact failed commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
@@ -131,7 +131,7 @@ jobs:
 
       - name: Upload proposed repair patch
         if: steps.retry-budget.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tube-arena-repair-patch
           path: ${{ runner.temp }}/tube-arena-repair.patch
@@ -148,14 +148,14 @@ jobs:
       actions: write
     steps:
       - name: Check out the failed commit without persisting credentials
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Download proposed repair
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tube-arena-repair-patch
           path: repair-artifact
