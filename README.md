@@ -9,9 +9,14 @@ Tube Arena is an Android Flutter app for browsing YouTube, streaming videos and 
 - Download sheet with real options: video (up to the highest quality available, with video and audio combined by FFmpeg) or audio only. File sizes and the actual container (MP4, WebM, MKV, M4A) are shown.
 - Download manager: live progress, pause, resume, retry, cancel, multi-select, remove from list, and delete file (with confirmation). The list is saved, and downloads interrupted by closing the app come back as paused and resume from where they stopped.
 - Light and dark themes, or follow the phone's setting. Switch from the sun/moon button on Home or Library; the choice is remembered.
-- Library: a built-in Downloads folder plus your own folders (create, rename, delete). Tap a file to play it offline.
+- Library: a built-in Downloads folder plus your own folders (create, rename, delete). Tap a file to play it offline, or use its menu to move it to another folder (the Downloads list stays in sync), save it to the phone or share it.
+- Save to phone: copies a file into public storage through MediaStore (videos to Movies/Tube Arena, audio to Music/Tube Arena), so it appears in Gallery / Files and survives uninstalling the app. Android 9 and older ask for the storage permission.
+- Background downloads: a `dataSync` foreground service shows an ongoing progress notification while downloads run, plus a notification when each download finishes or fails.
+- Free-space check: before a download starts (and again once real stream sizes are known) Tube Arena checks free storage, counting merged downloads twice, and refuses with a clear message if it won't fit.
+- Download on Wi-Fi only (Downloads ⋮ menu): queued downloads wait with "Waiting for Wi-Fi" and continue automatically when Wi-Fi returns; a running download that loses Wi-Fi goes back to the queue and resumes from the bytes already saved.
+- Batch download from Home fetches up to 3 videos' formats at a time, shows "Preparing 3 of 10", and ends with a summary of any failures.
 
-Downloads run while the app is open (including when it's in the background but still alive). They aren't scheduled by the operating system, so if Android stops the app, open it again and tap Resume.
+Downloads run in Dart inside the app process; the foreground service keeps that process alive in the background. If Android still stops the app, open it again and tap Resume.
 
 ## Build
 
