@@ -75,21 +75,37 @@ void main() {
     downloads = Directory('${root.path}/TubeArena/Downloads');
   });
 
+  final created = <DownloadsProvider>[];
+
   tearDown(() async {
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    if (await root.exists()) await root.delete(recursive: true);
+    for (final provider in created) {
+      await provider.flushSaves();
+    }
+    created.clear();
+    // A download task may still be finishing a write; retry briefly.
+    for (var attempt = 0; attempt < 20 && await root.exists(); attempt++) {
+      try {
+        await root.delete(recursive: true);
+      } on FileSystemException {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    }
   });
 
-  DownloadsProvider makeProvider(FakeSource source, {List<String>? merges}) => DownloadsProvider(
-    source: source,
-    downloadsDirectoryResolver: () async => downloads,
-    merge: (video, audio, output) async {
-      merges?.add(output);
-      final bytes = [...await File(video).readAsBytes(), ...await File(audio).readAsBytes()];
-      await File(output).writeAsBytes(bytes);
-      return true;
-    },
-  );
+  DownloadsProvider makeProvider(FakeSource source, {List<String>? merges}) {
+    final provider = DownloadsProvider(
+      source: source,
+      downloadsDirectoryResolver: () async => downloads,
+      merge: (video, audio, output) async {
+        merges?.add(output);
+        final bytes = [...await File(video).readAsBytes(), ...await File(audio).readAsBytes()];
+        await File(output).writeAsBytes(bytes);
+        return true;
+      },
+    );
+    created.add(provider);
+    return provider;
+  }
 
   Future<DownloadEntry> startDownload(
     DownloadsProvider provider,
@@ -159,7 +175,7 @@ void main() {
       final provider = makeProvider(source);
       final entry = await startDownload(provider, muxed);
       await waitFor(() => entry.receivedBytes == 500);
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await provider.flushSaves();
 
       final reloaded = makeProvider(FakeSource({18: List.filled(1000, 7)}));
       await reloaded.load();
@@ -173,7 +189,7 @@ void main() {
       final provider = makeProvider(FakeSource({18: List.filled(100, 1)}));
       final entry = await startDownload(provider, muxed);
       await waitFor(() => entry.status == DownloadStatus.completed);
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await provider.flushSaves();
       await File(entry.savedPath).delete();
 
       final reloaded = makeProvider(FakeSource({18: List.filled(100, 1)}));

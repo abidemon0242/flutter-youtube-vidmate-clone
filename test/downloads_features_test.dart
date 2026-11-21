@@ -103,22 +103,37 @@ void main() {
     downloads = Directory('${tubeArena.path}/Downloads');
   });
 
+  final created = <DownloadsProvider>[];
+
   tearDown(() async {
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    if (await root.exists()) await root.delete(recursive: true);
+    for (final provider in created) {
+      await provider.flushSaves();
+    }
+    created.clear();
+    // A download task may still be finishing a write; retry briefly.
+    for (var attempt = 0; attempt < 20 && await root.exists(); attempt++) {
+      try {
+        await root.delete(recursive: true);
+      } on FileSystemException {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    }
   });
 
-  DownloadsProvider makeProvider(_Source source, {FreeSpaceResolver? freeSpace, NetworkMonitor? network}) =>
-      DownloadsProvider(
-        source: source,
-        downloadsDirectoryResolver: () async => downloads,
-        freeSpace: freeSpace,
-        network: network,
-        merge: (video, audio, output) async {
-          await File(output).writeAsBytes([...await File(video).readAsBytes(), ...await File(audio).readAsBytes()]);
-          return true;
-        },
-      );
+  DownloadsProvider makeProvider(_Source source, {FreeSpaceResolver? freeSpace, NetworkMonitor? network}) {
+    final provider = DownloadsProvider(
+      source: source,
+      downloadsDirectoryResolver: () async => downloads,
+      freeSpace: freeSpace,
+      network: network,
+      merge: (video, audio, output) async {
+        await File(output).writeAsBytes([...await File(video).readAsBytes(), ...await File(audio).readAsBytes()]);
+        return true;
+      },
+    );
+    created.add(provider);
+    return provider;
+  }
 
   Future<DownloadEntry> start(DownloadsProvider provider, {DownloadOption option = _muxed, String title = 'Video'}) =>
       provider.start(videoId: 'abcdefghijk', title: title, channelName: 'Channel', thumbnailUrl: '', option: option);
@@ -150,7 +165,7 @@ void main() {
       await _waitFor(() => entry.status == DownloadStatus.completed);
       final newPath = (await files.moveFileTo(entry.savedPath, 'Keep'))!;
       provider.updatePath(entry.savedPath, newPath);
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await provider.flushSaves();
 
       final reloaded = makeProvider(_Source({18: List.filled(100, 1)}));
       await reloaded.load();

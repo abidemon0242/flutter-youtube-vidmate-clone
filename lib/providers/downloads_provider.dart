@@ -319,6 +319,16 @@ class DownloadsProvider extends ChangeNotifier {
   // Saves run one at a time so concurrent writes never race on the temp file.
   Future<void> _save() => _saveChain = _saveChain.then((_) => _writeState());
 
+  /// Completes once every queued save has been written (used by tests).
+  @visibleForTesting
+  Future<void> flushSaves() async {
+    Future<void> chain;
+    do {
+      chain = _saveChain;
+      await chain;
+    } while (!identical(chain, _saveChain));
+  }
+
   Future<void> _writeState() async {
     try {
       final file = await _stateFile();
