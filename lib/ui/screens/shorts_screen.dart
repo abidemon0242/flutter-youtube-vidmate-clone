@@ -72,11 +72,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
         if (videos.isEmpty) {
           return Scaffold(
             backgroundColor: Colors.black,
-            appBar: AppBar(
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
-              title: const Text('Shorts'),
-            ),
+            appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white, title: const Text('Shorts')),
             body: Center(
               child: widget.feed.isLoading
                   ? const CircularProgressIndicator()
@@ -196,10 +192,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
                                   await preferences.recordLess(video.id);
                                   break;
                                 case 'subscribe':
-                                  await preferences.toggleSubscription(
-                                    video.channelName,
-                                    channelId: video.channelId,
-                                  );
+                                  await preferences.toggleSubscription(video.channelName, channelId: video.channelId);
                                   break;
                                 case 'hide':
                                   await preferences.hideChannel(video.channelName);
@@ -239,12 +232,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
                 },
               ),
               if (widget.feed.isLoading)
-                const Positioned(
-                  top: 54,
-                  left: 0,
-                  right: 0,
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
+                const Positioned(top: 54, left: 0, right: 0, child: LinearProgressIndicator(minHeight: 2)),
               if (widget.feed.error != null)
                 Positioned(
                   bottom: 8,

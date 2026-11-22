@@ -95,11 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       final legacyFeeds = await Future.wait(
         legacyChannels.map(
-          (channel) => _feed.load(
-            category: 'All',
-            query: 'latest videos by "$channel"',
-            refresh: refresh,
-          ),
+          (channel) => _feed.load(category: 'All', query: 'latest videos by "$channel"', refresh: refresh),
         ),
       );
 

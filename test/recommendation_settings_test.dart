@@ -91,5 +91,4 @@ void main() {
     expect(settings.legacySubscriptions, ['Legacy Creator']);
     expect(settings.subscriptionsById, isEmpty);
   });
-
 }

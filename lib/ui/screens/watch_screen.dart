@@ -111,8 +111,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     }
   }
 
-  int get _effectivePreferredHeight =>
-      _settings.preferredHeight > 0 ? _settings.preferredHeight : (_onWifi ? 0 : 360);
+  int get _effectivePreferredHeight => _settings.preferredHeight > 0 ? _settings.preferredHeight : (_onWifi ? 0 : 360);
 
   Future<void> _monitorNetwork() async {
     try {
@@ -469,7 +468,9 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
               children: [
                 ListTile(
                   title: const Text('Auto (network-aware)'),
-                  subtitle: Text(_onWifi ? 'Unmetered connection: best available quality' : 'Metered connection: prefer 360p'),
+                  subtitle: Text(
+                    _onWifi ? 'Unmetered connection: best available quality' : 'Metered connection: prefer 360p',
+                  ),
                   trailing: _settings.preferredHeight == 0 ? const Icon(Icons.check_rounded) : null,
                   onTap: () async {
                     await _settings.setPreferredHeight(0);

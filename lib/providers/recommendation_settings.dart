@@ -80,9 +80,8 @@ class RecommendationSettings extends ChangeNotifier {
     return Map.unmodifiable(result);
   }
 
-  List<String> get legacySubscriptions => List.unmodifiable(
-    _subscriptions.where((record) => _subscriptionId(record) == null).map(_subscriptionName),
-  );
+  List<String> get legacySubscriptions =>
+      List.unmodifiable(_subscriptions.where((record) => _subscriptionId(record) == null).map(_subscriptionName));
   String get defaultSection => _defaultSection;
   bool get personalization => _personalization;
   List<String> selectedSubtopics(String category) => List.unmodifiable(_subtopics[category] ?? const []);
