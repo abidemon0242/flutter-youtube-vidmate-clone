@@ -630,15 +630,22 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> resume(String id) async {
     final entry = byId(id);
     if (entry == null || !entry.canResume) return;
-    if (entry.isShort) await _reserveShortSlot();
+    var reservationHeld = false;
     try {
+      if (entry.isShort) {
+        await _reserveShortSlot();
+        reservationHeld = true;
+      }
       entry
         ..status = DownloadStatus.queued
         ..error = null;
       _changed();
       _pump();
+    } on DownloadException catch (error) {
+      entry.error = error.message;
+      _changed();
     } finally {
-      if (entry.isShort) _releaseShortReservation();
+      if (reservationHeld) _releaseShortReservation();
     }
   }
 
