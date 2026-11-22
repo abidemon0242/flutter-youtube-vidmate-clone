@@ -16,22 +16,25 @@ class FFmpegMergeService {
   final _logger = Logger();
 
   static final Map<String, int> _activeSessions = {};
+  static final Set<String> _startingPaths = {};
   static final Set<String> _cancelRequested = {};
 
   /// Cancels the FFmpeg job writing [outputPath]. A pending cancellation is
   /// remembered in case the FFmpeg session is still being created.
   static Future<void> cancelForOutput(String outputPath) async {
     final path = File(outputPath).absolute.path;
-    _cancelRequested.add(path);
     final sessionId = _activeSessions[path];
     if (sessionId != null) {
       await FFmpegKit.cancel(sessionId);
+    } else if (_startingPaths.contains(path)) {
+      _cancelRequested.add(path);
     }
   }
 
   Future<bool> _execute(List<String> args, String outputPath) async {
     final path = File(outputPath).absolute.path;
     final completed = Completer<dynamic>();
+    _startingPaths.add(path);
     try {
       final session = await FFmpegKit.executeWithArgumentsAsync(
         args,
@@ -40,6 +43,7 @@ class FFmpegMergeService {
         },
       );
       final sessionId = session.getSessionId();
+      _startingPaths.remove(path);
       _activeSessions[path] = sessionId;
       if (_cancelRequested.remove(path)) {
         await FFmpegKit.cancel(sessionId);
@@ -48,6 +52,7 @@ class FFmpegMergeService {
       final code = await finishedSession.getReturnCode();
       return ReturnCode.isSuccess(code);
     } finally {
+      _startingPaths.remove(path);
       _activeSessions.remove(path);
       _cancelRequested.remove(path);
     }
