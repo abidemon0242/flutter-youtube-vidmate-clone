@@ -496,8 +496,10 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> cancel(String id) async {
     final entry = byId(id);
     if (entry == null) return;
+    final wasMerging = entry.status == DownloadStatus.merging;
     await _stop(entry, DownloadStatus.canceled);
     await _deleteParts(entry);
+    if (wasMerging) await _deleteManaged(entry.savedPath);
     entry.receivedBytes = 0;
     _changed();
   }
