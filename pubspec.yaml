@@ -20,7 +20,7 @@ dependencies:
   audio_service: ^0.18.19
   path_provider: ^2.1.5
   permission_handler: ^13.0.2
-  ffmpeg_kit_flutter_new_min: ^4.0.0
+  ffmpeg_kit_flutter_new_full: ^4.0.0
   youtube_explode_dart: ^3.1.0
   logger: ^2.5.0
   shared_preferences: ^2.5.6
