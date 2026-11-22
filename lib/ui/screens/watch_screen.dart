@@ -40,6 +40,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   bool saved = false;
   bool liked = false;
   double _playbackSpeed = 1.0;
+  double _speedBeforeHold = 1.0;
+  bool _holdingFor2x = false;
   Duration last = Duration.zero;
   int watched = 0;
   int _lastUiSecond = -1;
@@ -186,6 +188,67 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     if (mounted) setState(() => _playbackSpeed = speed);
   }
 
+  Future<void> _startHold2x() async {
+    if (!controller.value.isInitialized || _holdingFor2x) return;
+    _speedBeforeHold = _playbackSpeed;
+    try {
+      await controller.setPlaybackSpeed(2.0);
+      if (mounted) setState(() => _holdingFor2x = true);
+    } catch (error) {
+      debugPrint('Temporary 2x playback failed: $error');
+    }
+  }
+
+  Future<void> _endHold2x() async {
+    if (!_holdingFor2x) return;
+    final restoreSpeed = _speedBeforeHold;
+    try {
+      await controller.setPlaybackSpeed(restoreSpeed);
+    } catch (error) {
+      debugPrint('Could not restore playback speed: $error');
+    }
+    if (mounted) setState(() => _holdingFor2x = false);
+  }
+
+  Widget _buildPlayPauseControl({bool fullscreen = false}) {
+    return GestureDetector(
+      onTap: () async {
+        if (controller.value.isPlaying) {
+          await controller.pause();
+        } else {
+          await controller.play();
+        }
+        if (mounted) setState(() => playing = controller.value.isPlaying);
+      },
+      onLongPressStart: (_) => _startHold2x(),
+      onLongPressEnd: (_) => _endHold2x(),
+      onLongPressCancel: _endHold2x,
+      child: Container(
+        width: fullscreen ? 64 : 56,
+        height: fullscreen ? 64 : 56,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: _holdingFor2x
+            ? const Text(
+                '2×',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 21,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            : Icon(
+                playing ? Icons.pause : Icons.play_arrow,
+                color: Colors.black,
+                size: 32,
+              ),
+      ),
+    );
+  }
+
   Widget _playbackSpeedMenu({bool compact = false}) {
     const speeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
     return PopupMenuButton<double>(
@@ -315,25 +378,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                     ],
                   ),
                 ),
-                Center(
-                  child: IconButton.filled(
-                    onPressed: () async {
-                      if (controller.value.isPlaying) {
-                        await controller.pause();
-                      } else {
-                        await controller.play();
-                      }
-                      if (mounted) {
-                        setState(() => playing = controller.value.isPlaying);
-                      }
-                    },
-                    icon: Icon(
-                      controller.value.isPlaying
-                          ? Icons.pause
-                          : Icons.play_arrow,
-                    ),
-                  ),
-                ),
+                Center(child: _buildPlayPauseControl(fullscreen: true)),
               ],
             ),
           ),
@@ -644,19 +689,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                       onPressed: () => _seekBy(-10),
                       icon: const Icon(Icons.replay_10, color: Colors.white),
                     ),
-                    IconButton.filled(
-                      onPressed: () async {
-                        if (controller.value.isPlaying) {
-                          await controller.pause();
-                        } else {
-                          await controller.play();
-                        }
-                        if (mounted) {
-                          setState(() => playing = controller.value.isPlaying);
-                        }
-                      },
-                      icon: Icon(playing ? Icons.pause : Icons.play_arrow),
-                    ),
+                    _buildPlayPauseControl(),
                     IconButton(
                       tooltip: 'Forward 10 seconds',
                       onPressed: () => _seekBy(10),
