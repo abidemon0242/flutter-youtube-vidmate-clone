@@ -146,7 +146,7 @@ class SettingsScreen extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             title: Text('Adaptive buffering and offline cache'),
             subtitle: Text(
-              'Advanced persistent offline caching is not enabled until source permissions and storage management are implemented.',
+              'Automatic background caching is separate from explicit downloads. Shorts you download are stored locally for offline playback.',
             ),
           ),
         ],
