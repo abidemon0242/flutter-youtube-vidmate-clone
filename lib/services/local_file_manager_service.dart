@@ -124,7 +124,7 @@ class LocalFileManagerService {
     try {
       await initialize();
       final safeName = _validatedFolderName(folderName);
-      if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
+      if (safeName == null || isProtectedFolder(safeName)) return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
       if (folder.existsSync() && await _isManagedDirectory(folder)) {
         await folder.delete(recursive: true);
