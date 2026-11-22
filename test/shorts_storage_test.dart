@@ -21,8 +21,8 @@ const _video = DownloadOption(
   kind: DownloadKind.video,
   label: '360p',
   container: 'mp4',
-  videoTag: 18,
-  audioTag: null,
+  videoTag: 137,
+  audioTag: 140,
   sizeBytes: 4,
 );
 
@@ -56,6 +56,12 @@ void main() {
     provider = DownloadsProvider(
       source: _ShortSource(),
       downloadsDirectoryResolver: () async => downloadsDirectory,
+      merge: (video, audio, output) async {
+        final videoBytes = await File(video).readAsBytes();
+        final audioBytes = await File(audio).readAsBytes();
+        await File(output).writeAsBytes([...videoBytes, ...audioBytes]);
+        return true;
+      },
     );
     await provider.load();
   });
