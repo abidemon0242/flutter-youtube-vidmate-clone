@@ -21,7 +21,7 @@ String formatBytes(int bytes) {
 }
 
 /// Lets the user pick a quality for [video] and queues the download.
-Future<void> showDownloadOptionsSheet(BuildContext context, VideoModel video) async {
+Future<void> showDownloadOptionsSheet(BuildContext context, VideoModel video, {bool isShort = false}) async {
   if (!video.isYoutube) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Sample videos cannot be downloaded. Open a YouTube video or paste a link.')),
@@ -48,10 +48,16 @@ Future<void> showDownloadOptionsSheet(BuildContext context, VideoModel video) as
     if (outputOption == null || !context.mounted) return;
     option = outputOption;
   }
-  await startDownload(context, video, option);
+  await startDownload(context, video, option, isShort: isShort);
 }
 
-Future<void> startDownload(BuildContext context, VideoModel video, DownloadOption option, {bool notify = true}) async {
+Future<void> startDownload(
+  BuildContext context,
+  VideoModel video,
+  DownloadOption option, {
+  bool notify = true,
+  bool isShort = false,
+}) async {
   final downloads = context.read<DownloadsProvider>();
   final messenger = ScaffoldMessenger.of(context);
   final router = GoRouter.of(context);
@@ -63,6 +69,7 @@ Future<void> startDownload(BuildContext context, VideoModel video, DownloadOptio
       channelName: video.channelName,
       thumbnailUrl: video.thumbnailUrl,
       option: option,
+      isShort: isShort,
     );
   } on DownloadException catch (error) {
     if (notify) messenger.showSnackBar(SnackBar(content: Text(error.message)));
