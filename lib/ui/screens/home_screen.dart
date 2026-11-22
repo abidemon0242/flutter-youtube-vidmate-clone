@@ -4,10 +4,12 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/paged_feed.dart';
 import '../../data/repositories/feed_repository.dart';
 import '../../models/video_model.dart';
 import '../../providers/downloads_provider.dart';
 import '../../services/batch_download.dart';
+import '../../services/home_library_service.dart';
 import '../../services/youtube_extraction_service.dart';
 import '../widgets/download_options_sheet.dart';
 import '../widgets/theme_mode_button.dart';
@@ -24,6 +26,10 @@ class _HomeScreenState extends State<HomeScreen> {
   late final FeedRepository _feed = context.read<FeedRepository>();
   int _category = 0;
   String _query = '';
+  String _section = 'Personal';
+  String _durationFilter = 'Any length';
+  String _sort = 'Recommended';
+  final HomeLibraryService _homeLibrary = HomeLibraryService();
   late Future<FeedResult> _future = _load();
   final Map<String, VideoModel> _selected = {};
   bool _batchRunning = false;
@@ -32,8 +38,66 @@ class _HomeScreenState extends State<HomeScreen> {
   bool get _selecting => _selected.isNotEmpty;
   String get _categoryName => FeedRepository.categories[_category];
 
-  Future<FeedResult> _load({bool refresh = false}) =>
-      _feed.load(category: _categoryName, query: _query, refresh: refresh);
+  Future<FeedResult> _load({bool refresh = false}) async {
+    if (_section == 'Watch Later') {
+      return FeedResult(feed: PagedFeed.fixed(await _homeLibrary.watchLater()));
+    }
+    if (_section == 'History') {
+      return FeedResult(feed: PagedFeed.fixed(await _homeLibrary.history()));
+    }
+    final history = _section == 'Personal' ? await _homeLibrary.history() : const <VideoModel>[];
+    final personalQuery = history.isEmpty
+        ? 'recommended technology and entertainment videos'
+        : '${history.first.category} videos and related topics';
+    final sectionQuery = switch (_section) {
+      'Trending' => 'popular videos this week',
+      'Shorts' => 'YouTube Shorts under 3 minutes',
+      'Personal' => personalQuery,
+      _ => '',
+    };
+    final query = _query.isNotEmpty ? _query : sectionQuery;
+    return _feed.load(category: _categoryName, query: query, refresh: refresh);
+  }
+
+  void _setSection(String section) {
+    if (_section == section) return;
+    setState(() {
+      _section = section;
+      _category = 0;
+      _query = '';
+      _durationFilter = 'Any length';
+      _sort = 'Recommended';
+      _future = _load();
+    });
+  }
+
+  List<VideoModel> _visibleVideos(List<VideoModel> source) {
+    var videos = source.where((video) {
+      if (_category > 0 && video.category != _categoryName) return false;
+      final seconds = _durationSeconds(video.duration);
+      if (_section == 'Shorts' && (seconds == null || seconds > 180)) return false;
+      return switch (_durationFilter) {
+        'Under 5 min' => seconds != null && seconds < 300,
+        '5–20 min' => seconds != null && seconds >= 300 && seconds <= 1200,
+        'Over 20 min' => seconds != null && seconds > 1200,
+        _ => true,
+      };
+    }).toList();
+    if (_sort == 'Shortest first') {
+      videos.sort((a, b) => (_durationSeconds(a.duration) ?? 1 << 30)
+          .compareTo(_durationSeconds(b.duration) ?? 1 << 30));
+    } else if (_sort == 'Longest first') {
+      videos.sort((a, b) => (_durationSeconds(b.duration) ?? -1)
+          .compareTo(_durationSeconds(a.duration) ?? -1));
+    }
+    return videos;
+  }
+
+  int? _durationSeconds(String value) {
+    final parts = value.split(':');
+    if (parts.isEmpty || parts.any((part) => int.tryParse(part) == null)) return null;
+    return parts.map(int.parse).reduce((total, part) => total * 60 + part);
+  }
 
   void _reload({bool refresh = false}) => setState(() => _future = _load(refresh: refresh));
 
@@ -171,21 +235,74 @@ class _HomeScreenState extends State<HomeScreen> {
         body: Column(
           children: [
             SizedBox(
-              height: 54,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              height: 52,
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                 scrollDirection: Axis.horizontal,
-                itemCount: FeedRepository.categories.length,
-                itemBuilder: (context, index) => ChoiceChip(
-                  label: Text(FeedRepository.categories[index]),
-                  selected: index == _category,
-                  onSelected: (_) {
-                    if (index == _category) return;
-                    _category = index;
-                    _reload();
-                  },
-                ),
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                children: [
+                  for (final section in ['Personal', 'Trending', 'Watch Later', 'Shorts', 'History'])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        avatar: Icon(switch (section) {
+                          'Personal' => Icons.auto_awesome_rounded,
+                          'Trending' => Icons.trending_up_rounded,
+                          'Watch Later' => Icons.bookmark_rounded,
+                          'Shorts' => Icons.play_circle_outline_rounded,
+                          _ => Icons.history_rounded,
+                        }, size: 17),
+                        label: Text(section),
+                        selected: _section == section,
+                        onSelected: (_) => _setSection(section),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 52,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: FeedRepository.categories.length,
+                      itemBuilder: (context, index) => ChoiceChip(
+                        label: Text(FeedRepository.categories[index]),
+                        selected: index == _category,
+                        onSelected: (_) {
+                          if (index == _category) return;
+                          setState(() {
+                            _category = index;
+                            _future = _load();
+                          });
+                        },
+                      ),
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                    ),
+                  ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Filter by duration',
+                    initialValue: _durationFilter,
+                    onSelected: (value) => setState(() => _durationFilter = value),
+                    itemBuilder: (context) => [
+                      for (final value in ['Any length', 'Under 5 min', '5–20 min', 'Over 20 min'])
+                        PopupMenuItem(value: value, child: Text(value)),
+                    ],
+                    icon: const Icon(Icons.filter_list_rounded),
+                  ),
+                  PopupMenuButton<String>(
+                    tooltip: 'Sort videos',
+                    initialValue: _sort,
+                    onSelected: (value) => setState(() => _sort = value),
+                    itemBuilder: (context) => [
+                      for (final value in ['Recommended', 'Shortest first', 'Longest first'])
+                        PopupMenuItem(value: value, child: Text(value)),
+                    ],
+                    icon: const Icon(Icons.sort_rounded),
+                  ),
+                ],
               ),
             ),
             if (_query.isNotEmpty)
@@ -216,13 +333,39 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ListenableBuilder(
                       listenable: result.feed,
                       builder: (context, _) {
-                        final videos = result.feed.items;
+                        final videos = _visibleVideos(result.feed.items);
                         return ListView.builder(
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
                           itemCount: videos.length + 2,
                           itemBuilder: (context, index) {
-                            if (index == 0) return _statusBanner(result);
+                            if (index == 0) {
+                              if (_section == 'Trending') {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    'Popular discovery from YouTube search — not an official Trending chart.',
+                                    style: TextStyle(color: context.textSecondary, fontSize: 12),
+                                  ),
+                                );
+                              }
+                              if (_section == 'Personal') {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    'Suggestions shaped by your local watch history. No account or API key required.',
+                                    style: TextStyle(color: context.textSecondary, fontSize: 12),
+                                  ),
+                                );
+                              }
+                              if (videos.isEmpty && result.feed.items.isNotEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 28),
+                                  child: Center(child: Text('No videos match these filters')),
+                                );
+                              }
+                              return _statusBanner(result);
+                            }
                             if (index == videos.length + 1) return _footer(result);
                             final video = videos[index - 1];
                             return VideoCard(
@@ -297,6 +440,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _statusBanner(FeedResult result) {
+    if (_section == 'Watch Later' || _section == 'History') {
+      return Padding(
+        padding: const EdgeInsets.only(top: 72),
+        child: Center(
+          child: Text(
+            _section == 'Watch Later' ? 'Your saved videos will appear here.' : 'Videos you watch will appear here.',
+            style: TextStyle(color: context.textSecondary),
+          ),
+        ),
+      );
+    }
     if (result.isSample) {
       return Card(
         margin: const EdgeInsets.only(bottom: 12),
