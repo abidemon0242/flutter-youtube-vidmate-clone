@@ -32,6 +32,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   final List<String> _youtubeVideoHistory = <String>[];
   String? _lastYoutubeVideoId;
   bool _restoringYoutubeHistory = false;
+  String? _restoringYoutubeTargetId;
   List<VideoTrack> _videoTracks = const [];
   bool _videoTrackSelectionSupported = false;
   late final PersonalizationService profile;
@@ -105,28 +106,45 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   }
 
   void _recordYoutubeVideoChange(String videoId) {
-    if (videoId.isEmpty || _restoringYoutubeHistory) return;
+    if (videoId.isEmpty) return;
+    if (_restoringYoutubeHistory) {
+      if (videoId == _restoringYoutubeTargetId) {
+        _lastYoutubeVideoId = videoId;
+        _restoringYoutubeTargetId = null;
+        _restoringYoutubeHistory = false;
+      }
+      return;
+    }
+
     final previousId = _lastYoutubeVideoId;
     if (previousId != null && previousId.isNotEmpty && previousId != videoId) {
       _youtubeVideoHistory.add(previousId);
     }
-    _lastYoutubeVideoId = videoId;
+    if (_lastYoutubeVideoId != videoId) {
+      _lastYoutubeVideoId = videoId;
+      if (mounted) setState(() {});
+    }
   }
 
   Future<bool> _restorePreviousYoutubeVideo() async {
     final youtube = youtubeController;
-    if (youtube == null || _youtubeVideoHistory.isEmpty) return false;
+    if (youtube == null || _youtubeVideoHistory.isEmpty ||
+        _restoringYoutubeHistory) {
+      return false;
+    }
     final previousId = _youtubeVideoHistory.removeLast();
     _restoringYoutubeHistory = true;
-    _lastYoutubeVideoId = previousId;
+    _restoringYoutubeTargetId = previousId;
+    if (mounted) setState(() {});
     try {
       await youtube.loadVideoById(videoId: previousId);
       return true;
     } catch (error) {
+      _restoringYoutubeHistory = false;
+      _restoringYoutubeTargetId = null;
+      if (mounted) setState(() {});
       debugPrint('Could not restore the previous YouTube video: $error');
       return false;
-    } finally {
-      _restoringYoutubeHistory = false;
     }
   }
 
