@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:ffmpeg_kit_flutter_new_full/ffmpeg_kit.dart';
@@ -30,14 +31,21 @@ class FFmpegMergeService {
 
   Future<bool> _execute(List<String> args, String outputPath) async {
     final path = File(outputPath).absolute.path;
+    final completed = Completer<dynamic>();
     try {
-      final session = await FFmpegKit.executeWithArgumentsAsync(args);
+      final session = await FFmpegKit.executeWithArgumentsAsync(
+        args,
+        (finishedSession) {
+          if (!completed.isCompleted) completed.complete(finishedSession);
+        },
+      );
       final sessionId = session.getSessionId();
       _activeSessions[path] = sessionId;
       if (_cancelRequested.remove(path)) {
         await FFmpegKit.cancel(sessionId);
       }
-      final code = await session.getReturnCode();
+      final finishedSession = await completed.future;
+      final code = await finishedSession.getReturnCode();
       return ReturnCode.isSuccess(code);
     } finally {
       _activeSessions.remove(path);
