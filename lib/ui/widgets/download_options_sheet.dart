@@ -169,7 +169,7 @@ class _AudioOutputPicker extends StatefulWidget {
 }
 
 class _AudioOutputPickerState extends State<_AudioOutputPicker> {
-  static const _formats = ['MP3', 'M4A', 'AAC', 'OPUS', 'FLAC', 'WAV'];
+  static const _formats = ['Original', 'MP3', 'M4A', 'AAC', 'OPUS', 'FLAC', 'WAV'];
   static const _bitrates = ['64 kbps', '96 kbps', '128 kbps', '192 kbps', '256 kbps', '320 kbps', 'Best available'];
 
   String _format = 'MP3';
@@ -177,6 +177,7 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
 
   String get _estimatedOutputSize {
     final source = widget.sourceOption;
+    if (_format == 'Original') return 'Keeps the original source audio without re-encoding.';
     if (source.sizeBytes <= 0) return 'Output size estimate unavailable.';
     if (_format == 'FLAC' || _format == 'WAV') {
       return 'Lossless output size varies and may be much larger than the source.';
@@ -193,8 +194,11 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final original = _format == 'Original';
     final lossless = _format == 'FLAC' || _format == 'WAV';
     final source = widget.sourceOption;
+    final unknownBestBitrate = !original && !lossless && _bitrate == 'Best available' &&
+        (source.audioSourceBitrateKbps == null || source.audioSourceBitrateKbps! <= 0);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -220,13 +224,13 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             const Text('Quality'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              key: ValueKey(lossless ? 'audio-quality-lossless' : 'audio-quality-lossy'),
-              initialValue: lossless ? 'Lossless' : _bitrate,
+              key: ValueKey(original ? 'audio-quality-original' : lossless ? 'audio-quality-lossless' : 'audio-quality-lossy'),
+              initialValue: original ? 'Original source' : lossless ? 'Lossless' : _bitrate,
               isExpanded: true,
-              items: (lossless ? const ['Lossless'] : _bitrates)
+              items: (original ? const ['Original source'] : lossless ? const ['Lossless'] : _bitrates)
                   .map((quality) => DropdownMenuItem(value: quality, child: Text(quality)))
                   .toList(),
-              onChanged: lossless
+              onChanged: original || lossless
                   ? null
                   : (value) {
                       if (value != null) setState(() => _bitrate = value);
@@ -234,7 +238,9 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             ),
             const SizedBox(height: 8),
             Text(
-              lossless
+              original
+                  ? 'Keeps the downloaded source stream unchanged. No conversion or quality loss is introduced.'
+                  : lossless
                   ? 'FLAC and WAV are lossless. A bitrate setting does not apply.'
                   : source.audioSourceBitrateKbps == null || source.audioSourceBitrateKbps! <= 0
                   ? 'The source bitrate is unknown. Best available cannot be matched reliably; choose a fixed bitrate. Increasing bitrate cannot restore missing detail.'
@@ -248,17 +254,17 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () => Navigator.pop(
+                onPressed: unknownBestBitrate ? null : () => Navigator.pop(
                   context,
                   DownloadOption(
                     kind: DownloadKind.audio,
-                    label: '$_format · ${lossless ? 'Lossless' : _bitrate}',
-                    container: _format.toLowerCase(),
+                    label: original ? 'Original · Keep source' : '$_format · ${lossless ? 'Lossless' : _bitrate}',
+                    container: original ? source.container : _format.toLowerCase(),
                     videoTag: null,
                     audioTag: source.audioTag,
                     sizeBytes: source.sizeBytes,
                     detail: 'Source: ${source.label} · ${source.detail}',
-                    audioOutputBitrate: lossless ? 'Lossless' : _bitrate,
+                    audioOutputBitrate: original ? null : lossless ? 'Lossless' : _bitrate,
                     audioSourceBitrateKbps: source.audioSourceBitrateKbps,
                   ),
                 ),
