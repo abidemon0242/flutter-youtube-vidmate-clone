@@ -107,6 +107,8 @@ void main() {
     expect(regular.savedPath, contains('/Videos/'));
     expect(audio.savedPath, contains('/Audio/'));
     expect(short.savedPath, contains('/Shorts/'));
+    expect(regular.audioPartPath, contains('/Audio/.'));
+    expect(short.audioPartPath, contains('/Audio/.'));
 
     await _waitFor(() => [regular, audio, short].every((entry) => entry.status == DownloadStatus.completed));
   });
