@@ -40,12 +40,9 @@ class FFmpegMergeService {
     final completed = Completer<dynamic>();
     _startingPaths.add(path);
     try {
-      final session = await FFmpegKit.executeWithArgumentsAsync(
-        args,
-        (finishedSession) {
-          if (!completed.isCompleted) completed.complete(finishedSession);
-        },
-      );
+      final session = await FFmpegKit.executeWithArgumentsAsync(args, (finishedSession) {
+        if (!completed.isCompleted) completed.complete(finishedSession);
+      });
       final sessionId = session.getSessionId();
       if (sessionId == null) {
         throw StateError('FFmpeg did not return a session ID.');
