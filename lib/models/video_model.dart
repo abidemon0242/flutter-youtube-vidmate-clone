@@ -16,6 +16,7 @@ class VideoModel {
     this.category = 'Tech',
     this.published = '',
     this.youtubeId,
+    this.channelId,
     this.playbackUrl,
     this.localPath,
   });
@@ -38,6 +39,9 @@ class VideoModel {
   /// 11-character YouTube video ID, when this item comes from YouTube.
   final String? youtubeId;
 
+  /// Stable YouTube channel ID, when provided by the source.
+  final String? channelId;
+
   /// Direct playback URL for sample (non-YouTube) items.
   final String? playbackUrl;
 
@@ -56,6 +60,7 @@ class VideoModel {
     'category': category,
     'published': published,
     'youtubeId': youtubeId,
+    'channelId': channelId,
     'playbackUrl': playbackUrl,
     'localPath': localPath,
   };
@@ -72,6 +77,7 @@ class VideoModel {
     category: json['category'] as String? ?? 'Tech',
     published: json['published'] as String? ?? '',
     youtubeId: json['youtubeId'] as String?,
+    channelId: json['channelId'] as String?,
     playbackUrl: json['playbackUrl'] as String?,
     localPath: json['localPath'] as String?,
   );
