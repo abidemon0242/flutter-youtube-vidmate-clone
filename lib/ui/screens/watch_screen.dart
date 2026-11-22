@@ -23,9 +23,11 @@ import '../widgets/download_options_sheet.dart';
 import '../widgets/video_description.dart';
 
 class WatchScreen extends StatefulWidget {
-  const WatchScreen({super.key, required this.video});
+  const WatchScreen({super.key, required this.video, this.immersive = false, this.autoplay = true});
 
   final VideoModel video;
+  final bool immersive;
+  final bool autoplay;
 
   @override
   State<WatchScreen> createState() => _WatchScreenState();
@@ -77,6 +79,21 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     if (widget.video.isYoutube && !widget.video.isLocal && id != null) {
       _details = _youtube.details(id);
       _loadRelated();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant WatchScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.autoplay != widget.autoplay) {
+      final controller = _controller;
+      if (controller != null && controller.value.isInitialized) {
+        if (widget.autoplay) {
+          unawaited(controller.play());
+        } else {
+          unawaited(controller.pause());
+        }
+      }
     }
   }
 
@@ -183,8 +200,12 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         _quality = quality;
       });
       unawaited(_attachMediaSession(controller));
-      await controller.play();
-      _scheduleHide();
+      if (widget.autoplay) {
+        await controller.play();
+        _scheduleHide();
+      } else {
+        await controller.pause();
+      }
       if (video.isYoutube && !_hdChecked) unawaited(_findHdQualities(video.youtubeId!));
     } on YoutubeServiceException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -472,6 +493,12 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final player = _player();
+    if (widget.immersive && !_fullscreen) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: player),
+      );
+    }
     if (_fullscreen) {
       return PopScope(
         canPop: false,
