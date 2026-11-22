@@ -25,7 +25,11 @@ class FFmpegMergeService {
     final path = File(outputPath).absolute.path;
     final sessionId = _activeSessions[path];
     if (sessionId != null) {
-      await FFmpegKit.cancel(sessionId);
+      try {
+        await FFmpegKit.cancel(sessionId);
+      } catch (error) {
+        Logger().w('Could not request FFmpeg cancellation: $error');
+      }
     } else if (_startingPaths.contains(path)) {
       _cancelRequested.add(path);
     }
@@ -46,7 +50,11 @@ class FFmpegMergeService {
       _startingPaths.remove(path);
       _activeSessions[path] = sessionId;
       if (_cancelRequested.remove(path)) {
-        await FFmpegKit.cancel(sessionId);
+        try {
+          await FFmpegKit.cancel(sessionId);
+        } catch (error) {
+          _logger.w('Could not request FFmpeg cancellation: $error');
+        }
       }
       final finishedSession = await completed.future;
       final code = await finishedSession.getReturnCode();
