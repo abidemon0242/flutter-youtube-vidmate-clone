@@ -504,13 +504,19 @@ class DownloadsProvider extends ChangeNotifier {
 
   Future<void> _stop(DownloadEntry entry, DownloadStatus status) async {
     if (_running.contains(entry.id)) {
+      final wasMerging = entry.status == DownloadStatus.merging;
       _stopRequested.add(entry.id);
-      // Never await cancel(): on a stalled connection it may not return.
       unawaited(_subscriptions.remove(entry.id)?.cancel());
       entry.status = status;
       _changed();
-      // Wait for the worker to close its file before the caller touches it.
-      await _finished[entry.id]?.future.timeout(const Duration(seconds: 5), onTimeout: () {});
+      if (wasMerging) {
+        // FFmpeg must exit before its input or output files are touched.
+        await FFmpegMergeService.cancelForOutput(entry.savedPath);
+        await _finished[entry.id]?.future;
+      } else {
+        // A network stream may be stalled; the worker also polls the stop flag.
+        await _finished[entry.id]?.future.timeout(const Duration(seconds: 5), onTimeout: () {});
+      }
     }
     entry.status = status;
     _changed();
@@ -590,6 +596,7 @@ class DownloadsProvider extends ChangeNotifier {
           bitrate: option.audioOutputBitrate!,
           sourceBitrateKbps: option.audioSourceBitrateKbps,
         );
+        if (_stopRequested.contains(entry.id)) throw _Cancelled();
         if (!ok) {
           throw DownloadException(
             'Could not convert audio to ${option.container.toUpperCase()}. '
@@ -607,6 +614,7 @@ class DownloadsProvider extends ChangeNotifier {
         entry.status = DownloadStatus.merging;
         _changed();
         final ok = await _merge(entry.videoPartPath, entry.audioPartPath, entry.savedPath);
+        if (_stopRequested.contains(entry.id)) throw _Cancelled();
         if (!ok) throw Exception('Could not combine video and audio.');
         await _deleteParts(entry);
       } else {
@@ -614,6 +622,7 @@ class DownloadsProvider extends ChangeNotifier {
         if (await out.exists()) await out.delete();
         await File(entry.singlePartPath).rename(entry.savedPath);
       }
+      if (_stopRequested.contains(entry.id)) throw _Cancelled();
       entry
         ..status = DownloadStatus.completed
         ..receivedBytes = entry.totalBytes;
