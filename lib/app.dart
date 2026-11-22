@@ -12,6 +12,7 @@ import 'ui/screens/library_screen.dart';
 import 'ui/screens/watch_screen.dart';
 import 'ui/screens/settings_screen.dart';
 import 'ui/screens/shorts_screen.dart';
+import 'ui/screens/downloaded_shorts_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -47,6 +48,11 @@ GoRouter buildRouter() => GoRouter(
       ],
     ),
     GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+    GoRoute(
+      path: '/downloaded-shorts',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const DownloadedShortsScreen(),
+    ),
     GoRoute(
       path: '/shorts',
       parentNavigatorKey: _rootNavigatorKey,
