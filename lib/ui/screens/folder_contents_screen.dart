@@ -129,6 +129,7 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
       final exportedName = await _mediaExport.exportFile(
         sourcePath: file.path,
         destination: destination,
+        kind: kind,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
