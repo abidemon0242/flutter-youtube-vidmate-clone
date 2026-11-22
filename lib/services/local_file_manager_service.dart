@@ -190,6 +190,7 @@ class LocalFileManagerService {
       folders.sort((a, b) {
         final aName = a.name.toLowerCase();
         final bName = b.name.toLowerCase();
+        if (aName == bName) return 0;
         if (aName == 'downloads') return -1;
         if (bName == 'downloads') return 1;
         final aBuiltIn = isProtectedFolder(a.name);
