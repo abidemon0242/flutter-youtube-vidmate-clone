@@ -159,6 +159,19 @@ class YoutubeExtractionService {
     },
   );
 
+  /// Uploads from one exact YouTube channel ID (no search-query guessing).
+  /// A bounded first page keeps the Subscriptions screen responsive.
+  Future<List<VideoModel>> channelUploads(String channelId, {int limit = 30}) async {
+    if (channelId.trim().isEmpty) return const [];
+    try {
+      final uploads = await _youtube.channels.getUploads(channelId).take(limit).toList();
+      return uploads.map((video) => _toModel(video, 'Subscriptions')).toList();
+    } on Exception catch (error) {
+      _logger.w('Channel uploads failed for $channelId: $error');
+      throw YoutubeServiceException(_friendly(error));
+    }
+  }
+
   // ----------------------------------------------------- details / related
 
   Future<Video> _fullVideo(String videoId) async {
@@ -221,6 +234,7 @@ class YoutubeExtractionService {
   VideoModel _toModel(Video video, String category) => VideoModel(
     id: video.id.value,
     youtubeId: video.id.value,
+    channelId: video.channelId.value,
     title: video.title,
     channelName: video.author,
     views: _formatViews(video.engagement.viewCount),
