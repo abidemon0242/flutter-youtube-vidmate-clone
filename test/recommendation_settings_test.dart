@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/providers/recommendation_settings.dart';
 
 void main() {
@@ -61,6 +62,55 @@ void main() {
     await settings.recordMore('video-1');
     expect(settings.prefersMore('video-1'), isTrue);
     expect(settings.prefersLess('video-1'), isFalse);
+  });
+
+  test('more and less feedback rank related videos by topic and channel', () async {
+    var settings = await RecommendationSettings.load();
+    await settings.recordMoreFor(
+      const VideoModel(
+        id: 'reference',
+        title: 'Python machine learning tutorial',
+        channelName: 'AI Academy',
+        channelId: 'UC_AI',
+        category: 'Technology',
+      ),
+    );
+
+    const related = VideoModel(
+      id: 'related',
+      title: 'Machine learning basics with Python',
+      channelName: 'Another Creator',
+      channelId: 'UC_OTHER',
+      category: 'Technology',
+    );
+    const unrelated = VideoModel(
+      id: 'unrelated',
+      title: 'Gardening for beginners',
+      channelName: 'Garden Channel',
+      category: 'Nature',
+    );
+    expect(settings.feedbackScore(related), greaterThan(settings.feedbackScore(unrelated)));
+
+    await settings.recordLessFor(
+      const VideoModel(
+        id: 'avoid',
+        title: 'Celebrity gossip news',
+        channelName: 'Gossip Daily',
+        category: 'Entertainment',
+      ),
+    );
+    const similarGossip = VideoModel(
+      id: 'similar-gossip',
+      title: 'Latest celebrity gossip',
+      channelName: 'Gossip Daily',
+      category: 'Entertainment',
+    );
+    expect(settings.feedbackScore(similarGossip), lessThan(settings.feedbackScore(unrelated)));
+
+    settings = await RecommendationSettings.load();
+    expect(settings.feedbackScore(related), greaterThan(settings.feedbackScore(unrelated)));
+    await settings.resetPersonalization();
+    expect(settings.feedbackScore(related), 0);
   });
 
   test('personalization off ignores selected subtopics', () async {
