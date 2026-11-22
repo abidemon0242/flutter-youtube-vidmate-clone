@@ -226,7 +226,6 @@ class DownloadsProvider extends ChangeNotifier {
   bool? _onWifi;
   int? _shortsLimit = defaultShortsLimit;
   Future<void> _shortsRotation = Future<void>.value();
-  int _pendingShortReservations = 0;
 
   final List<DownloadEntry> _items = [];
   final Set<String> _selectedIds = {};
@@ -431,8 +430,6 @@ class DownloadsProvider extends ChangeNotifier {
       if (existing.canResume) await resume(existing.id);
       return existing;
     }
-    var reservationHeld = false;
-    try {
     final downloadsDirectory = await _downloadsDirectoryResolver();
     final root = downloadsDirectory.parent;
     final directory = option.kind == DownloadKind.audio
@@ -447,10 +444,7 @@ class DownloadsProvider extends ChangeNotifier {
       needsMerge: option.needsMerge,
       estimatedOutputBytes: estimateAudioOutputBytes(option),
     );
-    if (isShort) {
-      await _reserveShortSlot();
-      reservationHeld = true;
-    }
+    if (isShort) await _ensureShortCapacity();
     // Another start() for the same item may have finished while we awaited.
     final raced = byId(id);
     if (raced != null) return raced;
@@ -468,32 +462,25 @@ class DownloadsProvider extends ChangeNotifier {
       isShort: isShort,
     );
     _items.insert(0, entry);
-    if (reservationHeld) {
-      reservationHeld = false;
-      _releaseShortReservation();
-    }
     _changed();
     _pump();
     return entry;
-    } finally {
-      if (reservationHeld) _releaseShortReservation();
+  }
+
+  Future<void> _ensureShortCapacity() async {
+    final limit = _shortsLimit;
+    if (limit == null) return;
+    final protectedCount = _items.where(
+      (entry) => entry.isShort && entry.isProtected && entry.status == DownloadStatus.completed,
+    ).length;
+    final replaceableCount = _items.where(
+      (entry) => entry.isShort && !entry.isProtected && entry.status == DownloadStatus.completed,
+    ).length;
+    if (protectedCount > limit || (protectedCount == limit && replaceableCount == 0)) {
+      throw const DownloadException(
+        'The Shorts limit is occupied by protected videos. Increase the limit or unprotect a Short before downloading more.',
+      );
     }
-  }
-
-  Future<void> _reserveShortSlot() async {
-    await _withShortsRotation(() async {
-      _pendingShortReservations++;
-      try {
-        await _makeRoomForShort();
-      } catch (_) {
-        _pendingShortReservations--;
-        rethrow;
-      }
-    });
-  }
-
-  void _releaseShortReservation() {
-    if (_pendingShortReservations > 0) _pendingShortReservations--;
   }
 
   /// Throws a [DownloadException] when the device clearly lacks room for
@@ -537,25 +524,16 @@ class DownloadsProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _makeRoomForShort() async {
+  Future<void> _trimShortsAfterCompletion() async {
     final limit = _shortsLimit;
     if (limit == null) return;
-    while (_items.where((entry) => entry.isShort && entry.status != DownloadStatus.failed && entry.status != DownloadStatus.canceled).length + _pendingShortReservations > limit) {
-      final candidates = _items.where((entry) =>
-        entry.isShort &&
-        !entry.isProtected &&
-        entry.status == DownloadStatus.completed
-      ).toList()
-        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      if (candidates.isEmpty) {
-        throw DownloadException(
-          'Shorts limit reached. Protect important Shorts carefully or increase the limit in App Settings.',
-        );
-      }
+    while (_items.where((entry) => entry.isShort && entry.status == DownloadStatus.completed).length > limit) {
+      final candidates = _items.where(
+        (entry) => entry.isShort && !entry.isProtected && entry.status == DownloadStatus.completed,
+      ).toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      if (candidates.isEmpty) return;
       final oldest = candidates.first;
-      if (await File(oldest.savedPath).exists() && !await _deleteManaged(oldest.savedPath)) {
-        throw const DownloadException('Could not safely replace the oldest Short. Check the Shorts storage folder.');
-      }
+      if (await File(oldest.savedPath).exists() && !await _deleteManaged(oldest.savedPath)) return;
       _items.remove(oldest);
       _selectedIds.remove(oldest.id);
       await _save();
@@ -630,12 +608,8 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> resume(String id) async {
     final entry = byId(id);
     if (entry == null || !entry.canResume) return;
-    var reservationHeld = false;
     try {
-      if (entry.isShort) {
-        await _reserveShortSlot();
-        reservationHeld = true;
-      }
+      if (entry.isShort) await _ensureShortCapacity();
       entry
         ..status = DownloadStatus.queued
         ..error = null;
@@ -644,8 +618,6 @@ class DownloadsProvider extends ChangeNotifier {
     } on DownloadException catch (error) {
       entry.error = error.message;
       _changed();
-    } finally {
-      if (reservationHeld) _releaseShortReservation();
     }
   }
 
@@ -800,6 +772,9 @@ class DownloadsProvider extends ChangeNotifier {
       entry
         ..status = DownloadStatus.completed
         ..receivedBytes = entry.totalBytes;
+      if (entry.isShort) {
+        await _withShortsRotation(_trimShortsAfterCompletion);
+      }
     } on _Cancelled {
       // Status was already set by pause()/cancel().
     } catch (error) {
