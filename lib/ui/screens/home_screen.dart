@@ -279,9 +279,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _openVideo(VideoModel video, {List<VideoModel>? shorts}) async {
-    if (_section == 'Shorts' && shorts != null && shorts.isNotEmpty) {
-      await context.push('/shorts', extra: shorts);
+  Future<void> _openVideo(VideoModel video, {PagedFeed? shortsFeed}) async {
+    if (_section == 'Shorts' && shortsFeed != null && shortsFeed.items.isNotEmpty) {
+      await context.push('/shorts', extra: shortsFeed);
     } else {
       await context.push('/watch', extra: video);
     }
@@ -592,7 +592,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 if (_selecting) {
                                   _toggle(video);
                                 } else {
-                                  _openVideo(video, shorts: videos);
+                                  _openVideo(video, shortsFeed: _section == 'Shorts' ? result.feed : null);
                                 }
                               },
                             );
