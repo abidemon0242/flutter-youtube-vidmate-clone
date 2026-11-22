@@ -58,7 +58,7 @@ class DownloadOption {
       '${kind.name}-${videoTag ?? 0}-${audioTag ?? 0}'
       '${transcodesAudio ? '-$container-$audioOutputBitrate' : ''}';
 
-  String get extension => '.$container';
+  String get extension => kind == DownloadKind.audio && container.toLowerCase() == 'webm' ? '.weba' : '.$container';
 
   Map<String, dynamic> toJson() => {
     'kind': kind.name,
