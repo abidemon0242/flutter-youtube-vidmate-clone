@@ -438,8 +438,8 @@ class DownloadsProvider extends ChangeNotifier {
     final directory = option.kind == DownloadKind.audio
         ? Directory('${root.path}/Audio')
         : isShort
-        ? Directory('${root.path}/Videos/Shorts')
-        : Directory('${root.path}/Videos/Regular Videos');
+        ? Directory('${root.path}/Shorts')
+        : Directory('${root.path}/Videos');
     await directory.create(recursive: true);
     await _ensureSpace(
       directory.path,
@@ -583,7 +583,7 @@ class DownloadsProvider extends ChangeNotifier {
 
   Future<void> _moveShortToProtectedFolder(DownloadEntry entry) async {
     final root = (await _downloadsDirectoryResolver()).parent;
-    final target = Directory('${root.path}/Videos/Important Shorts');
+    final target = Directory('${root.path}/Important Shorts');
     await target.create(recursive: true);
     final source = File(entry.savedPath);
     if (!await source.exists()) return;
@@ -620,11 +620,16 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> resume(String id) async {
     final entry = byId(id);
     if (entry == null || !entry.canResume) return;
-    entry
-      ..status = DownloadStatus.queued
-      ..error = null;
-    _changed();
-    _pump();
+    if (entry.isShort) await _reserveShortSlot();
+    try {
+      entry
+        ..status = DownloadStatus.queued
+        ..error = null;
+      _changed();
+      _pump();
+    } finally {
+      if (entry.isShort) _releaseShortReservation();
+    }
   }
 
   Future<void> retry(String id) => resume(id);
