@@ -108,10 +108,9 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
   }) async {
     try {
       final kind = await _mediaExport.detectKind(file.path);
-      final remembered = changeSavedDestination
-          ? null
-          : await _mediaExport.rememberedDestination(kind);
-      var destination = remembered ??
+      final storedDestination = await _mediaExport.rememberedDestination(kind);
+      final remembered = changeSavedDestination ? null : storedDestination;
+      var destination = storedDestination ??
           (kind == ExportMediaKind.audio ? 'Music' : 'Movies');
 
       if (remembered == null || changeSavedDestination) {
@@ -123,6 +122,8 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
         destination = choice.$1;
         if (choice.$2) {
           await _mediaExport.rememberDestination(kind, destination);
+        } else if (changeSavedDestination) {
+          await _mediaExport.forgetDestination(kind);
         }
       }
 
