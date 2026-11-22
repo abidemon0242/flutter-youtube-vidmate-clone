@@ -89,6 +89,14 @@ void main() {
     await restored.setShortsLimit(null);
     expect(restored.shortsLimit, isNull);
     restored.dispose();
+
+    final unlimited = DownloadsProvider(
+      source: _ShortSource(),
+      downloadsDirectoryResolver: () async => downloadsDirectory,
+    );
+    await unlimited.load();
+    expect(unlimited.shortsLimit, isNull);
+    unlimited.dispose();
   });
 
   test('video, audio, and Shorts are written to separate folders', () async {
