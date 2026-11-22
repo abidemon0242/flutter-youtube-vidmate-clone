@@ -457,7 +457,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
               children: [
                 ListTile(
                   title: const Text('Auto (network-aware)'),
-                  subtitle: Text(_onWifi ? 'Unmetered connection: best available quality' : 'Metered connection: up to 360p'),
+                  subtitle: Text(_onWifi ? 'Unmetered connection: best available quality' : 'Metered connection: prefer 360p'),
                   trailing: _settings.preferredHeight == 0 ? const Icon(Icons.check_rounded) : null,
                   onTap: () async {
                     await _settings.setPreferredHeight(0);
