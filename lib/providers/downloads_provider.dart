@@ -552,7 +552,7 @@ class DownloadsProvider extends ChangeNotifier {
         );
       }
       final oldest = candidates.first;
-      if (!await _deleteManaged(oldest.savedPath)) {
+      if (await File(oldest.savedPath).exists() && !await _deleteManaged(oldest.savedPath)) {
         throw const DownloadException('Could not safely replace the oldest Short. Check the Shorts storage folder.');
       }
       _items.remove(oldest);
