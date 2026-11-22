@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../models/video_model.dart';
 
 /// Persistent, device-local recommendation and channel preferences.
 /// Channel names are used as a fallback identity until a source provides
@@ -44,6 +48,8 @@ class RecommendationSettings extends ChangeNotifier {
   static const _subscriptionsKey = 'recommendation_subscriptions_v1';
   static const _moreKey = 'recommendation_more_feedback_v1';
   static const _lessKey = 'recommendation_less_feedback_v1';
+  static const _moreSignalsKey = 'recommendation_more_signals_v1';
+  static const _lessSignalsKey = 'recommendation_less_signals_v1';
   static const _defaultKey = 'recommendation_default_section_v1';
   static const _personalizationKey = 'recommendation_personalization_v1';
 
@@ -53,6 +59,8 @@ class RecommendationSettings extends ChangeNotifier {
   List<String> _subscriptions = [];
   List<String> _moreFeedback = [];
   List<String> _lessFeedback = [];
+  List<Map<String, String>> _moreSignals = [];
+  List<Map<String, String>> _lessSignals = [];
   final Map<String, List<String>> _subtopics = {};
   String _defaultSection = 'Recommended';
   bool _personalization = true;
@@ -94,6 +102,8 @@ class RecommendationSettings extends ChangeNotifier {
     settings._subscriptions = prefs.getStringList(_subscriptionsKey) ?? [];
     settings._moreFeedback = prefs.getStringList(_moreKey) ?? [];
     settings._lessFeedback = prefs.getStringList(_lessKey) ?? [];
+    settings._moreSignals = _decodeSignals(prefs.getStringList(_moreSignalsKey));
+    settings._lessSignals = _decodeSignals(prefs.getStringList(_lessSignalsKey));
     settings._defaultSection = prefs.getString(_defaultKey) ?? 'Recommended';
     settings._personalization = prefs.getBool(_personalizationKey) ?? true;
     final raw = prefs.getStringList(_subtopicsKey) ?? [];
@@ -176,12 +186,102 @@ class RecommendationSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  static List<Map<String, String>> _decodeSignals(List<String>? raw) {
+    if (raw == null) return [];
+    final result = <Map<String, String>>[];
+    for (final item in raw) {
+      try {
+        final decoded = Map<String, dynamic>.from(jsonDecode(item) as Map);
+        result.add(decoded.map((key, value) => MapEntry(key, value.toString())));
+      } catch (_) {
+        // Ignore malformed recommendation metadata without losing saved IDs.
+      }
+    }
+    return result;
+  }
+
+  static Map<String, String> _signalFor(VideoModel video) {
+    final keywords = video.title
+        .toLowerCase()
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((word) => word.length >= 3)
+        .toSet()
+        .take(12)
+        .join(' ');
+    return {
+      'id': video.id,
+      'channelId': video.channelId ?? '',
+      'channel': video.channelName.trim().toLowerCase(),
+      'category': video.category.trim().toLowerCase(),
+      'keywords': keywords,
+    };
+  }
+
+  Future<void> _saveSignals() async {
+    await _prefs.setStringList(_moreSignalsKey, _moreSignals.map(jsonEncode).toList());
+    await _prefs.setStringList(_lessSignalsKey, _lessSignals.map(jsonEncode).toList());
+  }
+
+  void _rememberSignal(List<Map<String, String>> signals, VideoModel video) {
+    signals.removeWhere((signal) => signal['id'] == video.id);
+    signals.add(_signalFor(video));
+    if (signals.length > 20) signals.removeRange(0, signals.length - 20);
+  }
+
+  /// Records topic and channel details so future feeds can rank related videos.
+  Future<void> recordMoreFor(VideoModel video) async {
+    await recordMore(video.id);
+    _rememberSignal(_moreSignals, video);
+    _lessSignals.removeWhere((signal) => signal['id'] == video.id);
+    await _saveSignals();
+    notifyListeners();
+  }
+
+  Future<void> recordLessFor(VideoModel video) async {
+    await recordLess(video.id);
+    _rememberSignal(_lessSignals, video);
+    _moreSignals.removeWhere((signal) => signal['id'] == video.id);
+    await _saveSignals();
+    notifyListeners();
+  }
+
+  int feedbackScore(VideoModel video) {
+    var score = prefersMore(video.id) ? 2 : (prefersLess(video.id) ? -1 : 0);
+    score += _similarityScore(video, _moreSignals, 1);
+    score += _similarityScore(video, _lessSignals, -1);
+    return score;
+  }
+
+  int _similarityScore(VideoModel video, List<Map<String, String>> signals, int direction) {
+    final candidate = _signalFor(video);
+    final candidateWords = candidate['keywords']!.split(' ').where((word) => word.isNotEmpty).toSet();
+    var total = 0;
+    for (final signal in signals) {
+      if (signal['id'] == video.id) continue;
+      var strength = 0;
+      final channelId = candidate['channelId']!;
+      if (channelId.isNotEmpty && channelId == signal['channelId']) {
+        strength += 4;
+      } else if (candidate['channel']!.isNotEmpty && candidate['channel'] == signal['channel']) {
+        strength += 3;
+      }
+      if (candidate['category']!.isNotEmpty && candidate['category'] == signal['category']) strength++;
+      final words = signal['keywords']!.split(' ').where((word) => word.isNotEmpty).toSet();
+      final overlap = candidateWords.intersection(words).length;
+      strength += (overlap > 3 ? 3 : overlap) * 2;
+      total += strength * direction;
+    }
+    return total;
+  }
+
   Future<void> recordMore(String videoId) async {
     _lessFeedback.remove(videoId);
     _moreFeedback.remove(videoId);
     _moreFeedback.add(videoId);
     await _prefs.setStringList(_moreKey, _moreFeedback);
     await _prefs.setStringList(_lessKey, _lessFeedback);
+    _lessSignals.removeWhere((signal) => signal['id'] == videoId);
+    await _saveSignals();
     notifyListeners();
   }
 
@@ -191,6 +291,8 @@ class RecommendationSettings extends ChangeNotifier {
     _lessFeedback.add(videoId);
     await _prefs.setStringList(_lessKey, _lessFeedback);
     await _prefs.setStringList(_moreKey, _moreFeedback);
+    _moreSignals.removeWhere((signal) => signal['id'] == videoId);
+    await _saveSignals();
     notifyListeners();
   }
 
@@ -203,6 +305,10 @@ class RecommendationSettings extends ChangeNotifier {
     _subtopics.clear();
     await _prefs.remove(_moreKey);
     await _prefs.remove(_lessKey);
+    _moreSignals.clear();
+    _lessSignals.clear();
+    await _prefs.remove(_moreSignalsKey);
+    await _prefs.remove(_lessSignalsKey);
     await _prefs.remove(_subtopicsKey);
     notifyListeners();
   }
