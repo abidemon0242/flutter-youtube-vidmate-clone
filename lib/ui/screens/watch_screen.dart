@@ -76,7 +76,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     _loadSavedState();
     _open();
     final id = widget.video.youtubeId;
-    if (widget.video.isYoutube && !widget.video.isLocal && id != null) {
+    if (widget.video.isYoutube && !widget.video.isLocal && id != null && !widget.immersive) {
       _details = _youtube.details(id);
       _loadRelated();
     }
