@@ -473,10 +473,7 @@ class DownloadsProvider extends ChangeNotifier {
     final protectedCount = _items.where(
       (entry) => entry.isShort && entry.isProtected && entry.status == DownloadStatus.completed,
     ).length;
-    final replaceableCount = _items.where(
-      (entry) => entry.isShort && !entry.isProtected && entry.status == DownloadStatus.completed,
-    ).length;
-    if (protectedCount > limit || (protectedCount == limit && replaceableCount == 0)) {
+    if (protectedCount >= limit) {
       throw const DownloadException(
         'The Shorts limit is occupied by protected videos. Increase the limit or unprotect a Short before downloading more.',
       );
