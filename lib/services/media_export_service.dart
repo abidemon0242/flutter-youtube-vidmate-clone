@@ -64,6 +64,7 @@ class MediaExportService {
   Future<String> exportFile({
     required String sourcePath,
     required String destination,
+    required ExportMediaKind kind,
   }) async {
     if (!await File(sourcePath).exists()) {
       throw const FileSystemException('The source file no longer exists.');
@@ -81,6 +82,7 @@ class MediaExportService {
     final result = await _channel.invokeMethod<String>('exportMedia', {
       'sourcePath': sourcePath,
       'destination': destination,
+      'mediaKind': kind.name,
     });
     if (result == null || result.isEmpty) {
       throw PlatformException(
