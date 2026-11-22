@@ -21,6 +21,7 @@ class _Source implements DownloadSource {
   final List<int> starts = [];
   Completer<void>? gate;
   bool fail = false;
+  bool ignoreRange = false;
 
   @override
   Future<int> sizeOf(String videoId, int tag) async => payloads[tag]!.length;
@@ -29,7 +30,7 @@ class _Source implements DownloadSource {
   Future<SourceStream> open(String videoId, int tag, {int start = 0}) async {
     if (fail) throw Exception('network down');
     starts.add(start);
-    final data = payloads[tag]!.sublist(start);
+    final data = payloads[tag]!.sublist(ignoreRange ? 0 : start);
     final half = data.length ~/ 2;
     final currentGate = gate;
     Stream<List<int>> bytes() async* {
@@ -335,6 +336,26 @@ void main() {
       await _waitFor(() => entry.status == DownloadStatus.completed);
       expect(source.starts.last, 500);
       expect(await File(entry.savedPath).readAsBytes(), List.generate(1000, (i) => i % 256));
+    });
+
+    test('rejects a resumed response when the server ignores the byte range', () async {
+      final payload = List.generate(1000, (i) => i % 256);
+      final source = _Source({18: payload})..gate = Completer<void>();
+      final provider = makeProvider(source);
+      final entry = await start(provider);
+      await _waitFor(() => entry.receivedBytes == 500);
+
+      await provider.pause(entry.id);
+      expect(entry.status, DownloadStatus.paused);
+
+      source
+        ..gate = null
+        ..ignoreRange = true;
+      await provider.resume(entry.id);
+      await _waitFor(() => entry.status == DownloadStatus.failed);
+
+      expect(entry.error, contains('invalid byte range'));
+      expect(await File(entry.savedPath).exists(), isFalse);
     });
 
     test('turning the setting off releases waiting downloads', () async {
