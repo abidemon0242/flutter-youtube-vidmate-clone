@@ -86,7 +86,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     if (dot < 0 || dot == lastSegment.length - 1) return null;
     final extension = lastSegment.substring(dot + 1).toLowerCase();
     final allowed = _audioOnly ? _audioExtensions : _videoExtensions;
-    if (!allowed.contains(extension)) return null;
+    if (!allowed.contains(extension) && !(_audioOnly && extension == 'm3u8')) return null;
     return (uri: uri, extension: extension);
   }
 
@@ -458,6 +458,51 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
       final fileName = '$fileBase.$extension';
       final savePath = '$documentsPath/TubeArena/Downloads/$fileName';
 
+      if (_audioOnly) {
+        final choice = await _chooseAudioOptions(title);
+        if (choice == null) continue;
+        final extension = choice.format.toLowerCase();
+        final audioFileName = '$fileBase.$extension';
+        final audioSavePath = '$documentsPath/TubeArena/Downloads/$audioFileName';
+        final audioEntry = DownloadEntry(
+          id: id,
+          title: title,
+          url: rawUrl,
+          sourceUrl: rawUrl,
+          size: 'Unknown until converted',
+          format: '${choice.format} • ${choice.bitrate}',
+          progress: 0,
+          savedPath: audioSavePath,
+          isAudioOnly: true,
+          status: 'downloading',
+        );
+        downloads.addDownload(audioEntry);
+        setState(() => _status = 'Converting audio to ${choice.format} • $title…');
+        final converter = HlsResolutionService();
+        try {
+          final succeeded = await converter.downloadAudioFromUrl(
+            sourceUrl: rawUrl,
+            outputPath: audioSavePath,
+            format: extension,
+            bitrate: choice.bitrate,
+          );
+          downloads.addDownload(audioEntry.copyWith(
+            progress: succeeded ? 100 : 0,
+            status: succeeded ? 'completed' : 'failed',
+          ));
+          if (succeeded) {
+            queued++;
+          } else {
+            failures.add(
+              '$title: audio conversion failed. The URL may not expose an audio stream or the selected encoder may be unavailable.',
+            );
+          }
+        } finally {
+          converter.close();
+        }
+        continue;
+      }
+
       final taskId = await service.startDownload(
         id: id,
         title: title,
@@ -546,7 +591,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             value: _audioOnly,
             title: const Text('Audio-only files'),
             subtitle: const Text(
-              'For HLS VOD links, choose MP3, M4A, AAC, OPUS, FLAC or WAV and an audio quality. Direct audio files remain in their original format.',
+              'Choose MP3, M4A, AAC, OPUS, FLAC or WAV and an audio quality. Supported direct audio files and completed HLS VOD streams can be converted.',
             ),
             onChanged: _isProcessing
                 ? null
