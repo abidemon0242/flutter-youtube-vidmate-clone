@@ -24,7 +24,12 @@ class HomeLibraryService {
 
   Future<bool> isSaved(VideoModel video) async {
     final items = await watchLater();
-    return items.any((item) => item.id == video.id);
+    if (items.any((item) => item.id == video.id)) return true;
+    // Migrate bookmarks created by the earlier per-video preference format.
+    final legacyKey = 'saved_video_${video.youtubeId ?? video.id}';
+    final legacySaved = (await SharedPreferences.getInstance()).getBool(legacyKey) ?? false;
+    if (legacySaved) await setSaved(video, true);
+    return legacySaved;
   }
 
   Future<void> setSaved(VideoModel video, bool saved) async {
@@ -32,6 +37,8 @@ class HomeLibraryService {
     items.removeWhere((item) => item.id == video.id);
     if (saved) items.insert(0, video);
     await _write(_savedKey, items);
+    await (await SharedPreferences.getInstance())
+        .setBool('saved_video_${video.youtubeId ?? video.id}', saved);
   }
 
   Future<void> removeSaved(VideoModel video) async {
