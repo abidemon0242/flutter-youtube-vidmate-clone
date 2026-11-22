@@ -238,6 +238,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       } else {
         await controller.pause();
       }
+      if (_settings.preferredHeight == 0) unawaited(_applyNetworkQuality());
       if (video.isYoutube && !_hdChecked) unawaited(_findHdQualities(video.youtubeId!));
     } on YoutubeServiceException catch (error) {
       if (mounted) setState(() => _error = error.message);
