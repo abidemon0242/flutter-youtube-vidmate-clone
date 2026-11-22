@@ -138,11 +138,7 @@ const downloadSpaceReserve = 50 * 1024 * 1024;
 
 /// Bytes needed for input streams, any merged output, an optional transcode
 /// output, and a safety reserve. [streamBytes] is the combined input size.
-int estimateRequiredBytes(
-  int streamBytes, {
-  required bool needsMerge,
-  int estimatedOutputBytes = 0,
-}) {
+int estimateRequiredBytes(int streamBytes, {required bool needsMerge, int estimatedOutputBytes = 0}) {
   if (streamBytes <= 0) return 0;
   final mergedOutputBytes = needsMerge ? streamBytes : 0;
   return streamBytes + mergedOutputBytes + estimatedOutputBytes + downloadSpaceReserve;
