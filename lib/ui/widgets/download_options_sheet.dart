@@ -220,6 +220,7 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             const Text('Quality'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
+              key: ValueKey(lossless ? 'audio-quality-lossless' : 'audio-quality-lossy'),
               initialValue: lossless ? 'Lossless' : _bitrate,
               isExpanded: true,
               items: (lossless ? const ['Lossless'] : _bitrates)
@@ -235,6 +236,8 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             Text(
               lossless
                   ? 'FLAC and WAV are lossless. A bitrate setting does not apply.'
+                  : source.audioSourceBitrateKbps == null || source.audioSourceBitrateKbps! <= 0
+                  ? 'The source bitrate is unknown. Best available cannot be matched reliably; choose a fixed bitrate. Increasing bitrate cannot restore missing detail.'
                   : 'Best available matches the selected source stream bitrate. '
                         'Increasing bitrate cannot restore detail missing from the source.',
               style: TextStyle(color: context.textSecondary, fontSize: 12),
