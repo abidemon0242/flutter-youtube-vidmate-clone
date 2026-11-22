@@ -155,8 +155,17 @@ class DownloadNotificationController {
     final title = active.length == 1 ? active.single.title : 'Downloading ${active.length} files';
     final running = active.where((e) => e.status == DownloadStatus.downloading).toList();
     if (running.isEmpty) {
-      final merging = active.any((e) => e.status == DownloadStatus.merging);
-      final text = merging ? 'Combining video and audio...' : (waitingForWifi ? 'Waiting for Wi-Fi' : 'Waiting...');
+      final convertingAudio = active.any(
+        (e) => e.status == DownloadStatus.merging && e.option.transcodesAudio,
+      );
+      final mergingVideo = active.any(
+        (e) => e.status == DownloadStatus.merging && !e.option.transcodesAudio,
+      );
+      final text = convertingAudio
+          ? 'Converting audio format...'
+          : mergingVideo
+          ? 'Combining video and audio...'
+          : (waitingForWifi ? 'Waiting for Wi-Fi' : 'Waiting...');
       return DownloadProgressInfo(title: title, text: text, percent: -1);
     }
     final total = active.fold<int>(0, (sum, e) => sum + e.totalBytes);
