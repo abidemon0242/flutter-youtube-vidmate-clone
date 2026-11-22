@@ -28,14 +28,26 @@ Future<void> showDownloadOptionsSheet(BuildContext context, VideoModel video) as
     );
     return;
   }
-  final option = await showModalBottomSheet<DownloadOption>(
+  final selectedOption = await showModalBottomSheet<DownloadOption>(
     context: context,
     isScrollControlled: true,
     backgroundColor: context.surfaceColor,
     showDragHandle: true,
     builder: (_) => _DownloadOptionsSheet(video: video),
   );
-  if (option == null || !context.mounted) return;
+  if (selectedOption == null || !context.mounted) return;
+  var option = selectedOption;
+  if (option.kind == DownloadKind.audio) {
+    final outputOption = await showModalBottomSheet<DownloadOption>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.surfaceColor,
+      showDragHandle: true,
+      builder: (_) => _AudioOutputPicker(sourceOption: option),
+    );
+    if (outputOption == null || !context.mounted) return;
+    option = outputOption;
+  }
   await startDownload(context, video, option);
 }
 
@@ -136,11 +148,126 @@ class _DownloadOptionsSheetState extends State<_DownloadOptionsSheet> {
                 ),
                 if (options.video.isNotEmpty) const _Header('Video'),
                 for (final option in options.video) _OptionTile(option: option, icon: Icons.movie_outlined),
-                if (options.audio.isNotEmpty) const _Header('Audio only'),
+                if (options.audio.isNotEmpty) const _Header('Available source audio'),
                 for (final option in options.audio) _OptionTile(option: option, icon: Icons.music_note_outlined),
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+
+class _AudioOutputPicker extends StatefulWidget {
+  const _AudioOutputPicker({required this.sourceOption});
+
+  final DownloadOption sourceOption;
+
+  @override
+  State<_AudioOutputPicker> createState() => _AudioOutputPickerState();
+}
+
+class _AudioOutputPickerState extends State<_AudioOutputPicker> {
+  static const _formats = ['MP3', 'M4A', 'AAC', 'OPUS', 'FLAC', 'WAV'];
+  static const _bitrates = [
+    '64 kbps',
+    '96 kbps',
+    '128 kbps',
+    '192 kbps',
+    '256 kbps',
+    '320 kbps',
+    'Best available',
+  ];
+
+  String _format = 'MP3';
+  String _bitrate = 'Best available';
+
+  @override
+  Widget build(BuildContext context) {
+    final lossless = _format == 'FLAC' || _format == 'WAV';
+    final source = widget.sourceOption;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Audio output',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Source: ${source.label} · ${source.detail}',
+              style: TextStyle(color: context.textSecondary),
+            ),
+            const SizedBox(height: 18),
+            const Text('Format'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _format,
+              isExpanded: true,
+              items: _formats
+                  .map((format) => DropdownMenuItem(
+                        value: format,
+                        child: Text(format),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) setState(() => _format = value);
+              },
+            ),
+            const SizedBox(height: 16),
+            const Text('Quality'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: lossless ? 'Lossless' : _bitrate,
+              isExpanded: true,
+              items: (lossless ? const ['Lossless'] : _bitrates)
+                  .map((quality) => DropdownMenuItem(
+                        value: quality,
+                        child: Text(quality),
+                      ))
+                  .toList(),
+              onChanged: lossless
+                  ? null
+                  : (value) {
+                      if (value != null) setState(() => _bitrate = value);
+                    },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              lossless
+                  ? 'FLAC and WAV are lossless. A bitrate setting does not apply.'
+                  : 'Best available matches the selected source stream bitrate. Increasing bitrate cannot restore detail missing from the source.',
+              style: TextStyle(color: context.textSecondary, fontSize: 12),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.pop(
+                  context,
+                  DownloadOption(
+                    kind: DownloadKind.audio,
+                    label: '$_format · ${lossless ? 'Lossless' : _bitrate}',
+                    container: _format.toLowerCase(),
+                    videoTag: null,
+                    audioTag: source.audioTag,
+                    sizeBytes: source.sizeBytes,
+                    detail: 'Source: ${source.label} · ${source.detail}',
+                    audioOutputBitrate: lossless ? 'Lossless' : _bitrate,
+                    audioSourceBitrateKbps: source.audioSourceBitrateKbps,
+                  ),
+                ),
+                icon: const Icon(Icons.download_rounded),
+                label: const Text('Use this audio format'),
+              ),
+            ),
+          ],
         ),
       ),
     );
