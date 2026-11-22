@@ -37,8 +37,7 @@ class HomeLibraryService {
     items.removeWhere((item) => item.id == video.id);
     if (saved) items.insert(0, video);
     await _write(_savedKey, items);
-    await (await SharedPreferences.getInstance())
-        .setBool('saved_video_${video.youtubeId ?? video.id}', saved);
+    await (await SharedPreferences.getInstance()).setBool('saved_video_${video.youtubeId ?? video.id}', saved);
   }
 
   Future<void> removeSaved(VideoModel video) async {
@@ -58,10 +57,7 @@ class HomeLibraryService {
     if (raw == null || raw.isEmpty) return [];
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
-      return decoded
-          .whereType<Map<String, dynamic>>()
-          .map(VideoModel.fromJson)
-          .toList();
+      return decoded.whereType<Map<String, dynamic>>().map(VideoModel.fromJson).toList();
     } catch (_) {
       return [];
     }
