@@ -57,7 +57,7 @@ class DownloadEntry {
       status == DownloadStatus.paused || status == DownloadStatus.failed || status == DownloadStatus.canceled;
 
   String get videoPartPath => '$savedPath.video.part';
-  String get audioPartPath => '$savedPath.audio.part';
+  String get audioPartPath => '${File(savedPath).parent.parent.path}/Audio/.$id.audio.part';
   String get singlePartPath => '$savedPath.part';
   List<String> get partPaths => [videoPartPath, audioPartPath, singlePartPath];
 
@@ -730,6 +730,7 @@ class DownloadsProvider extends ChangeNotifier {
 
       var doneBefore = 0;
       for (var i = 0; i < parts.length; i++) {
+        await File(parts[i].path).parent.create(recursive: true);
         await _downloadPart(entry, parts[i].tag, parts[i].path, sizes[i], doneBefore);
         doneBefore += sizes[i];
       }
