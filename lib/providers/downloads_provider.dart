@@ -59,7 +59,8 @@ class DownloadEntry {
   String get videoPartPath => '$savedPath.video.part';
   String get audioPartPath => '${File(savedPath).parent.parent.path}/Audio/.$id.audio.part';
   String get singlePartPath => '$savedPath.part';
-  List<String> get partPaths => [videoPartPath, audioPartPath, singlePartPath];
+  String get legacyAudioPartPath => '$savedPath.audio.part';
+  List<String> get partPaths => [videoPartPath, audioPartPath, legacyAudioPartPath, singlePartPath];
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -736,7 +737,14 @@ class DownloadsProvider extends ChangeNotifier {
 
       var doneBefore = 0;
       for (var i = 0; i < parts.length; i++) {
-        await File(parts[i].path).parent.create(recursive: true);
+        final partFile = File(parts[i].path);
+        await partFile.parent.create(recursive: true);
+        if (parts[i].path == entry.audioPartPath) {
+          final legacyAudioPart = File(entry.legacyAudioPartPath);
+          if (!await partFile.exists() && await legacyAudioPart.exists()) {
+            await legacyAudioPart.rename(partFile.path);
+          }
+        }
         await _downloadPart(entry, parts[i].tag, parts[i].path, sizes[i], doneBefore);
         doneBefore += sizes[i];
       }
