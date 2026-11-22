@@ -109,6 +109,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   Future<void> _monitorNetwork() async {
     try {
       _onWifi = await _networkMonitor.isOnWifi();
+      if (_settings.preferredHeight == 0 && _qualities.isNotEmpty) unawaited(_applyNetworkQuality());
       _networkSubscription ??= _networkMonitor.onWifiChanged.listen((onWifi) {
         if (!mounted || _onWifi == onWifi) return;
         _onWifi = onWifi;
