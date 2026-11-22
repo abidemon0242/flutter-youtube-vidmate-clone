@@ -514,13 +514,14 @@ class DownloadsProvider extends ChangeNotifier {
       final total = sizes.fold<int>(0, (a, b) => a + b);
       if (total > 0) entry.totalBytes = total;
       if (entry.receivedBytes == 0) {
+        final audioOutputMultiplier = switch (option.container) {
+          'wav' => 16,
+          'flac' => 3,
+          _ => 2,
+        };
         await _ensureSpace(
           File(entry.savedPath).parent.path,
-          option.transcodesAudio && (option.container == 'flac' || option.container == 'wav')
-              ? total * 4
-              : option.transcodesAudio
-                  ? total * 2
-                  : total,
+          option.transcodesAudio ? total * audioOutputMultiplier : total,
           needsMerge: option.needsMerge || option.transcodesAudio,
         );
       }
@@ -543,7 +544,8 @@ class DownloadsProvider extends ChangeNotifier {
         );
         if (!ok) {
           throw DownloadException(
-            'Could not convert audio to ${option.container.toUpperCase()}. The required encoder may be unavailable or the source stream may be invalid.',
+            'Could not convert audio to ${option.container.toUpperCase()}. '
+            'The required encoder may be unavailable or the source stream may be invalid.',
           );
         }
         final sourcePart = File(entry.singlePartPath);
