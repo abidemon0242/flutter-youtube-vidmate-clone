@@ -249,7 +249,7 @@ class DownloadsProvider extends ChangeNotifier {
   int? get shortsLimit => _shortsLimit;
   List<DownloadEntry> get shorts => List.unmodifiable(_items.where((entry) => entry.isShort));
   List<DownloadEntry> get downloadedShorts => List.unmodifiable(
-    _items.where((entry) => entry.isShort && entry.status == DownloadStatus.completed && File(entry.savedPath).existsSync()),
+    _items.where((entry) => entry.isShort && entry.status == DownloadStatus.completed),
   );
 
   Future<void> setShortsLimit(int? value) async {
