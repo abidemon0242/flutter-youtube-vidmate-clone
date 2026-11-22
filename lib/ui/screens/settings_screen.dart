@@ -113,6 +113,10 @@ class SettingsScreen extends StatelessWidget {
             onChanged: downloads.setWifiOnly,
           ),
           const Divider(),
+          Text('Shorts storage', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 4),
+          const _ShortsStorageSettings(),
+          const Divider(),
           Text('Playback', style: Theme.of(context).textTheme.titleLarge),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -147,6 +151,105 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ShortsStorageSettings extends StatefulWidget {
+  const _ShortsStorageSettings();
+
+  @override
+  State<_ShortsStorageSettings> createState() => _ShortsStorageSettingsState();
+}
+
+class _ShortsStorageSettingsState extends State<_ShortsStorageSettings> {
+  late final TextEditingController _controller = TextEditingController(text: '${DownloadsProvider.defaultShortsLimit}');
+  int? _lastLimit;
+  bool _initialised = false;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final downloads = context.watch<DownloadsProvider>();
+    final limit = downloads.shortsLimit;
+    if (!_initialised || _lastLimit != limit) {
+      _initialised = true;
+      _lastLimit = limit;
+      if (limit != null) _controller.text = limit.toString();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Unlimited Shorts count'),
+          subtitle: const Text('Do not automatically remove Shorts because of their number'),
+          value: limit == null,
+          onChanged: (enabled) async {
+            final next = enabled ? null : (int.tryParse(_controller.text.trim()) ?? DownloadsProvider.defaultShortsLimit);
+            try {
+              await downloads.setShortsLimit(next);
+            } catch (error) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update Shorts limit: $error')));
+              }
+            }
+          },
+        ),
+        TextField(
+          controller: _controller,
+          enabled: limit != null,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Maximum downloaded Shorts',
+            helperText: 'Default: 1,000. Enter any positive whole number.',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton.tonal(
+            onPressed: limit == null || _saving
+                ? null
+                : () async {
+                    final value = int.tryParse(_controller.text.trim());
+                    if (value == null || value < 1) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Enter a whole number greater than zero.')),
+                      );
+                      return;
+                    }
+                    setState(() => _saving = true);
+                    try {
+                      await downloads.setShortsLimit(value);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Shorts limit set to $value. Existing Shorts will be kept until new downloads need space.')),
+                        );
+                      }
+                    } catch (error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save Shorts limit: $error')));
+                      }
+                    } finally {
+                      if (mounted) setState(() => _saving = false);
+                    }
+                  },
+            child: Text(_saving ? 'Saving...' : 'Save limit'),
+          ),
+        ),
+        Text(
+          '${downloads.downloadedShorts.length} downloaded Shorts · Protected Shorts are excluded from automatic replacement.',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     );
   }
 }
