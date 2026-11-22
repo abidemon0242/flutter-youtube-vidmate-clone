@@ -79,9 +79,11 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     _settings = context.read<PlaybackSettings>();
     _networkMonitor = ConnectivityNetworkMonitor();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_monitorNetwork());
     _loadSavedState();
-    if (!widget.immersive || widget.autoplay) _open();
+    if (!widget.immersive || widget.autoplay) {
+      unawaited(_monitorNetwork());
+      _open();
+    }
     final id = widget.video.youtubeId;
     if (widget.video.isYoutube && !widget.video.isLocal && id != null && !widget.immersive) {
       _details = _youtube.details(id);
@@ -103,6 +105,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           _mediaSession.detach(controller);
         }
       } else if (widget.autoplay && controller == null) {
+        unawaited(_monitorNetwork());
         unawaited(_open());
       }
     }
