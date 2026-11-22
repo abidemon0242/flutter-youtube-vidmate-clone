@@ -15,7 +15,7 @@ class FFmpegMergeService {
 
   final _logger = Logger();
 
-  static final Map<String, int> _activeSessions = {};
+  static final Map<String, int?> _activeSessions = {};
   static final Set<String> _startingPaths = {};
   static final Set<String> _cancelRequested = {};
 
@@ -47,6 +47,9 @@ class FFmpegMergeService {
         },
       );
       final sessionId = session.getSessionId();
+      if (sessionId == null) {
+        throw StateError('FFmpeg did not return a session ID.');
+      }
       _startingPaths.remove(path);
       _activeSessions[path] = sessionId;
       if (_cancelRequested.remove(path)) {
