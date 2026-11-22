@@ -140,9 +140,11 @@ void main() {
     expect(first.savedPath, contains('/Shorts/'));
 
     final second = await start('second', isShort: true);
-    expect(provider.byId(first.id), isNull);
-    expect(await File(originalPath).exists(), isFalse);
+    expect(provider.byId(first.id), isNotNull, reason: 'The old Short stays safe until the replacement finishes.');
     await _waitFor(() => second.status == DownloadStatus.completed);
+    expect(provider.byId(first.id), isNull);
+    expect(await File(unprotectedPath).exists(), isFalse);
+    expect(await File(originalPath).exists(), isFalse);
     expect(provider.downloadedShorts.map((entry) => entry.id), contains(second.id));
   });
 
