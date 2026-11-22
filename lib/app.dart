@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/theme_controller.dart';
 import 'models/video_model.dart';
+import 'data/paged_feed.dart';
 import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/library_screen.dart';
@@ -51,8 +52,8 @@ GoRouter buildRouter() => GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final extra = state.extra;
-        final videos = extra is List<VideoModel> ? extra : const <VideoModel>[];
-        return ShortsScreen(videos: videos);
+        final feed = extra is PagedFeed ? extra : PagedFeed.fixed(const []);
+        return ShortsScreen(feed: feed);
       },
     ),
 
