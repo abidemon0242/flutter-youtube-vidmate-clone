@@ -147,7 +147,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   void _toggle(String folder) {
     if (LocalFileManagerService.isProtectedFolder(folder)) {
-      _snack('Downloads is a built-in folder and cannot be renamed or deleted.');
+      _snack('This is a built-in Tube Arena media folder and cannot be renamed or deleted.');
       return;
     }
     setState(() => _selected.contains(folder) ? _selected.remove(folder) : _selected.add(folder));
