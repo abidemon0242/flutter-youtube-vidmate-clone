@@ -48,7 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final history = _section == 'Personal' ? await _homeLibrary.history() : const <VideoModel>[];
     final personalQuery = history.isEmpty
         ? 'recommended technology and entertainment videos'
-        : '${history.first.category} videos and related topics';
+        : 'more videos like ${history.take(3).map((video) => video.title).join(' ')}';
     final sectionQuery = switch (_section) {
       'Trending' => 'popular videos this week',
       'Shorts' => 'YouTube Shorts under 3 minutes',
@@ -176,6 +176,13 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (error) {
       navigator.pop();
       _snack(error is YoutubeServiceException ? error.message : 'Could not open this video.');
+    }
+  }
+
+  Future<void> _openVideo(VideoModel video) async {
+    await context.push('/watch', extra: video);
+    if (mounted && (_section == 'Watch Later' || _section == 'History' || _section == 'Personal')) {
+      _reload(refresh: true);
     }
   }
 
@@ -375,7 +382,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               onLongPress: () => _toggle(video),
                               onCheckboxTap: () => _toggle(video),
                               onMore: () => showDownloadOptionsSheet(context, video),
-                              onTap: () => _selecting ? _toggle(video) : context.push('/watch', extra: video),
+                              onTap: () {
+                                if (_selecting) {
+                                  _toggle(video);
+                                } else {
+                                  _openVideo(video);
+                                }
+                              },
                             );
                           },
                         );
