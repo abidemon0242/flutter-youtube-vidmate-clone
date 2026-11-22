@@ -90,7 +90,7 @@ class FFmpegMergeService {
           _logger.w('Cannot select Best available: source bitrate is unknown.');
           return false;
         }
-        final targetRate = sourceRate.clamp(64, 320);
+        final targetRate = sourceRate.clamp(1, 320);
         args.addAll(['-b:a', '${targetRate}k']);
       } else {
         final kbps = int.tryParse(bitrate.replaceAll(' kbps', ''));
