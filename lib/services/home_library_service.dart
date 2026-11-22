@@ -15,7 +15,6 @@ class HomeLibraryService {
   Future<List<VideoModel>> history() => _read(_historyKey);
 
   Future<void> addToHistory(VideoModel video) async {
-    if (!video.isYoutube) return;
     final items = await history();
     items.removeWhere((item) => item.id == video.id);
     items.insert(0, video);
