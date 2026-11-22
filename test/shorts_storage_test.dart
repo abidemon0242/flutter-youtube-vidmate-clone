@@ -96,9 +96,9 @@ void main() {
     final audio = await start('audio', option: _audio);
     final short = await start('short', isShort: true);
 
-    expect(regular.savedPath, contains('/Videos/Regular Videos/'));
+    expect(regular.savedPath, contains('/Videos/'));
     expect(audio.savedPath, contains('/Audio/'));
-    expect(short.savedPath, contains('/Videos/Shorts/'));
+    expect(short.savedPath, contains('/Shorts/'));
 
     await _waitFor(() => [regular, audio, short].every((entry) => entry.status == DownloadStatus.completed));
   });
@@ -111,7 +111,7 @@ void main() {
 
     await provider.setShortProtected(first.id, true);
     expect(first.isProtected, isTrue);
-    expect(first.savedPath, contains('/Videos/Important Shorts/'));
+    expect(first.savedPath, contains('/Important Shorts/'));
 
     await expectLater(
       start('blocked', isShort: true),
