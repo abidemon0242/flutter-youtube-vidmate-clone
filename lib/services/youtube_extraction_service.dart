@@ -54,7 +54,8 @@ class DownloadOption {
   /// True when video and audio are separate streams that must be merged.
   bool get needsMerge => videoTag != null && audioTag != null;
 
-  String get key => '${kind.name}-${videoTag ?? 0}-${audioTag ?? 0}'
+  String get key =>
+      '${kind.name}-${videoTag ?? 0}-${audioTag ?? 0}'
       '${transcodesAudio ? '-$container-$audioOutputBitrate' : ''}';
 
   String get extension => '.$container';
