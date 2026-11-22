@@ -77,7 +77,32 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_section == 'Subscriptions') {
       final channels = preferences.subscriptions;
       if (channels.isEmpty) return FeedResult(feed: PagedFeed.fixed(const []));
-      return _feed.load(category: 'All', query: 'latest videos from ${channels.join(' ')}', refresh: refresh);
+
+      // Search each saved channel independently. A single combined query can
+      // return unrelated creators and makes the Subscriptions section look
+      // like a generic recommendation feed. Keep only results whose displayed
+      // channel name matches the channel the user subscribed to.
+      final results = await Future.wait(
+        channels.map(
+          (channel) => _feed.load(
+            category: 'All',
+            query: 'latest videos by "$channel"',
+            refresh: refresh,
+          ),
+        ),
+      );
+      final videosById = <String, VideoModel>{};
+      for (var i = 0; i < channels.length; i++) {
+        final expectedChannel = channels[i].trim().toLowerCase();
+        for (final video in results[i].videos) {
+          if (video.channelName.trim().toLowerCase() == expectedChannel) {
+            videosById.putIfAbsent(video.id, () => video);
+          }
+        }
+      }
+      final videos = videosById.values.toList()
+        ..sort((a, b) => b.published.compareTo(a.published));
+      return FeedResult(feed: PagedFeed.fixed(videos));
     }
     final history = _section == 'Recommended' && preferences.personalization
         ? await _homeLibrary.history()
