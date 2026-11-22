@@ -312,5 +312,73 @@ class HlsResolutionService {
     return false;
   }
 
+
+  /// Extracts the audio rendition from a completed HLS VOD stream and
+  /// converts it to a supported audio container/codec.
+  Future<bool> downloadAudio({
+    required MediaResolutionOption option,
+    required String outputPath,
+    required String format,
+    required String bitrate,
+  }) async {
+    final normalizedFormat = format.toLowerCase();
+    const codecs = <String, String>{
+      'mp3': 'libmp3lame',
+      'm4a': 'aac',
+      'aac': 'aac',
+      'opus': 'libopus',
+      'flac': 'flac',
+      'wav': 'pcm_s16le',
+    };
+    final codec = codecs[normalizedFormat];
+    final sourceUrl = option.audioUrl ?? option.url;
+    if (codec == null || !isSupportedMediaUrl(sourceUrl)) return false;
+
+    final output = File(outputPath);
+    if (await output.exists()) return false;
+    await output.parent.create(recursive: true);
+
+    final args = <String>[
+      '-protocol_whitelist',
+      'http,https,tcp,tls,crypto',
+      '-i',
+      sourceUrl,
+      '-map',
+      '0:a:0',
+      '-vn',
+      '-c:a',
+      codec,
+    ];
+
+    if (normalizedFormat == 'flac' || normalizedFormat == 'wav') {
+      // Lossless formats do not use a lossy bitrate selector.
+    } else if (bitrate == 'Best available') {
+      if (normalizedFormat == 'mp3') {
+        args.addAll(['-q:a', '0']);
+      } else {
+        args.addAll(['-b:a', normalizedFormat == 'opus' ? '160k' : '256k']);
+      }
+    } else {
+      final parsed = int.tryParse(bitrate.replaceAll(' kbps', ''));
+      if (parsed == null || parsed < 64 || parsed > 320) return false;
+      args.addAll(['-b:a', '${parsed}k']);
+    }
+
+    if (normalizedFormat == 'm4a') args.addAll(['-f', 'ipod']);
+    args.add(outputPath);
+
+    try {
+      final session = await FFmpegKit.executeWithArguments(args);
+      final code = await session.getReturnCode();
+      if (ReturnCode.isSuccess(code) && await output.exists()) {
+        return (await output.length()) > 0;
+      }
+    } catch (_) {
+      // The caller reports a failed conversion rather than a false success.
+    }
+    if (await output.exists()) await output.delete();
+    return false;
+  }
+
   void close() => _client.close(force: true);
 }
