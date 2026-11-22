@@ -123,7 +123,7 @@ class SettingsScreen extends StatelessWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Preferred video quality'),
-            subtitle: Text(playback.preferredHeight == 0 ? 'Best available' : '${playback.preferredHeight}p'),
+            subtitle: Text(playback.preferredHeight == 0 ? 'Auto (network-aware)' : '${playback.preferredHeight}p'),
             trailing: DropdownButton<int>(
               value: playback.preferredHeight,
               items: const [
