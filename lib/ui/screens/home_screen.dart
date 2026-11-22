@@ -347,31 +347,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           itemCount: videos.length + 2,
                           itemBuilder: (context, index) {
                             if (index == 0) {
-                              if (_section == 'Trending') {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Text(
-                                    'Popular discovery from YouTube search — not an official Trending chart.',
-                                    style: TextStyle(color: context.textSecondary, fontSize: 12),
-                                  ),
-                                );
-                              }
-                              if (_section == 'Personal') {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 8),
-                                  child: Text(
-                                    'Suggestions shaped by your local watch history. No account or API key required.',
-                                    style: TextStyle(color: context.textSecondary, fontSize: 12),
-                                  ),
-                                );
-                              }
                               if (videos.isEmpty && result.feed.items.isNotEmpty) {
                                 return const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 28),
                                   child: Center(child: Text('No videos match these filters')),
                                 );
                               }
-                              return _statusBanner(result);
+                              return _sectionBanner(result);
                             }
                             if (index == videos.length + 1) return _footer(result);
                             final video = videos[index - 1];
@@ -449,6 +431,25 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Center(
         child: Text('No more results', style: TextStyle(color: context.textSecondary)),
       ),
+    );
+  }
+
+  Widget _sectionBanner(FeedResult result) {
+    final note = switch (_section) {
+      'Trending' => 'Popular discovery from YouTube search — not an official Trending chart.',
+      'Personal' => 'Suggestions shaped by your local watch history. No account or API key required.',
+      _ => null,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (note != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(note, style: TextStyle(color: context.textSecondary, fontSize: 12)),
+          ),
+        if (result.isSample || result.feed.isEmpty) _statusBanner(result),
+      ],
     );
   }
 
