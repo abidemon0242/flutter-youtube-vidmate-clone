@@ -189,9 +189,7 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
     if (_format == 'FLAC' || _format == 'WAV') {
       return 'Lossless output size varies and may be much larger than the source.';
     }
-    if (_bitrate == 'Best available' ||
-        source.audioSourceBitrateKbps == null ||
-        source.audioSourceBitrateKbps! <= 0) {
+    if (_bitrate == 'Best available' || source.audioSourceBitrateKbps == null || source.audioSourceBitrateKbps! <= 0) {
       return 'Estimated output size: about ${formatBytes(source.sizeBytes)}.';
     }
     final outputRate = int.tryParse(_bitrate.replaceAll(' kbps', ''));
@@ -228,12 +226,7 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
               initialValue: _format,
               isExpanded: true,
               items: _formats
-                  .map(
-                    (format) => DropdownMenuItem(
-                      value: format,
-                      child: Text(format),
-                    ),
-                  )
+                  .map((format) => DropdownMenuItem(value: format, child: Text(format)))
                   .toList(),
               onChanged: (value) {
                 if (value != null) setState(() => _format = value);
@@ -246,12 +239,7 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
               initialValue: lossless ? 'Lossless' : _bitrate,
               isExpanded: true,
               items: (lossless ? const ['Lossless'] : _bitrates)
-                  .map(
-                    (quality) => DropdownMenuItem(
-                      value: quality,
-                      child: Text(quality),
-                    ),
-                  )
+                  .map((quality) => DropdownMenuItem(value: quality, child: Text(quality)))
                   .toList(),
               onChanged: lossless
                   ? null
