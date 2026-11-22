@@ -256,11 +256,7 @@ class DownloadsProvider extends ChangeNotifier {
     if (value != null && value < 1) throw ArgumentError.value(value, 'value', 'Shorts limit must be positive or null.');
     _shortsLimit = value;
     final prefs = await SharedPreferences.getInstance();
-    if (value == null) {
-      await prefs.remove(shortsLimitPreferenceKey);
-    } else {
-      await prefs.setInt(shortsLimitPreferenceKey, value);
-    }
+    await prefs.setInt(shortsLimitPreferenceKey, value ?? -1);
     notifyListeners();
   }
 
@@ -337,9 +333,12 @@ class DownloadsProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _wifiOnly = prefs.getBool(wifiOnlyPreferenceKey) ?? _wifiOnly;
-      _shortsLimit = prefs.containsKey(shortsLimitPreferenceKey)
-          ? prefs.getInt(shortsLimitPreferenceKey)
-          : defaultShortsLimit;
+      final storedShortsLimit = prefs.getInt(shortsLimitPreferenceKey);
+      _shortsLimit = storedShortsLimit == null
+          ? defaultShortsLimit
+          : storedShortsLimit < 1
+          ? null
+          : storedShortsLimit;
     } catch (error) {
       debugPrint('Could not read download settings: $error');
     }
