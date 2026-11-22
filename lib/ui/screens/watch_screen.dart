@@ -72,7 +72,6 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     _settings = context.read<PlaybackSettings>();
     WidgetsBinding.instance.addObserver(this);
     _loadSavedState();
-    unawaited(HomeLibraryService().addToHistory(widget.video));
     _open();
     final id = widget.video.youtubeId;
     if (widget.video.isYoutube && !widget.video.isLocal && id != null) {
@@ -177,6 +176,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         return;
       }
       await controller.setPlaybackSpeed(_playbackSpeed);
+      unawaited(HomeLibraryService().addToHistory(video));
       controller.addListener(_onPlayerChanged);
       setState(() {
         _controller = controller;
