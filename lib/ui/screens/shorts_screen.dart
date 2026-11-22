@@ -46,7 +46,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
     super.dispose();
   }
 
-  Future<void> _chooseCount(List<VideoModel> videos) async {
+  Future<void> _chooseCount() async {
     final controller = TextEditingController(text: '10');
     final count = await showDialog<int>(
       context: context,
@@ -304,7 +304,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
                               const Spacer(),
                               if (_selecting)
                                 TextButton(
-                                  onPressed: () => _chooseCount(videos),
+                                  onPressed: _chooseCount,
                                   child: const Text('Choose count', style: TextStyle(color: Colors.white)),
                                 )
                               else
