@@ -45,6 +45,11 @@ class DownloadsScreen extends StatelessWidget {
                 automaticallyImplyLeading: false,
                 title: const Text('Downloads'),
                 actions: [
+                  IconButton(
+                    tooltip: 'Downloaded Shorts',
+                    onPressed: () => context.push('/downloaded-shorts'),
+                    icon: const Icon(Icons.video_library_outlined),
+                  ),
                   if (downloads.items.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(right: 4),
@@ -277,6 +282,9 @@ class _DownloadTile extends StatelessWidget {
                   onSelected: (action) async {
                     final messenger = ScaffoldMessenger.of(context);
                     switch (action) {
+                      case 'protect':
+                        await downloads.setShortProtected(entry.id, !entry.isProtected);
+                        break;
                       case 'cancel':
                         await downloads.cancel(entry.id);
                       case 'save':
@@ -297,6 +305,11 @@ class _DownloadTile extends StatelessWidget {
                     }
                   },
                   itemBuilder: (_) => [
+                    if (entry.isShort)
+                      PopupMenuItem(
+                        value: 'protect',
+                        child: Text(entry.isProtected ? 'Remove from Important Shorts' : 'Keep in Important Shorts'),
+                      ),
                     if (entry.isActive || entry.status == DownloadStatus.paused)
                       const PopupMenuItem(value: 'cancel', child: Text('Cancel download')),
                     if (done) ...const [
