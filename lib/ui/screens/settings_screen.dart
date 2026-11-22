@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/playback_settings.dart';
+import '../../providers/downloads_provider.dart';
 import '../../providers/recommendation_settings.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -11,6 +12,7 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final recommendations = context.watch<RecommendationSettings>();
     final playback = context.watch<PlaybackSettings>();
+    final downloads = context.watch<DownloadsProvider>();
     return Scaffold(
       appBar: AppBar(title: const Text('App settings')),
       body: ListView(
@@ -25,6 +27,17 @@ class SettingsScreen extends StatelessWidget {
               DropdownMenuItem(value: 'Recommended', child: Text('Recommended for you')),
               DropdownMenuItem(value: 'Subscriptions', child: Text('Subscriptions')),
               DropdownMenuItem(value: 'Trending', child: Text('Trending')),
+              DropdownMenuItem(value: 'Study', child: Text('Study')),
+              DropdownMenuItem(value: 'Funny', child: Text('Funny')),
+              DropdownMenuItem(value: 'Romantic', child: Text('Romantic')),
+              DropdownMenuItem(value: 'Technology', child: Text('Technology')),
+              DropdownMenuItem(value: 'Gaming', child: Text('Gaming')),
+              DropdownMenuItem(value: 'Music', child: Text('Music')),
+              DropdownMenuItem(value: 'Science', child: Text('Science')),
+              DropdownMenuItem(value: 'Sports', child: Text('Sports')),
+              DropdownMenuItem(value: 'Watch Later', child: Text('Watch Later')),
+              DropdownMenuItem(value: 'Shorts', child: Text('Shorts')),
+              DropdownMenuItem(value: 'History', child: Text('History')),
             ],
             onChanged: (value) {
               if (value != null) recommendations.setDefaultSection(value);
@@ -89,6 +102,15 @@ class SettingsScreen extends StatelessWidget {
             onPressed: recommendations.resetPersonalization,
             icon: const Icon(Icons.restart_alt_rounded),
             label: const Text('Reset recommendation feedback'),
+          ),
+          const Divider(),
+          Text('Downloads', style: Theme.of(context).textTheme.titleLarge),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Wi-Fi only downloads'),
+            subtitle: const Text('Pause active downloads and wait when Wi-Fi is unavailable'),
+            value: downloads.wifiOnly,
+            onChanged: downloads.setWifiOnly,
           ),
           const Divider(),
           Text('Playback', style: Theme.of(context).textTheme.titleLarge),
