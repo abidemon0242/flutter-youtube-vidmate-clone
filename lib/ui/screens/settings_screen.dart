@@ -127,7 +127,7 @@ class SettingsScreen extends StatelessWidget {
             trailing: DropdownButton<int>(
               value: playback.preferredHeight,
               items: const [
-                DropdownMenuItem(value: 0, child: Text('Auto / Best')),
+                DropdownMenuItem(value: 0, child: Text('Auto (network-aware)')),
                 DropdownMenuItem(value: 360, child: Text('360p')),
                 DropdownMenuItem(value: 480, child: Text('480p')),
                 DropdownMenuItem(value: 720, child: Text('720p')),
