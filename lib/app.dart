@@ -10,6 +10,7 @@ import 'ui/screens/home_screen.dart';
 import 'ui/screens/library_screen.dart';
 import 'ui/screens/watch_screen.dart';
 import 'ui/screens/settings_screen.dart';
+import 'ui/screens/shorts_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -45,6 +46,16 @@ GoRouter buildRouter() => GoRouter(
       ],
     ),
     GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
+    GoRoute(
+      path: '/shorts',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final extra = state.extra;
+        final videos = extra is List<VideoModel> ? extra : const <VideoModel>[];
+        return ShortsScreen(videos: videos);
+      },
+    ),
+
     GoRoute(
       path: '/watch',
       parentNavigatorKey: _rootNavigatorKey,
