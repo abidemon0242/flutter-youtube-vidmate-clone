@@ -33,7 +33,7 @@ class MainActivity : FlutterActivity() {
                             result.error("INVALID_ARGUMENT", "A valid source and destination are required.", null)
                         } else {
                             try {
-                                result.success(exportMedia(File(sourcePath), destination, mediaKind!!))
+                                result.success(exportMedia(File(sourcePath!!), destination!!, mediaKind!!))
                             } catch (error: Exception) {
                                 result.error("EXPORT_FAILED", error.message ?: "Could not export media.", null)
                             }
@@ -94,7 +94,7 @@ class MainActivity : FlutterActivity() {
                 if (!directory.exists() && !directory.mkdirs()) {
                     throw IOException("Could not create the public media folder.")
                 }
-                put(MediaStore.MediaColumns.DATA, File(directory, source.name).absolutePath)
+                put(MediaStore.MediaColumns.DATA, File(directory, displayName).absolutePath)
             }
         }
 
