@@ -222,7 +222,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
                           child: SafeArea(
                             child: IconButton.filledTonal(
                               tooltip: 'Download Short',
-                              onPressed: () => showDownloadOptionsSheet(context, video),
+                              onPressed: () => showDownloadOptionsSheet(context, video, isShort: true),
                               icon: const Icon(Icons.download_rounded),
                             ),
                           ),
