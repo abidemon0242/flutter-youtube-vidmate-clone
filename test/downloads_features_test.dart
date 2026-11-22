@@ -243,10 +243,7 @@ void main() {
       expect(estimateRequiredBytes(0, needsMerge: true), 0);
       expect(estimateRequiredBytes(100, needsMerge: false), 100 + downloadSpaceReserve);
       expect(estimateRequiredBytes(100, needsMerge: true), 200 + downloadSpaceReserve);
-      expect(
-        estimateRequiredBytes(100, needsMerge: false, estimatedOutputBytes: 1600),
-        1700 + downloadSpaceReserve,
-      );
+      expect(estimateRequiredBytes(100, needsMerge: false, estimatedOutputBytes: 1600), 1700 + downloadSpaceReserve);
     });
 
     test('audio output estimates reflect selected formats without double counting', () {
@@ -459,10 +456,7 @@ void main() {
         savedPath: '/x/audio.mp3',
         status: DownloadStatus.merging,
       );
-      expect(
-        DownloadNotificationController.progressInfo([converting])!.text,
-        'Converting audio format...',
-      );
+      expect(DownloadNotificationController.progressInfo([converting])!.text, 'Converting audio format...');
       final mergingVideo = DownloadEntry(
         id: 'video',
         videoId: 'video',
@@ -473,10 +467,7 @@ void main() {
         savedPath: '/x/video.mp4',
         status: DownloadStatus.merging,
       );
-      expect(
-        DownloadNotificationController.progressInfo([mergingVideo])!.text,
-        'Combining video and audio...',
-      );
+      expect(DownloadNotificationController.progressInfo([mergingVideo])!.text, 'Combining video and audio...');
     });
   });
 
