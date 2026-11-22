@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_category > 0 && video.category != _categoryName) return false;
       final preferences = context.read<RecommendationSettings>();
       if (_section != 'Subscriptions' && preferences.isHidden(video.channelName)) return false;
-      
+
       final seconds = _durationSeconds(video.duration);
       if (_section == 'Shorts' && (seconds == null || seconds > 180)) return false;
       return switch (_durationFilter) {
@@ -225,7 +225,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openVideo(VideoModel video) async {
     await context.push('/watch', extra: video);
-    if (mounted && (_section == 'Watch Later' || _section == 'History' || _section == 'Recommended' || _section == 'Subscriptions')) {
+    if (mounted &&
+        (_section == 'Watch Later' ||
+            _section == 'History' ||
+            _section == 'Recommended' ||
+            _section == 'Subscriptions')) {
       _reload(refresh: true);
     }
   }
@@ -298,8 +302,14 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () => Navigator.pop(sheetContext, 'hide'),
             ),
             ListTile(
-              leading: Icon(preferences.isSubscribed(video.channelName) ? Icons.notifications_off_outlined : Icons.subscriptions_outlined),
-              title: Text(preferences.isSubscribed(video.channelName) ? 'Unsubscribe from channel' : 'Subscribe to channel'),
+              leading: Icon(
+                preferences.isSubscribed(video.channelName)
+                    ? Icons.notifications_off_outlined
+                    : Icons.subscriptions_outlined,
+              ),
+              title: Text(
+                preferences.isSubscribed(video.channelName) ? 'Unsubscribe from channel' : 'Subscribe to channel',
+              ),
               onTap: () => Navigator.pop(sheetContext, 'subscribe'),
             ),
             if (video.isYoutube)
@@ -327,7 +337,9 @@ class _HomeScreenState extends State<HomeScreen> {
           context: context,
           builder: (dialogContext) => AlertDialog(
             title: const Text('Why this video?'),
-            content: Text('This video was found through the selected ${_section.toLowerCase()} feed and its search terms. Your local interests: ${preferences.interests.join(', ')}. Tube Arena does not use an official YouTube recommendation profile.'),
+            content: Text(
+              'This video was found through the selected ${_section.toLowerCase()} feed and its search terms. Your local interests: ${preferences.interests.join(', ')}. Tube Arena does not use an official YouTube recommendation profile.',
+            ),
             actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
           ),
         );
@@ -339,7 +351,11 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 'subscribe':
         await preferences.toggleSubscription(video.channelName);
-        _snack(preferences.isSubscribed(video.channelName) ? 'Subscribed to ${video.channelName}.' : 'Unsubscribed from ${video.channelName}.');
+        _snack(
+          preferences.isSubscribed(video.channelName)
+              ? 'Subscribed to ${video.channelName}.'
+              : 'Unsubscribed from ${video.channelName}.',
+        );
         if (_section == 'Subscriptions') _reload(refresh: true);
         break;
       case 'download':
@@ -370,7 +386,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                 scrollDirection: Axis.horizontal,
                 children: [
-                  for (final section in ['Recommended', 'Subscriptions', 'Trending', 'Study', 'Funny', 'Romantic', 'Technology', 'Gaming', 'Music', 'Science', 'Sports', 'Watch Later', 'Shorts', 'History'])
+                  for (final section in [
+                    'Recommended',
+                    'Subscriptions',
+                    'Trending',
+                    'Study',
+                    'Funny',
+                    'Romantic',
+                    'Technology',
+                    'Gaming',
+                    'Music',
+                    'Science',
+                    'Sports',
+                    'Watch Later',
+                    'Shorts',
+                    'History',
+                  ])
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
@@ -574,7 +605,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final note = switch (_section) {
       'Trending' => 'Popular discovery from YouTube search — not an official Trending chart.',
       'Recommended' => 'Suggestions shaped by your local interests and watch history. No account or API key required.',
-      'Subscriptions' => 'Search-based results for channels you have saved as subscribed. Exact channel feeds depend on source support.',
+      'Subscriptions' =>
+        'Search-based results for channels you have saved as subscribed. Exact channel feeds depend on source support.',
       _ => null,
     };
     return Column(
@@ -628,7 +660,11 @@ class _HomeScreenState extends State<HomeScreen> {
     actions: [
       IconButton(onPressed: _openLink, tooltip: 'Open YouTube link', icon: const Icon(Icons.add_link_rounded)),
       IconButton(onPressed: _search, tooltip: 'Search', icon: const Icon(Icons.search_rounded)),
-      IconButton(onPressed: () => context.push('/settings'), tooltip: 'Settings', icon: const Icon(Icons.settings_outlined)),
+      IconButton(
+        onPressed: () => context.push('/settings'),
+        tooltip: 'Settings',
+        icon: const Icon(Icons.settings_outlined),
+      ),
       const ThemeModeButton(),
     ],
   );

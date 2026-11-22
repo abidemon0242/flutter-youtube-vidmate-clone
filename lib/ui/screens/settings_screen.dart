@@ -26,7 +26,9 @@ class SettingsScreen extends StatelessWidget {
               DropdownMenuItem(value: 'Subscriptions', child: Text('Subscriptions')),
               DropdownMenuItem(value: 'Trending', child: Text('Trending')),
             ],
-            onChanged: (value) { if (value != null) recommendations.setDefaultSection(value); },
+            onChanged: (value) {
+              if (value != null) recommendations.setDefaultSection(value);
+            },
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -59,8 +61,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           const Divider(),
           Text('Hidden channels', style: Theme.of(context).textTheme.titleMedium),
-          if (recommendations.hiddenChannels.isEmpty)
-            const ListTile(title: Text('No hidden channels')),
+          if (recommendations.hiddenChannels.isEmpty) const ListTile(title: Text('No hidden channels')),
           for (final channel in recommendations.hiddenChannels)
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -73,8 +74,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           const Divider(),
           Text('Subscriptions', style: Theme.of(context).textTheme.titleMedium),
-          if (recommendations.subscriptions.isEmpty)
-            const ListTile(title: Text('No subscribed channels yet')),
+          if (recommendations.subscriptions.isEmpty) const ListTile(title: Text('No subscribed channels yet')),
           for (final channel in recommendations.subscriptions)
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -111,13 +111,17 @@ class SettingsScreen extends StatelessWidget {
                 DropdownMenuItem(value: 720, child: Text('720p')),
                 DropdownMenuItem(value: 1080, child: Text('1080p')),
               ],
-              onChanged: (value) { if (value != null) playback.setPreferredHeight(value); },
+              onChanged: (value) {
+                if (value != null) playback.setPreferredHeight(value);
+              },
             ),
           ),
           const ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text('Adaptive buffering and offline cache'),
-            subtitle: Text('Advanced persistent offline caching is not enabled until source permissions and storage management are implemented.'),
+            subtitle: Text(
+              'Advanced persistent offline caching is not enabled until source permissions and storage management are implemented.',
+            ),
           ),
         ],
       ),

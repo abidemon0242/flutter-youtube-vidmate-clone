@@ -8,11 +8,27 @@ class RecommendationSettings extends ChangeNotifier {
   RecommendationSettings._(this._prefs);
 
   static const categories = <String>[
-    'Study', 'Funny', 'Romantic', 'Technology', 'Gaming', 'Music', 'Science', 'Sports',
+    'Study',
+    'Funny',
+    'Romantic',
+    'Technology',
+    'Gaming',
+    'Music',
+    'Science',
+    'Sports',
   ];
 
   static const subtopics = <String, List<String>>{
-    'Study': ['Mathematics', 'Chemistry', 'Physics', 'Biology', 'English', 'Exam preparation', 'Study music', 'Documentaries'],
+    'Study': [
+      'Mathematics',
+      'Chemistry',
+      'Physics',
+      'Biology',
+      'English',
+      'Exam preparation',
+      'Study music',
+      'Documentaries',
+    ],
     'Funny': ['Comedy', 'Memes', 'Funny animals', 'Sketches', 'Pranks'],
     'Romantic': ['Romantic films', 'Love stories', 'Romantic music'],
     'Technology': ['Artificial intelligence', 'Robotics', 'Smartphones', 'Programming', 'Cybersecurity'],
