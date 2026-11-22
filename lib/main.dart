@@ -7,6 +7,7 @@ import 'app.dart';
 import 'data/repositories/feed_repository.dart';
 import 'providers/downloads_provider.dart';
 import 'providers/playback_settings.dart';
+import 'providers/recommendation_settings.dart';
 import 'providers/theme_controller.dart';
 import 'services/device_storage_service.dart';
 import 'services/download_notification_service.dart';
@@ -20,6 +21,7 @@ Future<void> main() async {
   // Read the saved theme first (at most 1 second) so the app doesn't flash the wrong theme.
   final theme = await ThemeController.load();
   final playbackSettings = await PlaybackSettings.load();
+  final recommendationSettings = await RecommendationSettings.load();
 
   final youtube = YoutubeExtractionService();
   final fileManager = LocalFileManagerService();
@@ -40,6 +42,7 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider<ThemeController>.value(value: theme),
         ChangeNotifierProvider<PlaybackSettings>.value(value: playbackSettings),
+        ChangeNotifierProvider<RecommendationSettings>.value(value: recommendationSettings),
         Provider<YoutubeExtractionService>.value(value: youtube),
         Provider<FeedRepository>(create: (_) => FeedRepository(youtube)),
         ChangeNotifierProvider<DownloadsProvider>.value(value: downloads),
