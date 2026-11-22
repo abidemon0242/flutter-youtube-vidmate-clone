@@ -51,4 +51,23 @@ void main() {
     expect(settings.prefersMore('video-1'), isFalse);
     expect(settings.prefersLess('video-2'), isFalse);
   });
+  test('more and less feedback are mutually exclusive', () async {
+    final settings = await RecommendationSettings.load();
+    await settings.recordMore('video-1');
+    await settings.recordLess('video-1');
+    expect(settings.prefersMore('video-1'), isFalse);
+    expect(settings.prefersLess('video-1'), isTrue);
+
+    await settings.recordMore('video-1');
+    expect(settings.prefersMore('video-1'), isTrue);
+    expect(settings.prefersLess('video-1'), isFalse);
+  });
+
+  test('personalization off ignores selected subtopics', () async {
+    final settings = await RecommendationSettings.load();
+    await settings.setSubtopic('Study', 'Chemistry', true);
+    await settings.setPersonalization(false);
+    expect(settings.queryFor('Study'), 'Study');
+  });
+
 }
