@@ -53,7 +53,7 @@ class RecommendationSettings extends ChangeNotifier {
   List<String> _subscriptions = [];
   List<String> _moreFeedback = [];
   List<String> _lessFeedback = [];
-  Map<String, List<String>> _subtopics = {};
+  final Map<String, List<String>> _subtopics = {};
   String _defaultSection = 'Recommended';
   bool _personalization = true;
 
@@ -145,16 +145,20 @@ class RecommendationSettings extends ChangeNotifier {
   }
 
   Future<void> recordMore(String videoId) async {
+    _lessFeedback.remove(videoId);
     _moreFeedback.remove(videoId);
-    if (!_moreFeedback.contains(videoId)) _moreFeedback.add(videoId);
+    _moreFeedback.add(videoId);
     await _prefs.setStringList(_moreKey, _moreFeedback);
+    await _prefs.setStringList(_lessKey, _lessFeedback);
     notifyListeners();
   }
 
   Future<void> recordLess(String videoId) async {
+    _moreFeedback.remove(videoId);
     _lessFeedback.remove(videoId);
-    if (!_lessFeedback.contains(videoId)) _lessFeedback.add(videoId);
+    _lessFeedback.add(videoId);
     await _prefs.setStringList(_lessKey, _lessFeedback);
+    await _prefs.setStringList(_moreKey, _moreFeedback);
     notifyListeners();
   }
 
