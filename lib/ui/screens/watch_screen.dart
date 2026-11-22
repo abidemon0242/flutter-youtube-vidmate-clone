@@ -268,6 +268,15 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                 ),
                 Positioned(
                   top: 8,
+                  right: 8,
+                  child: Material(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                    child: _playbackSpeedMenu(compact: true),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
                   left: 8,
                   child: IconButton(
                     color: Colors.white,
@@ -282,6 +291,28 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                   child: VideoProgressIndicator(
                     controller,
                     allowScrubbing: true,
+                  ),
+                ),
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 34,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        tooltip: 'Back 10 seconds',
+                        color: Colors.white,
+                        onPressed: () => _seekBy(-10),
+                        icon: const Icon(Icons.replay_10),
+                      ),
+                      IconButton(
+                        tooltip: 'Forward 10 seconds',
+                        color: Colors.white,
+                        onPressed: () => _seekBy(10),
+                        icon: const Icon(Icons.forward_10),
+                      ),
+                    ],
                   ),
                 ),
                 Center(
@@ -656,7 +687,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           else ...[
             _playbackSpeedMenu(),
             if (_videoTracks.isNotEmpty && _videoTrackSelectionSupported)
-            PopupMenuButton<String>(
+              PopupMenuButton<String>(
               tooltip: 'Video quality',
               icon: const Icon(Icons.high_quality_outlined),
               onSelected: _selectVideoTrack,
