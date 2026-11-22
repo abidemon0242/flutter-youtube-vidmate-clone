@@ -24,6 +24,7 @@ class DownloadOption {
     required this.sizeBytes,
     this.detail = '',
     this.audioOutputBitrate,
+    this.audioSourceBitrateKbps,
   });
 
   final DownloadKind kind;
@@ -46,6 +47,7 @@ class DownloadOption {
   /// When set, the downloaded source audio is transcoded to [container].
   /// Null keeps the original YouTube audio stream unchanged.
   final String? audioOutputBitrate;
+  final int? audioSourceBitrateKbps;
 
   bool get transcodesAudio => kind == DownloadKind.audio && audioOutputBitrate != null;
 
@@ -66,6 +68,7 @@ class DownloadOption {
     'sizeBytes': sizeBytes,
     'detail': detail,
     'audioOutputBitrate': audioOutputBitrate,
+    'audioSourceBitrateKbps': audioSourceBitrateKbps,
   };
 
   factory DownloadOption.fromJson(Map<String, dynamic> json) => DownloadOption(
@@ -77,6 +80,7 @@ class DownloadOption {
     sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
     detail: json['detail'] as String? ?? '',
     audioOutputBitrate: json['audioOutputBitrate'] as String?,
+    audioSourceBitrateKbps: (json['audioSourceBitrateKbps'] as num?)?.toInt(),
   );
 }
 
@@ -470,6 +474,7 @@ DownloadOptions buildDownloadOptions(StreamManifest manifest) {
         audioTag: audio.tag,
         sizeBytes: audio.size.totalBytes,
         detail: container == 'm4a' ? 'M4A (AAC)' : '${container.toUpperCase()} (${audio.audioCodec})',
+        audioSourceBitrateKbps: kbps,
       ),
     );
     if (audioOptions.length >= 4) break;
