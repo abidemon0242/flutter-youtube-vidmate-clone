@@ -9,6 +9,7 @@ import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/library_screen.dart';
 import 'ui/screens/watch_screen.dart';
+import 'ui/screens/settings_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -43,6 +44,7 @@ GoRouter buildRouter() => GoRouter(
         ),
       ],
     ),
+    GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
     GoRoute(
       path: '/watch',
       parentNavigatorKey: _rootNavigatorKey,
