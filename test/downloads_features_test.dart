@@ -92,6 +92,39 @@ Future<void> _waitFor(bool Function() condition) async {
 }
 
 void main() {
+  group('audio output options', () {
+    test('format and quality survive persistence and have distinct task keys', () {
+      const mp3 = DownloadOption(
+        kind: DownloadKind.audio,
+        label: 'MP3 · 320 kbps',
+        container: 'mp3',
+        videoTag: null,
+        audioTag: 140,
+        sizeBytes: 1200000,
+        audioOutputBitrate: '320 kbps',
+        audioSourceBitrateKbps: 128,
+      );
+      final restored = DownloadOption.fromJson(mp3.toJson());
+      expect(restored.transcodesAudio, isTrue);
+      expect(restored.container, 'mp3');
+      expect(restored.audioOutputBitrate, '320 kbps');
+      expect(restored.audioSourceBitrateKbps, 128);
+      expect(restored.key, mp3.key);
+
+      const m4a = DownloadOption(
+        kind: DownloadKind.audio,
+        label: 'M4A · Best available',
+        container: 'm4a',
+        videoTag: null,
+        audioTag: 140,
+        sizeBytes: 1200000,
+        audioOutputBitrate: 'Best available',
+        audioSourceBitrateKbps: 128,
+      );
+      expect(m4a.key, isNot(mp3.key));
+    });
+  });
+
   late Directory root;
   late Directory tubeArena;
   late Directory downloads;
