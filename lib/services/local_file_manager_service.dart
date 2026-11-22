@@ -39,8 +39,9 @@ class LocalFileManagerService {
 
   static const downloadsFolderName = 'Downloads';
 
-  /// Built-in folders cannot be renamed or deleted.
-  static bool isProtectedFolder(String name) => name.toLowerCase() == downloadsFolderName.toLowerCase();
+  /// App-managed media folders cannot be renamed or deleted.
+  static const _builtInFolders = {'downloads', 'videos', 'audio', 'shorts', 'important shorts'};
+  static bool isProtectedFolder(String name) => _builtInFolders.contains(name.trim().toLowerCase());
 
   static const _hiddenSuffixes = ['.part', '.tmp', '.json'];
 
@@ -104,7 +105,7 @@ class LocalFileManagerService {
     try {
       await initialize();
       final safeName = _validatedFolderName(folderName);
-      if (safeName == null || safeName.toLowerCase() == 'downloads') return false;
+      if (safeName == null || isProtectedFolder(safeName)) return false;
       final folder = Directory('${_baseDirectory.path}/$safeName');
       if (!folder.existsSync()) {
         await folder.create(recursive: true);
@@ -146,8 +147,8 @@ class LocalFileManagerService {
       if (safeOldName == null ||
           safeNewName == null ||
           safeOldName == safeNewName ||
-          safeOldName.toLowerCase() == 'downloads' ||
-          safeNewName.toLowerCase() == 'downloads') {
+          isProtectedFolder(safeOldName) ||
+          isProtectedFolder(safeNewName)) {
         return false;
       }
       final oldFolder = Directory('${_baseDirectory.path}/$safeOldName');
@@ -185,11 +186,16 @@ class LocalFileManagerService {
         );
       }
 
-      // Downloads first, then the rest alphabetically.
+      // Built-in folders first, with Downloads as the primary folder.
       folders.sort((a, b) {
-        if (isProtectedFolder(a.name)) return -1;
-        if (isProtectedFolder(b.name)) return 1;
-        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        final aName = a.name.toLowerCase();
+        final bName = b.name.toLowerCase();
+        if (aName == 'downloads') return -1;
+        if (bName == 'downloads') return 1;
+        final aBuiltIn = isProtectedFolder(a.name);
+        final bBuiltIn = isProtectedFolder(b.name);
+        if (aBuiltIn != bBuiltIn) return aBuiltIn ? -1 : 1;
+        return aName.compareTo(bName);
       });
       logger.i('Found ${folders.length} folders');
       return folders;
