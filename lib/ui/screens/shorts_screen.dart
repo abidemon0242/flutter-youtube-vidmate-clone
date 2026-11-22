@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
@@ -125,7 +126,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
   );
 
   int _heightOf(DownloadOption option) =>
-      int.tryParse(RegExp(r'^(\\d+)').firstMatch(option.label)?.group(1) ?? '') ?? 0;
+      int.tryParse(RegExp(r'^(\d+)').firstMatch(option.label)?.group(1) ?? '') ?? 0;
 
   DownloadOption? _batchOption(DownloadOptions options, int quality) {
     final available = options.video.where((option) => option.kind == DownloadKind.video).toList();
@@ -176,7 +177,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
         content: Text(batchSummary(result, (video) => video.title)),
         action: SnackBarAction(
           label: 'Downloads',
-          onPressed: () => Navigator.of(context).pushNamed('/downloads'),
+          onPressed: () => context.go('/downloads'),
         ),
       ),
     );
