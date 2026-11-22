@@ -1,4 +1,7 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:provider/provider.dart';
+
+import '../../providers/recommendation_settings.dart';
 
 import '../../models/video_model.dart';
 import '../widgets/download_options_sheet.dart';
@@ -122,6 +125,48 @@ class _ShortsScreenState extends State<ShortsScreen> {
                         ],
                       ],
                     ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 12,
+                bottom: video.isYoutube ? 92 : 42,
+                child: SafeArea(
+                  child: PopupMenuButton<String>(
+                    tooltip: 'Short options',
+                    icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+                    color: const Color(0xFF242424),
+                    onSelected: (action) async {
+                      final preferences = context.read<RecommendationSettings>();
+                      switch (action) {
+                        case 'more':
+                          await preferences.recordMore(video.id);
+                          break;
+                        case 'less':
+                          await preferences.recordLess(video.id);
+                          break;
+                        case 'subscribe':
+                          await preferences.toggleSubscription(video.channelName, channelId: video.channelId);
+                          break;
+                        case 'hide':
+                          await preferences.hideChannel(video.channelName);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'more', child: Text('Show more like this')),
+                      const PopupMenuItem(value: 'less', child: Text('Show less like this')),
+                      PopupMenuItem(
+                        value: 'subscribe',
+                        child: Text(
+                          context.read<RecommendationSettings>().isSubscribed(
+                            video.channelName,
+                            channelId: video.channelId,
+                          ) ? 'Unsubscribe' : 'Subscribe',
+                        ),
+                      ),
+                      const PopupMenuItem(value: 'hide', child: Text('Don’t recommend this channel')),
+                    ],
                   ),
                 ),
               ),
