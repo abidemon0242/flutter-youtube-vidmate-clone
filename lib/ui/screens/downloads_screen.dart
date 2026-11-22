@@ -155,7 +155,9 @@ class _DownloadTile extends StatelessWidget {
     DownloadStatus.downloading =>
       '${(entry.progress * 100).toStringAsFixed(0)}% · ${formatBytes(entry.receivedBytes)} of ${formatBytes(entry.totalBytes)}',
     DownloadStatus.paused => 'Paused · ${(entry.progress * 100).toStringAsFixed(0)}%',
-    DownloadStatus.merging => entry.option.transcodesAudio ? 'Converting audio format...' : 'Combining video and audio...',
+    DownloadStatus.merging => entry.option.transcodesAudio
+        ? 'Converting audio format...'
+        : 'Combining video and audio...',
     DownloadStatus.completed => formatBytes(entry.totalBytes),
     DownloadStatus.failed => entry.error ?? 'Failed',
     DownloadStatus.canceled => 'Canceled',
