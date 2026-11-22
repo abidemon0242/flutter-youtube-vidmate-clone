@@ -79,8 +79,12 @@ class _HomeScreenState extends State<HomeScreen> {
       if (channels.isEmpty) return FeedResult(feed: PagedFeed.fixed(const []));
       return _feed.load(category: 'All', query: 'latest videos from ${channels.join(' ')}', refresh: refresh);
     }
-    final history = _section == 'Recommended' ? await _homeLibrary.history() : const <VideoModel>[];
-    final personalQuery = history.isEmpty
+    final history = _section == 'Recommended' && preferences.personalization
+        ? await _homeLibrary.history()
+        : const <VideoModel>[];
+    final personalQuery = !preferences.personalization
+        ? 'popular videos'
+        : history.isEmpty
         ? 'recommended videos about ${preferences.interests.join(' ')}'
         : 'more videos like ${history.take(3).map((video) => video.title).join(' ')} ${preferences.interests.join(' ')}';
     final sectionQuery = switch (_section) {
@@ -121,7 +125,10 @@ class _HomeScreenState extends State<HomeScreen> {
       };
     }).toList();
     final preferences = context.read<RecommendationSettings>();
-    if (_sort == 'Recommended' && _section != 'Trending' && _section != 'Subscriptions') {
+    if (preferences.personalization &&
+        _sort == 'Recommended' &&
+        _section != 'Trending' &&
+        _section != 'Subscriptions') {
       videos.sort((a, b) => _feedbackScore(preferences, b.id).compareTo(_feedbackScore(preferences, a.id)));
     }
     if (_sort == 'Shortest first') {
@@ -338,7 +345,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (dialogContext) => AlertDialog(
             title: const Text('Why this video?'),
             content: Text(
-              'This video was found through the selected ${_section.toLowerCase()} feed and its search terms. Your local interests: ${preferences.interests.join(', ')}. Tube Arena does not use an official YouTube recommendation profile.',
+              'This video was found through the selected ${_section.toLowerCase()} feed and its search terms. ${preferences.personalization ? 'Your local interests: ${preferences.interests.join(', ')}.' : 'Personalized recommendations are turned off.'} Tube Arena does not use an official YouTube recommendation profile.',
             ),
             actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
           ),
