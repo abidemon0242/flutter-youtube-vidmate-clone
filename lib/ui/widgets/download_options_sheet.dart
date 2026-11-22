@@ -170,15 +170,7 @@ class _AudioOutputPicker extends StatefulWidget {
 
 class _AudioOutputPickerState extends State<_AudioOutputPicker> {
   static const _formats = ['MP3', 'M4A', 'AAC', 'OPUS', 'FLAC', 'WAV'];
-  static const _bitrates = [
-    '64 kbps',
-    '96 kbps',
-    '128 kbps',
-    '192 kbps',
-    '256 kbps',
-    '320 kbps',
-    'Best available',
-  ];
+  static const _bitrates = ['64 kbps', '96 kbps', '128 kbps', '192 kbps', '256 kbps', '320 kbps', 'Best available'];
 
   String _format = 'MP3';
   String _bitrate = 'Best available';
@@ -210,24 +202,16 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Audio output',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
+            const Text('Audio output', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            Text(
-              'Source: ${source.label} · ${source.detail}',
-              style: TextStyle(color: context.textSecondary),
-            ),
+            Text('Source: ${source.label} · ${source.detail}', style: TextStyle(color: context.textSecondary)),
             const SizedBox(height: 18),
             const Text('Format'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               initialValue: _format,
               isExpanded: true,
-              items: _formats
-                  .map((format) => DropdownMenuItem(value: format, child: Text(format)))
-                  .toList(),
+              items: _formats.map((format) => DropdownMenuItem(value: format, child: Text(format))).toList(),
               onChanged: (value) {
                 if (value != null) setState(() => _format = value);
               },
@@ -252,14 +236,11 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
               lossless
                   ? 'FLAC and WAV are lossless. A bitrate setting does not apply.'
                   : 'Best available matches the selected source stream bitrate. '
-                      'Increasing bitrate cannot restore detail missing from the source.',
+                        'Increasing bitrate cannot restore detail missing from the source.',
               style: TextStyle(color: context.textSecondary, fontSize: 12),
             ),
             const SizedBox(height: 8),
-            Text(
-              _estimatedOutputSize,
-              style: TextStyle(color: context.textSecondary, fontSize: 12),
-            ),
+            Text(_estimatedOutputSize, style: TextStyle(color: context.textSecondary, fontSize: 12)),
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
