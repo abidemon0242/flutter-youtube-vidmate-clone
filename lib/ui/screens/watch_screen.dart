@@ -326,10 +326,11 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
 
   Future<void> _openRelated(VideoModel video) async {
     // Keep the current Watch route underneath so Back returns to this video.
+    final router = GoRouter.of(context);
     final controller = _controller;
     final resumePrevious = controller?.value.isPlaying ?? false;
     if (resumePrevious) await controller!.pause();
-    await context.push('/watch', extra: video);
+    await router.push('/watch', extra: video);
     if (!mounted) return;
     if (resumePrevious && _controller?.value.isInitialized == true) {
       await _controller!.play();
