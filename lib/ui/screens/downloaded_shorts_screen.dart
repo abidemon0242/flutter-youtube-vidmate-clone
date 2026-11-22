@@ -39,10 +39,7 @@ class _DownloadedShortsScreenState extends State<DownloadedShortsScreen> {
       ),
       body: entries.isEmpty
           ? const Center(
-              child: Text(
-                'No downloaded Shorts yet.',
-                style: TextStyle(color: Colors.white70),
-              ),
+              child: Text('No downloaded Shorts yet.', style: TextStyle(color: Colors.white70)),
             )
           : PageView.builder(
               controller: _controller,
@@ -95,7 +92,9 @@ class _DownloadedShortsScreenState extends State<DownloadedShortsScreen> {
                                 final deleted = await downloads.remove(entry);
                                 if (context.mounted) {
                                   messenger.showSnackBar(
-                                    SnackBar(content: Text(deleted ? 'Short deleted.' : 'Short removed from the list.')),
+                                    SnackBar(
+                                      content: Text(deleted ? 'Short deleted.' : 'Short removed from the list.'),
+                                    ),
                                   );
                                 }
                               },

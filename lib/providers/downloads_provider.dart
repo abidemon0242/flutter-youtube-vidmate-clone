@@ -248,9 +248,8 @@ class DownloadsProvider extends ChangeNotifier {
   /// Maximum number of retained Shorts; null means no count-based limit.
   int? get shortsLimit => _shortsLimit;
   List<DownloadEntry> get shorts => List.unmodifiable(_items.where((entry) => entry.isShort));
-  List<DownloadEntry> get downloadedShorts => List.unmodifiable(
-    _items.where((entry) => entry.isShort && entry.status == DownloadStatus.completed),
-  );
+  List<DownloadEntry> get downloadedShorts =>
+      List.unmodifiable(_items.where((entry) => entry.isShort && entry.status == DownloadStatus.completed));
 
   Future<void> setShortsLimit(int? value) async {
     if (value != null && value < 1) throw ArgumentError.value(value, 'value', 'Shorts limit must be positive or null.');
@@ -470,9 +469,9 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> _ensureShortCapacity() async {
     final limit = _shortsLimit;
     if (limit == null) return;
-    final protectedCount = _items.where(
-      (entry) => entry.isShort && entry.isProtected && entry.status == DownloadStatus.completed,
-    ).length;
+    final protectedCount = _items
+        .where((entry) => entry.isShort && entry.isProtected && entry.status == DownloadStatus.completed)
+        .length;
     if (protectedCount >= limit) {
       throw const DownloadException(
         'The Shorts limit is occupied by protected videos. Increase the limit or unprotect a Short before downloading more.',
@@ -525,9 +524,11 @@ class DownloadsProvider extends ChangeNotifier {
     final limit = _shortsLimit;
     if (limit == null) return;
     while (_items.where((entry) => entry.isShort && entry.status == DownloadStatus.completed).length > limit) {
-      final candidates = _items.where(
-        (entry) => entry.isShort && !entry.isProtected && entry.status == DownloadStatus.completed,
-      ).toList()..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final candidates =
+          _items
+              .where((entry) => entry.isShort && !entry.isProtected && entry.status == DownloadStatus.completed)
+              .toList()
+            ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
       if (candidates.isEmpty) return;
       final oldest = candidates.first;
       if (await File(oldest.savedPath).exists() && !await _deleteManaged(oldest.savedPath)) return;

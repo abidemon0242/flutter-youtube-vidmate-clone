@@ -72,15 +72,14 @@ void main() {
     if (await root.exists()) await root.delete(recursive: true);
   });
 
-  Future<DownloadEntry> start(String id, {bool isShort = false, DownloadOption option = _video}) =>
-      provider.start(
-        videoId: id,
-        title: 'Short $id',
-        channelName: 'Channel',
-        thumbnailUrl: '',
-        option: option,
-        isShort: isShort,
-      );
+  Future<DownloadEntry> start(String id, {bool isShort = false, DownloadOption option = _video}) => provider.start(
+    videoId: id,
+    title: 'Short $id',
+    channelName: 'Channel',
+    thumbnailUrl: '',
+    option: option,
+    isShort: isShort,
+  );
 
   test('default Shorts limit is 1,000 and custom values persist', () async {
     expect(provider.shortsLimit, DownloadsProvider.defaultShortsLimit);
@@ -129,10 +128,7 @@ void main() {
     expect(first.isProtected, isTrue);
     expect(first.savedPath, contains('/Important Shorts/'));
 
-    await expectLater(
-      start('blocked', isShort: true),
-      throwsA(isA<DownloadException>()),
-    );
+    await expectLater(start('blocked', isShort: true), throwsA(isA<DownloadException>()));
     expect(await File(first.savedPath).exists(), isTrue);
 
     await provider.setShortProtected(first.id, false);

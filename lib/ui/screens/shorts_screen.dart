@@ -90,9 +90,9 @@ class _ShortsScreenState extends State<ShortsScreen> {
         ..addAll(available.take(count).map((video) => video.id));
     });
     if (count > available.length) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Only ${available.length} Shorts are currently available to select.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Only ${available.length} Shorts are currently available to select.')));
     }
   }
 
@@ -127,8 +127,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
     },
   );
 
-  int _heightOf(DownloadOption option) =>
-      int.tryParse(RegExp(r'^(\d+)').firstMatch(option.label)?.group(1) ?? '') ?? 0;
+  int _heightOf(DownloadOption option) => int.tryParse(RegExp(r'^(\d+)').firstMatch(option.label)?.group(1) ?? '') ?? 0;
 
   DownloadOption? _batchOption(DownloadOptions options, int quality) {
     final available = options.video.where((option) => option.kind == DownloadKind.video).toList();
@@ -143,9 +142,9 @@ class _ShortsScreenState extends State<ShortsScreen> {
   Future<void> _downloadSelected(List<VideoModel> videos) async {
     final selected = videos.where((video) => _selectedVideoIds.contains(video.id) && video.isYoutube).toList();
     if (selected.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least one downloadable YouTube Short.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Select at least one downloadable YouTube Short.')));
       return;
     }
     final quality = await _chooseBatchQuality();
@@ -186,10 +185,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(batchSummary(result, (video) => video.title)),
-        action: SnackBarAction(
-          label: 'Downloads',
-          onPressed: () => context.go('/downloads'),
-        ),
+        action: SnackBarAction(label: 'Downloads', onPressed: () => context.go('/downloads')),
       ),
     );
   }
@@ -295,7 +291,10 @@ class _ShortsScreenState extends State<ShortsScreen> {
                                     Navigator.of(context).pop();
                                   }
                                 },
-                                icon: Icon(_selecting ? Icons.close_rounded : Icons.arrow_back_rounded, color: Colors.white),
+                                icon: Icon(
+                                  _selecting ? Icons.close_rounded : Icons.arrow_back_rounded,
+                                  color: Colors.white,
+                                ),
                               ),
                               Text(
                                 _selecting ? '${_selectedVideoIds.length} selected' : 'Shorts',

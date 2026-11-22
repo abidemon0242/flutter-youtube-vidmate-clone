@@ -192,12 +192,16 @@ class _ShortsStorageSettingsState extends State<_ShortsStorageSettings> {
           subtitle: const Text('Do not automatically remove Shorts because of their number'),
           value: limit == null,
           onChanged: (enabled) async {
-            final next = enabled ? null : (int.tryParse(_controller.text.trim()) ?? DownloadsProvider.defaultShortsLimit);
+            final next = enabled
+                ? null
+                : (int.tryParse(_controller.text.trim()) ?? DownloadsProvider.defaultShortsLimit);
             try {
               await downloads.setShortsLimit(next);
             } catch (error) {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not update Shorts limit: $error')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Could not update Shorts limit: $error')));
               }
             }
           },
@@ -221,9 +225,9 @@ class _ShortsStorageSettingsState extends State<_ShortsStorageSettings> {
                 : () async {
                     final value = int.tryParse(_controller.text.trim());
                     if (value == null || value < 1) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Enter a whole number greater than zero.')),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('Enter a whole number greater than zero.')));
                       return;
                     }
                     setState(() => _saving = true);
@@ -231,12 +235,18 @@ class _ShortsStorageSettingsState extends State<_ShortsStorageSettings> {
                       await downloads.setShortsLimit(value);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Shorts limit set to $value. Existing Shorts will be kept until new downloads need space.')),
+                          SnackBar(
+                            content: Text(
+                              'Shorts limit set to $value. Existing Shorts will be kept until new downloads need space.',
+                            ),
+                          ),
                         );
                       }
                     } catch (error) {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not save Shorts limit: $error')));
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text('Could not save Shorts limit: $error')));
                       }
                     } finally {
                       if (mounted) setState(() => _saving = false);
