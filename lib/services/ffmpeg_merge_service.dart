@@ -82,16 +82,7 @@ class FFmpegMergeService {
     if (codec == null) return false;
 
     await File(outputPath).parent.create(recursive: true);
-    final args = <String>[
-      '-y',
-      '-i',
-      inputPath,
-      '-map',
-      '0:a:0',
-      '-vn',
-      '-c:a',
-      codec,
-    ];
+    final args = <String>['-y', '-i', inputPath, '-map', '0:a:0', '-vn', '-c:a', codec];
     if (normalized != 'flac' && normalized != 'wav') {
       if (bitrate == 'Best available') {
         final sourceRate = sourceBitrateKbps;
