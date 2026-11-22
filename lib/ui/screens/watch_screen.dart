@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -16,6 +15,7 @@ import '../../models/playback_quality.dart';
 import '../../models/video_details.dart';
 import '../../models/video_model.dart';
 import '../../providers/playback_settings.dart';
+import '../../services/home_library_service.dart';
 import '../../services/media_session_service.dart';
 import '../../services/youtube_extraction_service.dart';
 import '../widgets/compact_video_tile.dart';
@@ -72,6 +72,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     _settings = context.read<PlaybackSettings>();
     WidgetsBinding.instance.addObserver(this);
     _loadSavedState();
+    unawaited(HomeLibraryService().addToHistory(widget.video));
     _open();
     final id = widget.video.youtubeId;
     if (widget.video.isYoutube && !widget.video.isLocal && id != null) {
@@ -80,15 +81,12 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     }
   }
 
-  String get _savedPreferenceKey => 'saved_video_${widget.video.youtubeId ?? widget.video.id}';
-
   Future<void> _loadSavedState() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getBool(_savedPreferenceKey) ?? false;
+      final saved = await HomeLibraryService().isSaved(widget.video);
       if (mounted) setState(() => _saved = saved);
     } catch (_) {
-      // The bookmark remains usable for this screen even if preferences fail.
+      // The bookmark remains usable for this screen if local storage is unavailable.
     }
   }
 
@@ -96,7 +94,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     final next = !_saved;
     setState(() => _saved = next);
     try {
-      await (await SharedPreferences.getInstance()).setBool(_savedPreferenceKey, next);
+      await HomeLibraryService().setSaved(widget.video, next);
     } catch (_) {
       if (mounted) setState(() => _saved = !next);
     }
