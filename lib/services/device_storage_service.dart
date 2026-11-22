@@ -15,7 +15,7 @@ class SaveToPhoneException implements Exception {
   String toString() => message;
 }
 
-const _audioExtensions = {'m4a', 'mp3', 'opus', 'ogg', 'aac', 'flac', 'wav'};
+const _audioExtensions = {'m4a', 'mp3', 'opus', 'ogg', 'aac', 'flac', 'wav', 'weba'};
 
 String fileExtension(String path) {
   final name = path.split(RegExp(r'[\\/]')).last;
@@ -32,7 +32,7 @@ String mimeTypeFor(String path, {bool? audio}) {
   return switch (ext) {
     'mp4' => isAudio ? 'audio/mp4' : 'video/mp4',
     'm4a' => 'audio/mp4',
-    'webm' => isAudio ? 'audio/webm' : 'video/webm',
+    'webm' || 'weba' => isAudio || ext == 'weba' ? 'audio/webm' : 'video/webm',
     'mkv' => 'video/x-matroska',
     'mp3' => 'audio/mpeg',
     'opus' || 'ogg' => 'audio/ogg',
