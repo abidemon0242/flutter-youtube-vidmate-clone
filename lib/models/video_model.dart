@@ -44,6 +44,39 @@ class VideoModel {
   /// Absolute path of a downloaded file for offline playback.
   final String? localPath;
 
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'channelName': channelName,
+    'views': views,
+    'duration': duration,
+    'thumbnailUrl': thumbnailUrl,
+    'channelAvatar': channelAvatar,
+    'isVerified': isVerified,
+    'category': category,
+    'published': published,
+    'youtubeId': youtubeId,
+    'playbackUrl': playbackUrl,
+    'localPath': localPath,
+  };
+
+  factory VideoModel.fromJson(Map<String, dynamic> json) => VideoModel(
+    id: json['id'] as String,
+    title: json['title'] as String,
+    channelName: json['channelName'] as String,
+    views: json['views'] as String? ?? '',
+    duration: json['duration'] as String? ?? '',
+    thumbnailUrl: json['thumbnailUrl'] as String? ?? '',
+    channelAvatar: json['channelAvatar'] as String? ?? '',
+    isVerified: json['isVerified'] as bool? ?? false,
+    category: json['category'] as String? ?? 'Tech',
+    published: json['published'] as String? ?? '',
+    youtubeId: json['youtubeId'] as String?,
+    playbackUrl: json['playbackUrl'] as String?,
+    localPath: json['localPath'] as String?,
+  );
+
   bool get isYoutube => youtubeId != null && youtubeId!.isNotEmpty;
   bool get isLocal => localPath != null && localPath!.isNotEmpty;
 
