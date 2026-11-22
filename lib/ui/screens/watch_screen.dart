@@ -474,6 +474,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                   trailing: _settings.preferredHeight == 0 ? const Icon(Icons.check_rounded) : null,
                   onTap: () async {
                     await _settings.setPreferredHeight(0);
+                    if (!sheetContext.mounted) return;
                     _userPickedQuality = false;
                     Navigator.pop(sheetContext);
                   },
