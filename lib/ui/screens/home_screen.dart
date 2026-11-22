@@ -129,9 +129,16 @@ class _HomeScreenState extends State<HomeScreen> {
         : history.isEmpty
         ? 'recommended videos about ${preferences.interests.join(' ')}'
         : 'more videos like ${history.take(3).map((video) => video.title).join(' ')} ${preferences.interests.join(' ')}';
+    final shortTopics = preferences.interests
+        .expand((category) => preferences.selectedSubtopics(category))
+        .take(5)
+        .toList();
+    final shortsQuery = preferences.personalization && shortTopics.isNotEmpty
+        ? 'YouTube Shorts ${shortTopics.join(' ')} under 3 minutes'
+        : 'YouTube Shorts under 3 minutes';
     final sectionQuery = switch (_section) {
       'Trending' => 'popular videos this week',
-      'Shorts' => 'YouTube Shorts under 3 minutes',
+      'Shorts' => shortsQuery,
       'Recommended' => personalQuery,
       _ => preferences.queryFor(_section),
     };
