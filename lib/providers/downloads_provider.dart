@@ -589,6 +589,7 @@ class DownloadsProvider extends ChangeNotifier {
       if (option.transcodesAudio) {
         entry.status = DownloadStatus.merging;
         _changed();
+        if (_stopRequested.contains(entry.id)) throw _Cancelled();
         final ok = await FFmpegMergeService().convertAudio(
           inputPath: entry.singlePartPath,
           outputPath: entry.savedPath,
