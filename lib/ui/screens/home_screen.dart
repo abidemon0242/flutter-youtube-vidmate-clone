@@ -248,8 +248,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _openVideo(VideoModel video) async {
-    await context.push('/watch', extra: video);
+  Future<void> _openVideo(VideoModel video, {List<VideoModel>? shorts}) async {
+    if (_section == 'Shorts' && shorts != null && shorts.isNotEmpty) {
+      await context.push('/shorts', extra: shorts);
+    } else {
+      await context.push('/watch', extra: video);
+    }
     if (mounted &&
         (_section == 'Watch Later' ||
             _section == 'History' ||
@@ -557,7 +561,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 if (_selecting) {
                                   _toggle(video);
                                 } else {
-                                  _openVideo(video);
+                                  _openVideo(video, shorts: videos);
                                 }
                               },
                             );
