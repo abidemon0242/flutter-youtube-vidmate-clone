@@ -14,6 +14,37 @@ class FFmpegMergeService {
 
   final _logger = Logger();
 
+  static final Map<String, int> _activeSessions = {};
+  static final Set<String> _cancelRequested = {};
+
+  /// Cancels the FFmpeg job writing [outputPath]. A pending cancellation is
+  /// remembered in case the FFmpeg session is still being created.
+  static Future<void> cancelForOutput(String outputPath) async {
+    final path = File(outputPath).absolute.path;
+    _cancelRequested.add(path);
+    final sessionId = _activeSessions[path];
+    if (sessionId != null) {
+      await FFmpegKit.cancel(sessionId);
+    }
+  }
+
+  Future<bool> _execute(List<String> args, String outputPath) async {
+    final path = File(outputPath).absolute.path;
+    try {
+      final session = await FFmpegKit.executeWithArgumentsAsync(args);
+      final sessionId = session.getSessionId();
+      _activeSessions[path] = sessionId;
+      if (_cancelRequested.remove(path)) {
+        await FFmpegKit.cancel(sessionId);
+      }
+      final code = await session.getReturnCode();
+      return ReturnCode.isSuccess(code);
+    } finally {
+      _activeSessions.remove(path);
+      _cancelRequested.remove(path);
+    }
+  }
+
   bool _samePath(String a, String b) => File(a).absolute.path == File(b).absolute.path;
 
   Future<bool> mergeVideoAndAudio({
@@ -45,10 +76,8 @@ class FFmpegMergeService {
       outputPath,
     ];
     try {
-      final session = await FFmpegKit.executeWithArguments(args);
-      final code = await session.getReturnCode();
-      if (ReturnCode.isSuccess(code)) return true;
-      _logger.e('FFmpeg merge failed (${code?.getValue()}): ${await session.getOutput()}');
+      if (await _execute(args, outputPath)) return true;
+      _logger.e('FFmpeg merge failed or was canceled.');
     } catch (error, stackTrace) {
       _logger.e('FFmpeg merge failed', error: error, stackTrace: stackTrace);
     }
@@ -103,13 +132,12 @@ class FFmpegMergeService {
     args.add(outputPath);
 
     try {
-      final session = await FFmpegKit.executeWithArguments(args);
-      final code = await session.getReturnCode();
+      final success = await _execute(args, outputPath);
       final output = File(outputPath);
-      if (ReturnCode.isSuccess(code) && await output.exists()) {
+      if (success && await output.exists()) {
         return await output.length() > 0;
       }
-      _logger.e('Audio conversion failed (${code?.getValue()}): ${await session.getOutput()}');
+      _logger.e('Audio conversion failed or was canceled.');
     } catch (error, stackTrace) {
       _logger.e('Audio conversion failed', error: error, stackTrace: stackTrace);
     }
