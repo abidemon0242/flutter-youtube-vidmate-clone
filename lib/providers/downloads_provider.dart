@@ -782,7 +782,7 @@ class DownloadsProvider extends ChangeNotifier {
           ..error = switch (error) {
             YoutubeServiceException(:final message) => message,
             DownloadException(:final message) => message,
-            _ => 'Download failed. Tap retry.',
+            _ => error.toString(),
           };
         debugPrint('Download ${entry.id} failed: $error');
       }
