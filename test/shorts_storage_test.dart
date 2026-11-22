@@ -131,7 +131,7 @@ void main() {
 
     await provider.setShortProtected(first.id, false);
     expect(first.isProtected, isFalse);
-    expect(first.savedPath, contains('/Videos/Shorts/'));
+    expect(first.savedPath, contains('/Shorts/'));
 
     final second = await start('second', isShort: true);
     expect(provider.byId(first.id), isNull);
