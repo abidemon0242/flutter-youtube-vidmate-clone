@@ -40,6 +40,11 @@ class MediaExportService {
         final hasVideo = streams.any((stream) => stream.getType() == 'video');
         if (hasAudio && !hasVideo) return ExportMediaKind.audio;
         if (hasVideo) return ExportMediaKind.video;
+        if (name.endsWith('.webm')) {
+          throw const FormatException(
+            'Could not identify the WebM audio or video stream.',
+          );
+        }
       } catch (_) {
         // Fall back to the known container extension below.
       }
@@ -59,6 +64,11 @@ class MediaExportService {
   ) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_preferenceKey(kind), destination);
+  }
+
+  Future<void> forgetDestination(ExportMediaKind kind) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.remove(_preferenceKey(kind));
   }
 
   Future<String> exportFile({
