@@ -44,7 +44,6 @@ class VideoModel {
   /// Absolute path of a downloaded file for offline playback.
   final String? localPath;
 
-
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
