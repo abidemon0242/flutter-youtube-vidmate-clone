@@ -83,13 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // like a generic recommendation feed. Keep only results whose displayed
       // channel name matches the channel the user subscribed to.
       final results = await Future.wait(
-        channels.map(
-          (channel) => _feed.load(
-            category: 'All',
-            query: 'latest videos by "$channel"',
-            refresh: refresh,
-          ),
-        ),
+        channels.map((channel) => _feed.load(category: 'All', query: 'latest videos by "$channel"', refresh: refresh)),
       );
       final videosById = <String, VideoModel>{};
       for (var i = 0; i < channels.length; i++) {
@@ -100,8 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         }
       }
-      final videos = videosById.values.toList()
-        ..sort((a, b) => b.published.compareTo(a.published));
+      final videos = videosById.values.toList()..sort((a, b) => b.published.compareTo(a.published));
       return FeedResult(feed: PagedFeed.fixed(videos));
     }
     final history = _section == 'Recommended' && preferences.personalization
