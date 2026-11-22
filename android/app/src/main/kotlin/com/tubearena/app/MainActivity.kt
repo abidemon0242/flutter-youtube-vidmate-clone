@@ -57,8 +57,19 @@ class MainActivity : FlutterActivity() {
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         }
 
+        val projection = arrayOf(MediaStore.MediaColumns.DISPLAY_NAME)
+        var displayName = source.name
+        var suffix = 2
+        while (resolverQuery(collection, projection, displayName)) {
+            val dot = source.name.lastIndexOf('.')
+            val base = if (dot > 0) source.name.substring(0, dot) else source.name
+            val ext = if (dot > 0) source.name.substring(dot) else ""
+            displayName = base + " (" + suffix + ")" + ext
+            suffix++
+        }
+
         val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, source.name)
+            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
             put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 put(
@@ -104,11 +115,28 @@ class MainActivity : FlutterActivity() {
                     null
                 )
             }
-            return source.name
+            return displayName
         } catch (error: Exception) {
             resolver.delete(uri, null, null)
             throw error
         }
+    }
+
+    private fun resolverQuery(
+        collection: Uri,
+        projection: Array<String>,
+        displayName: String
+    ): Boolean {
+        contentResolver.query(
+            collection,
+            projection,
+            "display_name = ?",
+            arrayOf(displayName),
+            null
+        )?.use { cursor ->
+            return cursor.moveToFirst()
+        }
+        return false
     }
 
     @Suppress("DEPRECATION")
