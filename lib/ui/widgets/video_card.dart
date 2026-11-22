@@ -146,9 +146,9 @@ class VideoCard extends StatelessWidget {
                   ),
                   if (onMore != null && video.isYoutube)
                     IconButton(
-                      tooltip: 'Download',
+                      tooltip: 'More options',
                       onPressed: onMore,
-                      icon: Icon(Icons.download_outlined, color: context.textSecondary),
+                      icon: Icon(Icons.more_vert_rounded, color: context.textSecondary),
                     ),
                 ],
               ),
