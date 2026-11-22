@@ -670,6 +670,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                 ),
               ],
             ),
+          ],
         ],
       ),
       body: Column(
