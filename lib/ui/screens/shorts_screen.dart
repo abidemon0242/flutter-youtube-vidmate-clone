@@ -64,6 +64,11 @@ class _ShortsScreenState extends State<ShortsScreen> {
       builder: (context, _) {
         final preferences = context.watch<RecommendationSettings>();
         final videos = _visibleVideos(preferences);
+        if (videos.length < 3 && widget.feed.canAutoLoad) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && widget.feed.canAutoLoad) unawaited(widget.feed.loadMore());
+          });
+        }
         if (videos.isEmpty) {
           return Scaffold(
             backgroundColor: Colors.black,
