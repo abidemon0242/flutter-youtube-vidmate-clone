@@ -239,10 +239,39 @@ void main() {
   });
 
   group('free space', () {
-    test('estimate doubles merged downloads and adds a reserve', () {
+    test('estimate counts source, merged output, transcode output, and reserve once', () {
       expect(estimateRequiredBytes(0, needsMerge: true), 0);
       expect(estimateRequiredBytes(100, needsMerge: false), 100 + downloadSpaceReserve);
       expect(estimateRequiredBytes(100, needsMerge: true), 200 + downloadSpaceReserve);
+      expect(
+        estimateRequiredBytes(100, needsMerge: false, estimatedOutputBytes: 1600),
+        1700 + downloadSpaceReserve,
+      );
+    });
+
+    test('audio output estimates reflect selected formats without double counting', () {
+      const wav = DownloadOption(
+        kind: DownloadKind.audio,
+        label: 'WAV · Lossless',
+        container: 'wav',
+        videoTag: null,
+        audioTag: 140,
+        sizeBytes: 100,
+        audioOutputBitrate: 'Lossless',
+        audioSourceBitrateKbps: 128,
+      );
+      const mp3 = DownloadOption(
+        kind: DownloadKind.audio,
+        label: 'MP3 · 256 kbps',
+        container: 'mp3',
+        videoTag: null,
+        audioTag: 140,
+        sizeBytes: 100,
+        audioOutputBitrate: '256 kbps',
+        audioSourceBitrateKbps: 128,
+      );
+      expect(estimateAudioOutputBytes(wav), 1600);
+      expect(estimateAudioOutputBytes(mp3), 200);
     });
 
     test('refuses to start when the option clearly does not fit', () async {
