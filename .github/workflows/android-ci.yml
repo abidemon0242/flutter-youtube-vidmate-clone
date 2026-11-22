@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - "autofix/**"
+      - "fix/high-priority-bugs"
   pull_request:
   workflow_dispatch:
 
