@@ -74,7 +74,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
     if (count == null || !mounted) return;
 
     final preferences = context.read<RecommendationSettings>();
-    while (_visibleVideos(preferences).length < count && widget.feed.canAutoLoad) {
+    while (_visibleVideos(preferences).where((video) => video.isYoutube).length < count && widget.feed.canAutoLoad) {
       try {
         await widget.feed.loadMore();
       } catch (_) {
@@ -82,7 +82,7 @@ class _ShortsScreenState extends State<ShortsScreen> {
       }
     }
     if (!mounted) return;
-    final available = _visibleVideos(preferences);
+    final available = _visibleVideos(preferences).where((video) => video.isYoutube).toList();
     setState(() {
       _selecting = true;
       _selectedVideoIds
