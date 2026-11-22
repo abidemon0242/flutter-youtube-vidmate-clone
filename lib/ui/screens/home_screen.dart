@@ -108,7 +108,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<VideoModel> _visibleVideos(List<VideoModel> source) {
     var videos = source.where((video) {
       if (_category > 0 && video.category != _categoryName) return false;
-      if (_section != 'Subscriptions' && context.read<RecommendationSettings>().isHidden(video.channelName)) return false;
+      final preferences = context.read<RecommendationSettings>();
+      if (_section != 'Subscriptions' && preferences.isHidden(video.channelName)) return false;
+      if (preferences.personalization && _section != 'Trending' && _section != 'Subscriptions' && preferences.prefersLess(video.id)) return false;
       final seconds = _durationSeconds(video.duration);
       if (_section == 'Shorts' && (seconds == null || seconds > 180)) return false;
       return switch (_durationFilter) {
@@ -118,6 +120,10 @@ class _HomeScreenState extends State<HomeScreen> {
         _ => true,
       };
     }).toList();
+    final preferences = context.read<RecommendationSettings>();
+    if (_sort == 'Recommended' && _section != 'Trending' && _section != 'Subscriptions') {
+      videos.sort((a, b) => (preferences.prefersMore(b.id) ? 1 : 0).compareTo(preferences.prefersMore(a.id) ? 1 : 0));
+    }
     if (_sort == 'Shortest first') {
       videos.sort(
         (a, b) => (_durationSeconds(a.duration) ?? 1 << 30).compareTo(_durationSeconds(b.duration) ?? 1 << 30),
@@ -303,19 +309,24 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'more':
         await preferences.recordMore(video.id);
         _snack('We’ll try to show more videos like this.');
+        break;
       case 'less':
         await preferences.recordLess(video.id);
         _snack('We’ll try to show fewer videos like this.');
+        break;
       case 'hide':
         await preferences.hideChannel(video.channelName);
         _reload(refresh: true);
         _snack('Channel hidden from personalized recommendations. Search remains available.');
+        break;
       case 'subscribe':
         await preferences.toggleSubscription(video.channelName);
         _snack(preferences.isSubscribed(video.channelName) ? 'Subscribed to ${video.channelName}.' : 'Unsubscribed from ${video.channelName}.');
         if (_section == 'Subscriptions') _reload(refresh: true);
+        break;
       case 'download':
         await showDownloadOptionsSheet(context, video);
+        break;
     }
   }
 
