@@ -69,4 +69,27 @@ void main() {
     await settings.setPersonalization(false);
     expect(settings.queryFor('Study'), 'Study');
   });
+  test('subscriptions persist by stable channel ID and expose display names', () async {
+    var settings = await RecommendationSettings.load();
+    await settings.toggleSubscription('Creator Name', channelId: 'UC1234567890');
+
+    settings = await RecommendationSettings.load();
+    expect(settings.subscriptions, ['Creator Name']);
+    expect(settings.subscriptionsById, {'UC1234567890': 'Creator Name'});
+    expect(settings.isSubscribed('Creator Name', channelId: 'UC1234567890'), isTrue);
+
+    await settings.toggleSubscription('Creator Name', channelId: 'UC1234567890');
+    expect(settings.subscriptions, isEmpty);
+  });
+
+  test('old name-only subscriptions remain readable', () async {
+    SharedPreferences.setMockInitialValues({
+      'recommendation_subscriptions_v1': ['Legacy Creator'],
+    });
+    final settings = await RecommendationSettings.load();
+    expect(settings.subscriptions, ['Legacy Creator']);
+    expect(settings.legacySubscriptions, ['Legacy Creator']);
+    expect(settings.subscriptionsById, isEmpty);
+  });
+
 }
