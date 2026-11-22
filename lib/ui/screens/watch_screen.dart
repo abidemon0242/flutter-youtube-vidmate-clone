@@ -37,6 +37,7 @@ class WatchScreen extends StatefulWidget {
 class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   VideoPlayerController? _controller;
   String? _error;
+  bool _opening = false;
   bool _saved = false;
   double _playbackSpeed = 1.0;
   bool _temporaryDoubleSpeed = false;
@@ -80,7 +81,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     unawaited(_monitorNetwork());
     _loadSavedState();
-    _open();
+    if (!widget.immersive || widget.autoplay) _open();
     final id = widget.video.youtubeId;
     if (widget.video.isYoutube && !widget.video.isLocal && id != null && !widget.immersive) {
       _details = _youtube.details(id);
@@ -101,6 +102,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           unawaited(controller.pause());
           _mediaSession.detach(controller);
         }
+      } else if (widget.autoplay && controller == null) {
+        unawaited(_open());
       }
     }
   }
@@ -179,6 +182,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   );
 
   Future<void> _open() async {
+    if (_opening) return;
+    _opening = true;
     setState(() => _error = null);
     try {
       final video = widget.video;
@@ -246,6 +251,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
       if (mounted) setState(() => _error = 'Could not play this video.');
+    } finally {
+      _opening = false;
     }
   }
 
