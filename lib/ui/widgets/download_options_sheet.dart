@@ -159,7 +159,6 @@ class _DownloadOptionsSheetState extends State<_DownloadOptionsSheet> {
   }
 }
 
-
 class _AudioOutputPicker extends StatefulWidget {
   const _AudioOutputPicker({required this.sourceOption});
 
@@ -184,7 +183,6 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
   String _format = 'MP3';
   String _bitrate = 'Best available';
 
-
   String get _estimatedOutputSize {
     final source = widget.sourceOption;
     if (source.sizeBytes <= 0) return 'Output size estimate unavailable.';
@@ -198,8 +196,7 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
     }
     final outputRate = int.tryParse(_bitrate.replaceAll(' kbps', ''));
     if (outputRate == null) return 'Output size estimate unavailable.';
-    final durationSeconds =
-        source.sizeBytes * 8 / (source.audioSourceBitrateKbps! * 1000);
+    final durationSeconds = source.sizeBytes * 8 / (source.audioSourceBitrateKbps! * 1000);
     final outputBytes = (durationSeconds * outputRate * 1000 / 8).round();
     return 'Estimated output size: about ${formatBytes(outputBytes)}.';
   }
@@ -231,10 +228,12 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
               initialValue: _format,
               isExpanded: true,
               items: _formats
-                  .map((format) => DropdownMenuItem(
-                        value: format,
-                        child: Text(format),
-                      ))
+                  .map(
+                    (format) => DropdownMenuItem(
+                      value: format,
+                      child: Text(format),
+                    ),
+                  )
                   .toList(),
               onChanged: (value) {
                 if (value != null) setState(() => _format = value);
@@ -247,10 +246,12 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
               initialValue: lossless ? 'Lossless' : _bitrate,
               isExpanded: true,
               items: (lossless ? const ['Lossless'] : _bitrates)
-                  .map((quality) => DropdownMenuItem(
-                        value: quality,
-                        child: Text(quality),
-                      ))
+                  .map(
+                    (quality) => DropdownMenuItem(
+                      value: quality,
+                      child: Text(quality),
+                    ),
+                  )
                   .toList(),
               onChanged: lossless
                   ? null
