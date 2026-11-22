@@ -59,7 +59,30 @@ class RecommendationSettings extends ChangeNotifier {
 
   List<String> get interests => List.unmodifiable(_interests);
   List<String> get hiddenChannels => List.unmodifiable(_hiddenChannels);
-  List<String> get subscriptions => List.unmodifiable(_subscriptions);
+  String _subscriptionName(String record) {
+    final separator = record.indexOf('::');
+    return separator < 0 ? record : record.substring(separator + 2);
+  }
+
+  String? _subscriptionId(String record) {
+    final separator = record.indexOf('::');
+    if (separator <= 0) return null;
+    return record.substring(0, separator);
+  }
+
+  List<String> get subscriptions => List.unmodifiable(_subscriptions.map(_subscriptionName));
+  Map<String, String> get subscriptionsById {
+    final result = <String, String>{};
+    for (final record in _subscriptions) {
+      final id = _subscriptionId(record);
+      if (id != null) result[id] = _subscriptionName(record);
+    }
+    return Map.unmodifiable(result);
+  }
+
+  List<String> get legacySubscriptions => List.unmodifiable(
+    _subscriptions.where((record) => _subscriptionId(record) == null).map(_subscriptionName),
+  );
   String get defaultSection => _defaultSection;
   bool get personalization => _personalization;
   List<String> selectedSubtopics(String category) => List.unmodifiable(_subtopics[category] ?? const []);
@@ -118,7 +141,11 @@ class RecommendationSettings extends ChangeNotifier {
   String _normalize(String value) => value.trim().toLowerCase();
 
   bool isHidden(String channel) => _hiddenChannels.any((item) => _normalize(item) == _normalize(channel));
-  bool isSubscribed(String channel) => _subscriptions.any((item) => _normalize(item) == _normalize(channel));
+  bool isSubscribed(String channel, {String? channelId}) => _subscriptions.any((record) {
+    final id = _subscriptionId(record);
+    if (channelId != null && channelId.isNotEmpty && id != null) return id == channelId;
+    return _normalize(_subscriptionName(record)) == _normalize(channel);
+  });
 
   Future<void> hideChannel(String channel) async {
     if (channel.trim().isEmpty || isHidden(channel)) return;
@@ -133,12 +160,18 @@ class RecommendationSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleSubscription(String channel) async {
+  Future<void> toggleSubscription(String channel, {String? channelId}) async {
     if (channel.trim().isEmpty) return;
-    if (isSubscribed(channel)) {
-      _subscriptions.removeWhere((item) => _normalize(item) == _normalize(channel));
+    final stableId = channelId?.trim();
+    final existingIndex = _subscriptions.indexWhere((record) {
+      final id = _subscriptionId(record);
+      if (stableId != null && stableId.isNotEmpty && id != null) return id == stableId;
+      return _normalize(_subscriptionName(record)) == _normalize(channel);
+    });
+    if (existingIndex >= 0) {
+      _subscriptions.removeAt(existingIndex);
     } else {
-      _subscriptions.add(channel.trim());
+      _subscriptions.add(stableId == null || stableId.isEmpty ? channel.trim() : '${stableId}::${channel.trim()}');
     }
     await _prefs.setStringList(_subscriptionsKey, _subscriptions);
     notifyListeners();
