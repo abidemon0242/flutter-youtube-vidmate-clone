@@ -30,10 +30,32 @@ class _HomeScreenState extends State<HomeScreen> {
   String _durationFilter = 'Any length';
   String _sort = 'Recommended';
   final HomeLibraryService _homeLibrary = HomeLibraryService();
+  late final ScrollController _scrollController;
   late Future<FeedResult> _future = _load();
   final Map<String, VideoModel> _selected = {};
   bool _batchRunning = false;
   String _batchLabel = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _scrollController.position.extentAfter > 500) return;
+    final current = _future;
+    unawaited(current.then((result) {
+      if (!mounted || !_scrollController.hasClients) return;
+      if (_scrollController.position.extentAfter <= 500) unawaited(result.feed.loadMore());
+    }));
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   bool get _selecting => _selected.isNotEmpty;
   String get _categoryName => FeedRepository.categories[_category];
@@ -84,11 +106,11 @@ class _HomeScreenState extends State<HomeScreen> {
       };
     }).toList();
     if (_sort == 'Shortest first') {
-      videos.sort((a, b) => (_durationSeconds(a.duration) ?? 1 << 30)
-          .compareTo(_durationSeconds(b.duration) ?? 1 << 30));
+      videos.sort(
+        (a, b) => (_durationSeconds(a.duration) ?? 1 << 30).compareTo(_durationSeconds(b.duration) ?? 1 << 30),
+      );
     } else if (_sort == 'Longest first') {
-      videos.sort((a, b) => (_durationSeconds(b.duration) ?? -1)
-          .compareTo(_durationSeconds(a.duration) ?? -1));
+      videos.sort((a, b) => (_durationSeconds(b.duration) ?? -1).compareTo(_durationSeconds(a.duration) ?? -1));
     }
     return videos;
   }
@@ -342,6 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       builder: (context, _) {
                         final videos = _visibleVideos(result.feed.items);
                         return ListView.builder(
+                          controller: _scrollController,
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
                           itemCount: videos.length + 2,
@@ -399,15 +422,16 @@ class _HomeScreenState extends State<HomeScreen> {
   /// lazily), which is what triggers loading the next page.
   Widget _footer(FeedResult result) {
     final feed = result.feed;
-    if (feed.canAutoLoad) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) feed.loadMore();
-      });
-    }
-    if (feed.isLoading || feed.canAutoLoad) {
+    if (feed.isLoading) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
         child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (feed.canAutoLoad) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: TextButton(onPressed: feed.loadMore, child: const Text('Load more'))),
       );
     }
     if (feed.error != null) {
