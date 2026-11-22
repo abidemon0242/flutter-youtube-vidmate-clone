@@ -29,6 +29,9 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   StreamSubscription<YoutubeVideoState>? _youtubePositionSubscription;
   bool _youtubeMediaSessionReady = false;
   bool _youtubeMediaSessionStarting = false;
+  final List<String> _youtubeVideoHistory = <String>[];
+  String? _lastYoutubeVideoId;
+  bool _restoringYoutubeHistory = false;
   List<VideoTrack> _videoTracks = const [];
   bool _videoTrackSelectionSupported = false;
   late final PersonalizationService profile;
@@ -58,6 +61,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     record('open');
 
     final videoId = _extractYouTubeVideoId(widget.video.playbackUrl);
+    _lastYoutubeVideoId = videoId;
     if (videoId != null) {
       youtubeController = YoutubePlayerController.fromVideoId(
         videoId: videoId,
@@ -92,11 +96,38 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     if (youtube == null) return;
 
     _youtubeValueSubscription = youtube.listen((value) {
+      _recordYoutubeVideoChange(value.metaData.videoId);
       unawaited(_syncYoutubeMediaSession(value));
     });
     _youtubePositionSubscription = youtube.videoStateStream.listen((state) {
       unawaited(_syncYoutubePosition(state.position));
     });
+  }
+
+  void _recordYoutubeVideoChange(String videoId) {
+    if (videoId.isEmpty || _restoringYoutubeHistory) return;
+    final previousId = _lastYoutubeVideoId;
+    if (previousId != null && previousId.isNotEmpty && previousId != videoId) {
+      _youtubeVideoHistory.add(previousId);
+    }
+    _lastYoutubeVideoId = videoId;
+  }
+
+  Future<bool> _restorePreviousYoutubeVideo() async {
+    final youtube = youtubeController;
+    if (youtube == null || _youtubeVideoHistory.isEmpty) return false;
+    final previousId = _youtubeVideoHistory.removeLast();
+    _restoringYoutubeHistory = true;
+    _lastYoutubeVideoId = previousId;
+    try {
+      await youtube.loadVideoById(videoId: previousId);
+      return true;
+    } catch (error) {
+      debugPrint('Could not restore the previous YouTube video: $error');
+      return false;
+    } finally {
+      _restoringYoutubeHistory = false;
+    }
   }
 
   Future<void> _syncYoutubeMediaSession(YoutubePlayerValue value) async {
@@ -707,7 +738,14 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     final video = widget.video;
     final isYouTube = youtubeController != null;
 
-    return Scaffold(
+    return PopScope(
+      canPop: _youtubeVideoHistory.isEmpty,
+      onPopInvoked: (didPop) {
+        if (!didPop && _youtubeVideoHistory.isNotEmpty) {
+          unawaited(_restorePreviousYoutubeVideo());
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Watch'),
         actions: [
@@ -807,6 +845,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
             ),
           ),
         ],
+      ),
       ),
     );
   }
