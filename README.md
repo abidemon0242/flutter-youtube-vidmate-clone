@@ -1,49 +1,79 @@
 # Tube Arena
 
-Tube Arena is an Android Flutter app for browsing YouTube, streaming videos and saving them for offline viewing in a local library.
+[![Android CI](https://github.com/abidemon0242/flutter-youtube-vidmate-clone/actions/workflows/android-ci.yml/badge.svg?branch=main)](https://github.com/abidemon0242/flutter-youtube-vidmate-clone/actions/workflows/android-ci.yml)
 
-## Features
+Tube Arena is an Android-first Flutter media app with video discovery, playback, downloads, and an offline library. It is an independent project and is not affiliated with or endorsed by YouTube or Google.
 
-- Live YouTube feed by category, search, and "paste a link" to open any video. The feed and search results scroll endlessly (the next page loads near the bottom, without duplicates, and "No more results" marks the end). If YouTube can't be reached, sample videos are shown with a Retry banner.
-- Watch screen with real YouTube streaming, local-file playback, play/pause/replay, a seek bar, ±10 s skip, fullscreen, and lock-screen / notification media controls. Below the player: the description (tap to expand) with views and upload date, and related videos that open in the player.
-- Quality picker (gear button on the player). Progressive MP4 streams are usually 360p only, so the app also asks YouTube for HLS streams, which usually go up to 1080p and include audio. If HLS isn't offered for a video, it plays at 360p. Your choice is remembered as the preferred quality, and switching keeps the position, fullscreen and the notification.
-- Background playback: the video keeps playing (as audio) with the screen locked or in another app, controlled from the notification and lock screen. Stop in the notification pauses playback and removes the notification; leaving the watch screen ends playback. You can turn background playback off in the player's settings sheet.
-- Download sheet with real options: video (up to the highest quality available, with video and audio combined by FFmpeg) or audio only. File sizes and the actual container (MP4, WebM, MKV, M4A) are shown.
-- Download manager: live progress, pause, resume, retry, cancel, multi-select, remove from list, and delete file (with confirmation). The list is saved, and downloads interrupted by closing the app come back as paused and resume from where they stopped.
-- Light and dark themes, or follow the phone's setting. Switch from the sun/moon button on Home or Library; the choice is remembered.
-- Library: a built-in Downloads folder plus your own folders (create, rename, delete). Tap a file to play it offline, or use its menu to move it to another folder (the Downloads list stays in sync), save it to the phone or share it.
-- Save to phone: copies a file into public storage through MediaStore (videos to Movies/Tube Arena, audio to Music/Tube Arena), so it appears in Gallery / Files and survives uninstalling the app. Android 9 and older ask for the storage permission.
-- Background downloads: a `dataSync` foreground service shows an ongoing progress notification while downloads run, plus a notification when each download finishes or fails.
-- Free-space check: before a download starts (and again once real stream sizes are known) Tube Arena checks free storage, counting merged downloads twice, and refuses with a clear message if it won't fit.
-- Download on Wi-Fi only (Downloads ⋮ menu): queued downloads wait with "Waiting for Wi-Fi" and continue automatically when Wi-Fi returns; a running download that loses Wi-Fi goes back to the queue and resumes from the bytes already saved.
-- Batch download from Home fetches up to 3 videos' formats at a time, shows "Preparing 3 of 10", and ends with a summary of any failures.
+> **Development status:** active development. A successful CI run is not a substitute for testing on a physical Android device. Do not treat this project as a production-ready release until the release checklist and device tests have passed.
 
-Downloads run in Dart inside the app process; the foreground service keeps that process alive in the background. If Android still stops the app, open it again and tap Resume.
+## Current functionality
 
-## Build
+The current repair branch includes the following implementations. Some depend on live third-party extraction or Android-specific runtime behavior and still require device verification.
 
-Requires Flutter 3.50 (3.47 or newer) and JDK 17.
+- **Discovery:** search-based video discovery, category filters, pagination, paste-a-link, and fallback sample content when the remote source is unavailable. Trending is search-derived discovery, not YouTube's official Trending feed.
+- **Home personalization:** local interests and study subtopics, show-more/show-less feedback, hidden-channel controls, local subscriptions, Watch Later, and watch history. These preferences are stored locally; they are not synced to a YouTube or Firebase account.
+- **Playback:** streaming and local playback, seek controls, skip controls, fullscreen, playback speed, press-and-hold 2×, quality selection, and Android media notification/lock-screen controls. Exact stream availability varies by video and source.
+- **Downloads:** single and batch download flows, progress, pause/resume/retry/cancel, Wi-Fi-only setting, video/audio selection, and local download history. Some higher-quality video downloads require FFmpeg stream merging.
+- **Offline library:** local folders, file management, offline playback, and separate regular-video, Shorts-video, and audio storage.
+- **Shorts:** a vertical swipe player and an offline Shorts library. The discovery source is search-based and duration-filtered (up to three minutes); it is **not verified to be an official Shorts-only or vertical-video feed**.
+- **Shorts protection and rotation:** default retention limit of 1,000, any positive custom limit or Unlimited, protected/Important Shorts, and automatic replacement of the oldest eligible unprotected item after a new download succeeds.
+- **Themes:** light and dark themes.
+
+## Important limitations
+
+- No YouTube Data API key is used or required by this project.
+- No Firebase or Google app sign-in is implemented. Local subscriptions are not access to a user's private YouTube subscriptions.
+- Trending and Shorts discovery are search-derived, not official YouTube feeds.
+- Automatic bitrate adaptation based on measured throughput and configurable advanced prebuffering are not implemented.
+- Persistent automatic offline caching is not implemented; explicit downloads are separate from temporary playback buffering.
+- Actual player-network ad interception is not implemented. URL classification must not be described as a working in-player ad blocker.
+- Audio codec execution, stream merging, background service reliability, and notification behavior need Android runtime testing.
+- Physical testing on Redmi 12 / Android 15 / HyperOS has not yet been confirmed.
+
+## Build locally
+
+Requirements: Flutter 3.50.1 (stable), Dart version bundled with that Flutter release, and JDK 17.
 
 ```bash
 flutter pub get
-flutter analyze
-flutter test
+dart format --line-length 120 --output=none --set-exit-if-changed lib test
+flutter analyze --fatal-infos --fatal-warnings
+flutter test --reporter expanded
+flutter build apk --debug
+```
+
+For split release APKs:
+
+```bash
 flutter build apk --release --split-per-abi
 ```
 
 ### Release signing
 
-Release builds are signed with your keystore when one of these is provided:
+Release signing can use `android/key.properties` with `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`, or the `TUBE_ARENA_KEYSTORE_PATH`, `TUBE_ARENA_KEYSTORE_PASSWORD`, `TUBE_ARENA_KEY_ALIAS`, and `TUBE_ARENA_KEY_PASSWORD` environment variables.
 
-- `android/key.properties` with `storeFile`, `storePassword`, `keyAlias` and `keyPassword`, or
-- the environment variables `TUBE_ARENA_KEYSTORE_PATH`, `TUBE_ARENA_KEYSTORE_PASSWORD`, `TUBE_ARENA_KEY_ALIAS` and `TUBE_ARENA_KEY_PASSWORD`.
+Never commit keystores, signing properties, API credentials, or private configuration. A debug-signed APK is for testing only and is not suitable for publishing as a trusted production update.
 
-Without them, the release build falls back to the debug key and prints a warning; that APK installs fine but can't be published or updated over a properly signed build. `key.properties` and `*.jks` are ignored by git.
+## CI verification
 
-## CI
+The Android CI workflow runs formatting, Flutter analysis, unit/widget tests, debug and split-release APK builds, and an Android emulator launch smoke test. Downloadable APKs are published as workflow artifacts when the corresponding jobs complete successfully.
 
-`.github/workflows/android-ci.yml` checks formatting, runs analysis and tests, builds the debug APK and the split release APKs, then installs the same debug APK on an Android emulator and makes sure it launches without crashing. APKs are uploaded as workflow artifacts.
+Check the [Actions page](https://github.com/abidemon0242/flutter-youtube-vidmate-clone/actions) for the exact commit and run result. A queued, cancelled, skipped, or `action_required` run is **not a pass**. Emulator smoke testing does not verify all device-specific behavior.
 
-## Legal note
+## Legal and permitted use
 
-Downloading from YouTube may be against YouTube's Terms of Service, and apps that do it aren't allowed on Google Play. Only download content you have the rights to, and distribute this app outside Play.
+Tube Arena is not affiliated with YouTube or Google. YouTube is a third-party service and its terms, content-owner permissions, copyright rules, and regional laws apply. Downloading or redistributing content may be restricted even when a technical download path exists. Use the app only for content you own or are expressly permitted to download, and do not bypass access controls or redistribute copyrighted material without permission.
+
+Review [YouTube's Terms of Service](https://www.youtube.com/t/terms) and the applicable copyright rules before using or distributing the app. The project does not guarantee that any particular source, stream, or download method will remain available.
+
+## Project documentation
+
+- [Quick start](QUICK_START.md)
+- [Phone setup guide](PHONE_SETUP_GUIDE.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
+- [Release and device test checklist](RELEASE_CHECKLIST.md)
+
+## License
+
+No license has been selected or granted yet. Until the project owner adds a license, do not assume that the source code may be reused, modified, redistributed, or included in another project. See [GitHub's licensing guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository).
