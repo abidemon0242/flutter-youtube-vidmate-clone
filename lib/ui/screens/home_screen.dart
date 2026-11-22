@@ -110,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_category > 0 && video.category != _categoryName) return false;
       final preferences = context.read<RecommendationSettings>();
       if (_section != 'Subscriptions' && preferences.isHidden(video.channelName)) return false;
-      if (preferences.personalization && _section != 'Trending' && _section != 'Subscriptions' && preferences.prefersLess(video.id)) return false;
+      
       final seconds = _durationSeconds(video.duration);
       if (_section == 'Shorts' && (seconds == null || seconds > 180)) return false;
       return switch (_durationFilter) {
@@ -122,7 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
     final preferences = context.read<RecommendationSettings>();
     if (_sort == 'Recommended' && _section != 'Trending' && _section != 'Subscriptions') {
-      videos.sort((a, b) => (preferences.prefersMore(b.id) ? 1 : 0).compareTo(preferences.prefersMore(a.id) ? 1 : 0));
+      videos.sort((a, b) => _feedbackScore(preferences, b.id).compareTo(_feedbackScore(preferences, a.id)));
     }
     if (_sort == 'Shortest first') {
       videos.sort(
@@ -133,6 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return videos;
   }
+
+  int _feedbackScore(RecommendationSettings settings, String id) =>
+      settings.prefersMore(id) ? 2 : (settings.prefersLess(id) ? -1 : 0);
 
   int? _durationSeconds(String value) {
     final parts = value.split(':');
@@ -285,6 +288,11 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () => Navigator.pop(sheetContext, 'less'),
             ),
             ListTile(
+              leading: const Icon(Icons.info_outline_rounded),
+              title: const Text('Why am I seeing this video?'),
+              onTap: () => Navigator.pop(sheetContext, 'why'),
+            ),
+            ListTile(
               leading: const Icon(Icons.block_outlined),
               title: const Text('Don’t recommend this channel'),
               onTap: () => Navigator.pop(sheetContext, 'hide'),
@@ -313,6 +321,16 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'less':
         await preferences.recordLess(video.id);
         _snack('We’ll try to show fewer videos like this.');
+        break;
+      case 'why':
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Why this video?'),
+            content: Text('This video was found through the selected ${_section.toLowerCase()} feed and its search terms. Your local interests: ${preferences.interests.join(', ')}. Tube Arena does not use an official YouTube recommendation profile.'),
+            actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
+          ),
+        );
         break;
       case 'hide':
         await preferences.hideChannel(video.channelName);
