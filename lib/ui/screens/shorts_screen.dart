@@ -297,10 +297,20 @@ class _ShortsScreenState extends State<ShortsScreen> {
                                   child: const Text('Choose count', style: TextStyle(color: Colors.white)),
                                 )
                               else
-                                IconButton(
-                                  tooltip: 'Select Shorts for batch download',
-                                  onPressed: () => setState(() => _selecting = true),
-                                  icon: const Icon(Icons.checklist_rounded, color: Colors.white),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Downloaded Shorts',
+                                      onPressed: () => context.push('/downloaded-shorts'),
+                                      icon: const Icon(Icons.video_library_outlined, color: Colors.white),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Select Shorts for batch download',
+                                      onPressed: () => setState(() => _selecting = true),
+                                      icon: const Icon(Icons.checklist_rounded, color: Colors.white),
+                                    ),
+                                  ],
                                 ),
                               Text(
                                 '${index + 1} / ${videos.length}',
