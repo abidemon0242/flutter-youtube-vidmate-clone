@@ -138,6 +138,7 @@ void main() {
     await provider.setShortProtected(first.id, false);
     expect(first.isProtected, isFalse);
     expect(first.savedPath, contains('/Shorts/'));
+    final unprotectedPath = first.savedPath;
 
     final second = await start('second', isShort: true);
     expect(provider.byId(first.id), isNotNull, reason: 'The old Short stays safe until the replacement finishes.');
