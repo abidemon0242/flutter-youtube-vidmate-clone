@@ -26,12 +26,14 @@ class MainActivity : FlutterActivity() {
                     "exportMedia" -> {
                         val sourcePath = call.argument<String>("sourcePath")
                         val destination = call.argument<String>("destination")
+                        val mediaKind = call.argument<String>("mediaKind")
                         if (sourcePath.isNullOrBlank() ||
-                            (destination != "Music" && destination != "Movies")) {
+                            (destination != "Music" && destination != "Movies") ||
+                            (mediaKind != "audio" && mediaKind != "video")) {
                             result.error("INVALID_ARGUMENT", "A valid source and destination are required.", null)
                         } else {
                             try {
-                                result.success(exportMedia(File(sourcePath), destination))
+                                result.success(exportMedia(File(sourcePath), destination, mediaKind!!))
                             } catch (error: Exception) {
                                 result.error("EXPORT_FAILED", error.message ?: "Could not export media.", null)
                             }
@@ -42,16 +44,20 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun exportMedia(source: File, destination: String): String {
+    private fun exportMedia(source: File, destination: String, mediaKind: String): String {
         if (!source.isFile || !source.canRead()) {
             throw IOException("The source file cannot be read.")
         }
 
         val extension = source.extension.lowercase()
-        val mimeType = MimeTypeMap.getSingleton()
+        val detectedMime = MimeTypeMap.getSingleton()
             .getMimeTypeFromExtension(extension)
-            ?: if (destination == "Music") "audio/webm" else "video/webm"
-        val collection: Uri = if (destination == "Music") {
+        val mimeType = if (extension == "webm") {
+            if (mediaKind == "audio") "audio/webm" else "video/webm"
+        } else {
+            detectedMime ?: if (mediaKind == "audio") "audio/*" else "video/*"
+        }
+        val collection: Uri = if (mediaKind == "audio") {
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         } else {
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI
