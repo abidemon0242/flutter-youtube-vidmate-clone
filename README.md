@@ -1,6 +1,6 @@
 # Tube Arena
 
-[![Android CI](https://github.com/abidemon0242/flutter-youtube-vidmate-clone/actions/workflows/android-ci.yml/badge.svg?branch=main)](https://github.com/abidemon0242/flutter-youtube-vidmate-clone/actions/workflows/android-ci.yml)
+[![Android CI](https://github.com/abidemon0242/flutter-youtube-vidmate-clone/actions/workflows/android-ci.yml/badge.svg?branch=fix%2Fhigh-priority-bugs)](https://github.com/abidemon0242/flutter-youtube-vidmate-clone/actions/workflows/android-ci.yml)
 
 Tube Arena is an Android-first Flutter media app with video discovery, playback, downloads, and an offline library. It is an independent project and is not affiliated with or endorsed by YouTube or Google.
 
