@@ -208,7 +208,9 @@ class _ShortsScreenState extends State<ShortsScreen> {
       final seconds = _durationSeconds(video.duration);
       return seconds != null && seconds <= 180 && !preferences.isHidden(video.channelName);
     }).toList();
-    videos.sort((a, b) => preferences.feedbackScore(b).compareTo(preferences.feedbackScore(a)));
+    if (preferences.personalization) {
+      videos.sort((a, b) => preferences.feedbackScore(b).compareTo(preferences.feedbackScore(a)));
+    }
     return videos;
   }
 
