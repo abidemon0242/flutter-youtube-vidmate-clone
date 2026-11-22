@@ -12,6 +12,7 @@ import '../../models/video_model.dart';
 import '../../providers/downloads_provider.dart';
 import '../../services/batch_download.dart';
 import '../../services/home_library_service.dart';
+import '../../providers/recommendation_settings.dart';
 import '../../services/youtube_extraction_service.dart';
 import '../widgets/download_options_sheet.dart';
 import '../widgets/theme_mode_button.dart';
@@ -28,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final FeedRepository _feed = context.read<FeedRepository>();
   int _category = 0;
   String _query = '';
-  String _section = 'Personal';
+  String _section = 'Recommended';
   String _durationFilter = 'Any length';
   String _sort = 'Recommended';
   final HomeLibraryService _homeLibrary = HomeLibraryService();
@@ -41,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _section = context.read<RecommendationSettings>().defaultSection;
     _scrollController = ScrollController()..addListener(_onScroll);
   }
 
@@ -71,15 +73,21 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_section == 'History') {
       return FeedResult(feed: PagedFeed.fixed(await _homeLibrary.history()));
     }
-    final history = _section == 'Personal' ? await _homeLibrary.history() : const <VideoModel>[];
+    final preferences = context.read<RecommendationSettings>();
+    if (_section == 'Subscriptions') {
+      final channels = preferences.subscriptions;
+      if (channels.isEmpty) return FeedResult(feed: PagedFeed.fixed(const []));
+      return _feed.load(category: 'All', query: 'latest videos from ${channels.join(' ')}', refresh: refresh);
+    }
+    final history = _section == 'Recommended' ? await _homeLibrary.history() : const <VideoModel>[];
     final personalQuery = history.isEmpty
-        ? 'recommended technology and entertainment videos'
-        : 'more videos like ${history.take(3).map((video) => video.title).join(' ')}';
+        ? 'recommended videos about ${preferences.interests.join(' ')}'
+        : 'more videos like ${history.take(3).map((video) => video.title).join(' ')} ${preferences.interests.join(' ')}';
     final sectionQuery = switch (_section) {
       'Trending' => 'popular videos this week',
       'Shorts' => 'YouTube Shorts under 3 minutes',
-      'Personal' => personalQuery,
-      _ => '',
+      'Recommended' => personalQuery,
+      _ => preferences.queryFor(_section),
     };
     final query = _query.isNotEmpty ? _query : sectionQuery;
     return _feed.load(category: _categoryName, query: query, refresh: refresh);
@@ -100,6 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<VideoModel> _visibleVideos(List<VideoModel> source) {
     var videos = source.where((video) {
       if (_category > 0 && video.category != _categoryName) return false;
+      if (_section != 'Subscriptions' && context.read<RecommendationSettings>().isHidden(video.channelName)) return false;
       final seconds = _durationSeconds(video.duration);
       if (_section == 'Shorts' && (seconds == null || seconds > 180)) return false;
       return switch (_durationFilter) {
@@ -207,7 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _openVideo(VideoModel video) async {
     await context.push('/watch', extra: video);
-    if (mounted && (_section == 'Watch Later' || _section == 'History' || _section == 'Personal')) {
+    if (mounted && (_section == 'Watch Later' || _section == 'History' || _section == 'Recommended' || _section == 'Subscriptions')) {
       _reload(refresh: true);
     }
   }
@@ -251,6 +260,65 @@ class _HomeScreenState extends State<HomeScreen> {
     _snack(batchSummary<VideoModel>(result, (v) => v.title, skipped: videos.length - downloadable.length));
   }
 
+  Future<void> _showVideoActions(VideoModel video) async {
+    final preferences = context.read<RecommendationSettings>();
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.thumb_up_outlined),
+              title: const Text('Show more like this'),
+              onTap: () => Navigator.pop(sheetContext, 'more'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.thumb_down_outlined),
+              title: const Text('Show less like this'),
+              onTap: () => Navigator.pop(sheetContext, 'less'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.block_outlined),
+              title: const Text('Don’t recommend this channel'),
+              onTap: () => Navigator.pop(sheetContext, 'hide'),
+            ),
+            ListTile(
+              leading: Icon(preferences.isSubscribed(video.channelName) ? Icons.notifications_off_outlined : Icons.subscriptions_outlined),
+              title: Text(preferences.isSubscribed(video.channelName) ? 'Unsubscribe from channel' : 'Subscribe to channel'),
+              onTap: () => Navigator.pop(sheetContext, 'subscribe'),
+            ),
+            if (video.isYoutube)
+              ListTile(
+                leading: const Icon(Icons.download_outlined),
+                title: const Text('Download'),
+                onTap: () => Navigator.pop(sheetContext, 'download'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'more':
+        await preferences.recordMore(video.id);
+        _snack('We’ll try to show more videos like this.');
+      case 'less':
+        await preferences.recordLess(video.id);
+        _snack('We’ll try to show fewer videos like this.');
+      case 'hide':
+        await preferences.hideChannel(video.channelName);
+        _reload(refresh: true);
+        _snack('Channel hidden from personalized recommendations. Search remains available.');
+      case 'subscribe':
+        await preferences.toggleSubscription(video.channelName);
+        _snack(preferences.isSubscribed(video.channelName) ? 'Subscribed to ${video.channelName}.' : 'Unsubscribed from ${video.channelName}.');
+        if (_section == 'Subscriptions') _reload(refresh: true);
+      case 'download':
+        await showDownloadOptionsSheet(context, video);
+    }
+  }
+
   void _snack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -273,12 +341,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                 scrollDirection: Axis.horizontal,
                 children: [
-                  for (final section in ['Personal', 'Trending', 'Watch Later', 'Shorts', 'History'])
+                  for (final section in ['Recommended', 'Subscriptions', 'Trending', 'Study', 'Funny', 'Romantic', 'Technology', 'Gaming', 'Music', 'Science', 'Sports', 'Watch Later', 'Shorts', 'History'])
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
                         avatar: Icon(switch (section) {
-                          'Personal' => Icons.auto_awesome_rounded,
+                          'Recommended' => Icons.auto_awesome_rounded,
+                          'Subscriptions' => Icons.subscriptions_rounded,
+                          'Study' => Icons.school_rounded,
+                          'Funny' => Icons.sentiment_very_satisfied_rounded,
+                          'Romantic' => Icons.favorite_border_rounded,
+                          'Technology' => Icons.memory_rounded,
+                          'Gaming' => Icons.sports_esports_rounded,
+                          'Music' => Icons.music_note_rounded,
+                          'Science' => Icons.science_rounded,
+                          'Sports' => Icons.sports_soccer_rounded,
                           'Trending' => Icons.trending_up_rounded,
                           'Watch Later' => Icons.bookmark_rounded,
                           'Shorts' => Icons.play_circle_outline_rounded,
@@ -390,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               isSelected: _selected.containsKey(video.id),
                               onLongPress: () => _toggle(video),
                               onCheckboxTap: () => _toggle(video),
-                              onMore: () => showDownloadOptionsSheet(context, video),
+                              onMore: () => _showVideoActions(video),
                               onTap: () {
                                 if (_selecting) {
                                   _toggle(video);
@@ -467,7 +544,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _sectionBanner(FeedResult result) {
     final note = switch (_section) {
       'Trending' => 'Popular discovery from YouTube search — not an official Trending chart.',
-      'Personal' => 'Suggestions shaped by your local watch history. No account or API key required.',
+      'Recommended' => 'Suggestions shaped by your local interests and watch history. No account or API key required.',
+      'Subscriptions' => 'Search-based results for channels you have saved as subscribed. Exact channel feeds depend on source support.',
       _ => null,
     };
     return Column(
@@ -521,6 +599,7 @@ class _HomeScreenState extends State<HomeScreen> {
     actions: [
       IconButton(onPressed: _openLink, tooltip: 'Open YouTube link', icon: const Icon(Icons.add_link_rounded)),
       IconButton(onPressed: _search, tooltip: 'Search', icon: const Icon(Icons.search_rounded)),
+      IconButton(onPressed: () => context.push('/settings'), tooltip: 'Settings', icon: const Icon(Icons.settings_outlined)),
       const ThemeModeButton(),
     ],
   );
