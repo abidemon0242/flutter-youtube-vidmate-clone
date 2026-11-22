@@ -33,7 +33,7 @@ Future<void> showDownloadOptionsSheet(BuildContext context, VideoModel video, {b
     isScrollControlled: true,
     backgroundColor: context.surfaceColor,
     showDragHandle: true,
-    builder: (_) => _DownloadOptionsSheet(video: video),
+    builder: (_) => _DownloadOptionsSheet(video: video, isShort: isShort),
   );
   if (selectedOption == null || !context.mounted) return;
   var option = selectedOption;
@@ -91,8 +91,9 @@ Future<void> startDownload(
 }
 
 class _DownloadOptionsSheet extends StatefulWidget {
-  const _DownloadOptionsSheet({required this.video});
+  const _DownloadOptionsSheet({required this.video, this.isShort = false});
   final VideoModel video;
+  final bool isShort;
 
   @override
   State<_DownloadOptionsSheet> createState() => _DownloadOptionsSheetState();
@@ -155,8 +156,9 @@ class _DownloadOptionsSheetState extends State<_DownloadOptionsSheet> {
                 ),
                 if (options.video.isNotEmpty) const _Header('Video'),
                 for (final option in options.video) _OptionTile(option: option, icon: Icons.movie_outlined),
-                if (options.audio.isNotEmpty) const _Header('Available source audio'),
-                for (final option in options.audio) _OptionTile(option: option, icon: Icons.music_note_outlined),
+                if (!widget.isShort && options.audio.isNotEmpty) const _Header('Available source audio'),
+                if (!widget.isShort)
+                  for (final option in options.audio) _OptionTile(option: option, icon: Icons.music_note_outlined),
               ],
             );
           },
