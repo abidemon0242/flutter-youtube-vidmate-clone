@@ -39,6 +39,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   bool failed = false;
   bool saved = false;
   bool liked = false;
+  double _playbackSpeed = 1.0;
   Duration last = Duration.zero;
   int watched = 0;
   int _lastUiSecond = -1;
@@ -179,7 +180,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _seekBy(int seconds) async {
+  Future<void> _setPlaybackSpeed(double speed) async {\n    if (!controller.value.isInitialized) return;\n    await controller.setPlaybackSpeed(speed);\n    if (mounted) setState(() => _playbackSpeed = speed);\n  }\n\n  Widget _playbackSpeedMenu({bool compact = false}) {\n    const speeds = <double>[0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];\n    return PopupMenuButton<double>(\n      tooltip: 'Playback speed',\n      initialValue: _playbackSpeed,\n      onSelected: _setPlaybackSpeed,\n      itemBuilder: (context) => speeds\n          .map((speed) => PopupMenuItem<double>(\n                value: speed,\n                child: Row(\n                  children: [\n                    SizedBox(width: 54, child: Text(speed == 1 ? 'Normal' : '${speed}x')),\n                    if (_playbackSpeed == speed)\n                      const Icon(Icons.check, size: 18),\n                  ],\n                ),\n              ))\n          .toList(),\n      child: compact\n          ? Padding(\n              padding: const EdgeInsets.all(10),\n              child: Text('${_playbackSpeed}x',\n                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),\n            )\n          : Row(\n              mainAxisSize: MainAxisSize.min,\n              children: [\n                const Icon(Icons.speed),\n                const SizedBox(width: 4),\n                Text('${_playbackSpeed}x'),\n              ],\n            ),\n    );\n  }\n\n  Future<void> _seekBy(int seconds) async {
     if (!controller.value.isInitialized) return;
     final duration = controller.value.duration;
     final requested = controller.value.position + Duration(seconds: seconds);
@@ -611,7 +612,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
               onPressed: _openInYouTube,
               icon: const Icon(Icons.open_in_new),
             )
-          else if (_videoTracks.isNotEmpty && _videoTrackSelectionSupported)
+          else ...[\n            _playbackSpeedMenu(),\n            if (_videoTracks.isNotEmpty && _videoTrackSelectionSupported)
             PopupMenuButton<String>(
               tooltip: 'Video quality',
               icon: const Icon(Icons.high_quality_outlined),
