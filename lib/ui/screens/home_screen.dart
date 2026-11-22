@@ -75,20 +75,44 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final preferences = context.read<RecommendationSettings>();
     if (_section == 'Subscriptions') {
-      final channels = preferences.subscriptions;
-      if (channels.isEmpty) return FeedResult(feed: PagedFeed.fixed(const []));
+      final channelIds = preferences.subscriptionsById;
+      final legacyChannels = preferences.legacySubscriptions;
+      if (channelIds.isEmpty && legacyChannels.isEmpty) {
+        return FeedResult(feed: PagedFeed.fixed(const []));
+      }
 
-      // Search each saved channel independently. A single combined query can
-      // return unrelated creators and makes the Subscriptions section look
-      // like a generic recommendation feed. Keep only results whose displayed
-      // channel name matches the channel the user subscribed to.
-      final results = await Future.wait(
-        channels.map((channel) => _feed.load(category: 'All', query: 'latest videos by "$channel"', refresh: refresh)),
+      final youtube = context.read<YoutubeExtractionService>();
+      // Stable channel IDs use the source's actual uploads feed. Older saved
+      // name-only subscriptions remain supported through an exact-name search.
+      final exactFeeds = await Future.wait(
+        channelIds.keys.map((id) async {
+          try {
+            return await youtube.channelUploads(id);
+          } on YoutubeServiceException {
+            return const <VideoModel>[];
+          }
+        }),
       );
+      final legacyFeeds = await Future.wait(
+        legacyChannels.map(
+          (channel) => _feed.load(
+            category: 'All',
+            query: 'latest videos by "$channel"',
+            refresh: refresh,
+          ),
+        ),
+      );
+
       final videosById = <String, VideoModel>{};
-      for (var i = 0; i < channels.length; i++) {
-        final expectedChannel = channels[i].trim().toLowerCase();
-        for (final video in results[i].videos) {
+      for (var i = 0; i < exactFeeds.length; i++) {
+        final channelId = channelIds.keys.elementAt(i);
+        for (final video in exactFeeds[i]) {
+          if (video.channelId == channelId) videosById.putIfAbsent(video.id, () => video);
+        }
+      }
+      for (var i = 0; i < legacyChannels.length; i++) {
+        final expectedChannel = legacyChannels[i].trim().toLowerCase();
+        for (final video in legacyFeeds[i].videos) {
           if (video.channelName.trim().toLowerCase() == expectedChannel) {
             videosById.putIfAbsent(video.id, () => video);
           }
@@ -332,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ListTile(
               leading: Icon(
-                preferences.isSubscribed(video.channelName)
+                preferences.isSubscribed(video.channelName, channelId: video.channelId)
                     ? Icons.notifications_off_outlined
                     : Icons.subscriptions_outlined,
               ),
@@ -379,7 +403,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _snack('Channel hidden from personalized recommendations. Search remains available.');
         break;
       case 'subscribe':
-        await preferences.toggleSubscription(video.channelName);
+        await preferences.toggleSubscription(video.channelName, channelId: video.channelId);
         _snack(
           preferences.isSubscribed(video.channelName)
               ? 'Subscribed to ${video.channelName}.'
