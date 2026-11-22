@@ -209,14 +209,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.1.2"
-  ffmpeg_kit_flutter_new_min:
+  ffmpeg_kit_flutter_new_full:
     dependency: "direct main"
     description:
-      name: ffmpeg_kit_flutter_new_min
-      sha256: ecdbd738b1fb2a5b994bef66fbe9a78169dad930e500b807958c1fb62babac21
+      name: ffmpeg_kit_flutter_new_full
+      sha256: "3b1e2db72b3186f5711e75ca6966125832b1260323890348ed0e6e2612ee20ff"
       url: "https://pub.dev"
     source: hosted
-    version: "4.0.0"
+    version: "3.0.0"
   ffmpeg_kit_flutter_platform_interface:
     dependency: transitive
     description:
