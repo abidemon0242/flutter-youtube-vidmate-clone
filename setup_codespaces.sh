@@ -1,49 +1,42 @@
-#!/bin/bash
-# Quick setup script for GitHub Codespaces / Remote Linux
-# Run this to automatically set up Flutter and the app
+#!/usr/bin/env bash
+# Sets up Flutter for Tube Arena in GitHub Codespaces or another Linux shell.
+# The app is Android-only, so no Linux desktop toolchain is installed.
+set -euo pipefail
 
-set -e
+FLUTTER_VERSION="3.50.1"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "🚀 Starting Tube Arena Setup..."
+if [ ! -f "$PROJECT_DIR/pubspec.yaml" ]; then
+  echo "Error: run this script from the Tube Arena repository (pubspec.yaml not found in $PROJECT_DIR)." >&2
+  exit 1
+fi
 
-# Update system
-echo "📦 Installing dependencies..."
+echo "Installing system packages..."
 sudo apt-get update -qq
-sudo apt-get install -y -qq git curl unzip xz-utils zip libglu1-mesa clang cmake ninja-build pkg-config libgtk-3-dev 2>/dev/null
+sudo apt-get install -y -qq git curl unzip xz-utils zip openjdk-17-jdk-headless
 
-# Download and install Flutter
-echo "⬇️  Downloading Flutter SDK..."
-if [ ! -d "$HOME/flutter" ]; then
-  cd ~
-  git clone https://github.com/flutter/flutter.git -b stable --depth 1
+if [ ! -x "$HOME/flutter/bin/flutter" ]; then
+  echo "Downloading Flutter $FLUTTER_VERSION..."
+  git clone https://github.com/flutter/flutter.git -b "$FLUTTER_VERSION" --depth 1 "$HOME/flutter"
 fi
 
-# Add Flutter to PATH
-export PATH="$PATH:$HOME/flutter/bin"
-if ! grep -q 'flutter/bin' ~/.bashrc; then
-  echo 'export PATH="$PATH:$HOME/flutter/bin"' >> ~/.bashrc
+export PATH="$HOME/flutter/bin:$PATH"
+if ! grep -q 'flutter/bin' "$HOME/.bashrc" 2>/dev/null; then
+  echo 'export PATH="$HOME/flutter/bin:$PATH"' >> "$HOME/.bashrc"
 fi
 
-# Verify Flutter
-echo "✅ Verifying Flutter installation..."
 flutter --version
-
-# Navigate to project and get dependencies
-echo "📥 Getting Flutter dependencies..."
-cd ~/flutter-youtube-vidmate-clone 2>/dev/null || cd . 
+cd "$PROJECT_DIR"
 flutter pub get
+flutter analyze
+flutter test
 
-# Run doctor
-echo "🏥 Running Flutter doctor..."
-flutter doctor
+cat <<'MSG'
 
-echo ""
-echo "✨ Setup complete!"
-echo ""
-echo "This project is an Android-first prototype and does not currently support a web preview."
-echo "For a verified APK, open the repository Actions tab and download the tube-arena-debug-apk artifact"
-echo "from a run where the Flutter analyze, tests and Android build job succeeded."
-echo ""
-echo "On a computer with the Android SDK installed, you can also run:"
-echo "  flutter build apk --debug"
-echo ""
+Setup complete. Dart analysis and tests ran successfully.
+
+Building an APK also needs the Android SDK. Without it, download an APK from the
+repository's Actions tab (artifact "tube-arena-release-apks" or "tube-arena-debug-apk").
+With the Android SDK installed:
+  flutter build apk --release --split-per-abi
+MSG

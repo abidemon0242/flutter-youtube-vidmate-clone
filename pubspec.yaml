@@ -1,30 +1,36 @@
 name: tube_arena
 
-description: Tube Arena - A modern YouTube-inspired cross-platform media app with download management, local library, and batch actions.
+description: Tube Arena - an Android-first YouTube-inspired media app with downloads, a local library and offline playback.
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.11.0 <4.0.0'
+  flutter: '>=3.47.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  provider: ^6.0.0
-  go_router: ^13.0.0
-  cached_network_image: ^3.3.0
-  cupertino_icons: ^1.0.0
+  material_ui: ^1.11.1
+  provider: ^6.1.2
+  go_router: ^18.1.4
+  cached_network_image: ^4.0.7
+  cupertino_icons: ^2.0.0
   video_player: ^2.14.1
-  audio_service: ^0.18.12
+  audio_service: ^0.18.19
   path_provider: ^2.1.5
-  flutter_downloader: ^1.11.0
-  ffmpeg_kit_flutter_new_full: ^2.5.7
-  youtube_explode_dart: ^2.2.0
-  logger: ^2.0.0
+  permission_handler: ^13.0.2
+  ffmpeg_kit_flutter_new_full: ^3.0.0
+  youtube_explode_dart: ^3.1.0
+  logger: ^2.5.0
+  shared_preferences: ^2.5.6
+  share_plus: ^13.3.1
+  connectivity_plus: ^7.3.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

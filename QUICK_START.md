@@ -1,34 +1,27 @@
 # Tube Arena — Quick Start
 
-Tube Arena is currently an **Android-first Flutter prototype**. A browser/web preview is not a supported run target because the project includes native Android media plugins.
+## Get an APK from CI
 
-## Get an Android debug build
-
-1. Open the repository's **Actions** tab.
-2. Open a completed **Tube Arena Android CI** run.
-3. In the **Flutter analyze, tests and Android build** job, check that analysis, tests and APK build passed.
-4. Download the `tube-arena-debug-apk` artifact if it is available.
-5. Transfer the APK to your Android device and install it.
-
-The emulator smoke-test job is a separate check. An APK artifact may exist even if that later smoke test fails; check the individual job results.
+1. Open the repository's **Actions** tab and pick the latest successful **Tube Arena Android CI** run.
+2. Download `tube-arena-release-apks` (pick `app-arm64-v8a-release.apk` for most phones) or `tube-arena-debug-apk`.
+3. Copy the APK to your phone and install it (allow "Install unknown apps" when asked).
 
 ## Build locally
 
-With Flutter and the Android SDK installed:
-
 ```bash
 flutter pub get
-dart format lib test
-flutter analyze
 flutter test
-flutter build apk --debug
+flutter build apk --release --split-per-abi
 ```
 
-## Current prototype scope
+For a properly signed release build, see "Release signing" in `README.md`.
 
-- Mock video feed, local search and category filtering
-- Sample network video playback
-- Local folder creation and browsing
-- Downloads list UI and safe file-record deletion
+## Using the app
 
-Real YouTube downloads, download progress callbacks, network ad interception, and player-connected lock-screen controls are **not yet integrated end-to-end**. See [README.md](README.md) for details.
+- **Theme:** tap the sun/moon icon on Home or Library and pick Light, Dark or Use device setting.
+- **Home:** browse categories, search, or tap the link icon to paste a YouTube URL. Long-press videos to select several and download them together.
+- **Watch:** tap Download to choose a quality or audio only. Allow notifications to get lock-screen playback controls.
+- **Downloads:** pause, resume, retry or cancel. Tap a finished download to play it. Long-press to select, then delete. The ⋮ menu on a finished download has **Save to phone** (copies it to Movies/Tube Arena or Music/Tube Arena so Gallery and Files see it) and **Share**. The ⋮ menu in the top bar has **Download on Wi-Fi only**.
+- **Library:** the Downloads folder holds everything you save. Create your own folders with the folder icon; long-press a folder to rename or delete it. Each file's ⋮ menu has Move to folder, Save to phone, Share and Delete.
+
+Downloads keep running in the background with a progress notification, and you get a notification when each one finishes or fails. A download that won't fit in free storage is refused up front. If Android still stops the app, reopen it and tap Resume; it continues from where it stopped.
