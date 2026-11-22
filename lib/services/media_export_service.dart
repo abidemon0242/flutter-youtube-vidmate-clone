@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ffmpeg_kit_flutter_new_full/ffprobe_kit.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum ExportMediaKind { audio, video }
@@ -66,6 +67,16 @@ class MediaExportService {
   }) async {
     if (!await File(sourcePath).exists()) {
       throw const FileSystemException('The source file no longer exists.');
+    }
+    final sdk = await _channel.invokeMethod<int>('getAndroidSdkInt') ?? 0;
+    if (sdk > 0 && sdk < 29) {
+      final permission = await Permission.storage.request();
+      if (!permission.isGranted) {
+        throw PlatformException(
+          code: 'STORAGE_PERMISSION_DENIED',
+          message: 'Storage permission is required to save media on this Android version.',
+        );
+      }
     }
     final result = await _channel.invokeMethod<String>('exportMedia', {
       'sourcePath': sourcePath,
