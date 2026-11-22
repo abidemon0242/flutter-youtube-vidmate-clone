@@ -30,6 +30,8 @@ class _ShortsScreenState extends State<ShortsScreen> {
   late final PageController _controller;
   int _index = 0;
   bool _selecting = false;
+  bool _batchDownloading = false;
+  int _batchDone = 0;
   final Set<String> _selectedVideoIds = {};
 
   @override
@@ -150,6 +152,10 @@ class _ShortsScreenState extends State<ShortsScreen> {
     if (quality == null || !mounted) return;
     final extraction = context.read<YoutubeExtractionService>();
     final downloads = context.read<DownloadsProvider>();
+    setState(() {
+      _batchDownloading = true;
+      _batchDone = 0;
+    });
     final result = await runBatch<VideoModel>(
       selected,
       (video) async {
@@ -166,9 +172,14 @@ class _ShortsScreenState extends State<ShortsScreen> {
         );
       },
       concurrency: 3,
+      onProgress: (done, total) {
+        if (mounted) setState(() => _batchDone = done);
+      },
     );
     if (!mounted) return;
     setState(() {
+      _batchDownloading = false;
+      _batchDone = 0;
       _selectedVideoIds.clear();
       _selecting = false;
     });
@@ -428,6 +439,16 @@ class _ShortsScreenState extends State<ShortsScreen> {
                   );
                 },
               ),
+              if (_batchDownloading)
+                Positioned(
+                  top: 54,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(
+                    value: _selectedVideoIds.isEmpty ? null : _batchDone / _selectedVideoIds.length,
+                    minHeight: 2,
+                  ),
+                ),
               if (_selecting)
                 Positioned(
                   left: 16,
@@ -435,9 +456,15 @@ class _ShortsScreenState extends State<ShortsScreen> {
                   bottom: 16,
                   child: SafeArea(
                     child: FilledButton.icon(
-                      onPressed: _selectedVideoIds.isEmpty ? null : () => _downloadSelected(videos),
+                      onPressed: _selectedVideoIds.isEmpty || _batchDownloading
+                          ? null
+                          : () => _downloadSelected(videos),
                       icon: const Icon(Icons.download_rounded),
-                      label: Text('Download ${_selectedVideoIds.length} selected'),
+                      label: Text(
+                        _batchDownloading
+                            ? 'Preparing $_batchDone of ${_selectedVideoIds.length}'
+                            : 'Download ${_selectedVideoIds.length} selected',
+                      ),
                     ),
                   ),
                 ),
