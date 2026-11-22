@@ -225,6 +225,7 @@ class DownloadsProvider extends ChangeNotifier {
   bool? _onWifi;
   int? _shortsLimit = defaultShortsLimit;
   Future<void> _shortsRotation = Future<void>.value();
+  int _pendingShortReservations = 0;
 
   final List<DownloadEntry> _items = [];
   final Set<String> _selectedIds = {};
@@ -424,13 +425,15 @@ class DownloadsProvider extends ChangeNotifier {
     if (isShort && option.kind != DownloadKind.video) {
       throw const DownloadException('Shorts library accepts video downloads only.');
     }
-    if (isShort) await _withShortsRotation(_makeRoomForShort);
-    final id = '$videoId-${option.key}';
+    final id = '$videoId-${option.key}${isShort ? '-short' : ''}';
     final existing = byId(id);
     if (existing != null) {
       if (existing.canResume) await resume(existing.id);
       return existing;
     }
+    if (isShort) await _reserveShortSlot();
+    var reservationHeld = isShort;
+    try {
     final downloadsDirectory = await _downloadsDirectoryResolver();
     final root = downloadsDirectory.parent;
     final directory = option.kind == DownloadKind.audio
@@ -462,9 +465,32 @@ class DownloadsProvider extends ChangeNotifier {
       isShort: isShort,
     );
     _items.insert(0, entry);
+    if (reservationHeld) {
+      reservationHeld = false;
+      _releaseShortReservation();
+    }
     _changed();
     _pump();
     return entry;
+    } finally {
+      if (reservationHeld) _releaseShortReservation();
+    }
+  }
+
+  Future<void> _reserveShortSlot() async {
+    await _withShortsRotation(() async {
+      _pendingShortReservations++;
+      try {
+        await _makeRoomForShort();
+      } catch (_) {
+        _pendingShortReservations--;
+        rethrow;
+      }
+    });
+  }
+
+  void _releaseShortReservation() {
+    if (_pendingShortReservations > 0) _pendingShortReservations--;
   }
 
   /// Throws a [DownloadException] when the device clearly lacks room for
@@ -511,7 +537,7 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> _makeRoomForShort() async {
     final limit = _shortsLimit;
     if (limit == null) return;
-    while (_items.where((entry) => entry.isShort && entry.status != DownloadStatus.failed && entry.status != DownloadStatus.canceled).length >= limit) {
+    while (_items.where((entry) => entry.isShort && entry.status != DownloadStatus.failed && entry.status != DownloadStatus.canceled).length + _pendingShortReservations > limit) {
       final candidates = _items.where((entry) =>
         entry.isShort &&
         !entry.isProtected &&
