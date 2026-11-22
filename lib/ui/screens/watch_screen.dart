@@ -96,8 +96,10 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       if (controller != null && controller.value.isInitialized) {
         if (widget.autoplay) {
           unawaited(controller.play());
+          unawaited(_attachMediaSession(controller));
         } else {
           unawaited(controller.pause());
+          _mediaSession.detach(controller);
         }
       }
     }
@@ -231,7 +233,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         _controller = controller;
         _quality = quality;
       });
-      unawaited(_attachMediaSession(controller));
+      if (widget.autoplay) unawaited(_attachMediaSession(controller));
       if (widget.autoplay) {
         await controller.play();
         _scheduleHide();
