@@ -136,10 +136,37 @@ class _Cancelled implements Exception {}
 /// Bytes kept free on top of the download itself, so the phone never fills up.
 const downloadSpaceReserve = 50 * 1024 * 1024;
 
-/// Bytes needed on disk to download [streamBytes]. Merged downloads need room
-/// for the parts and the combined file at the same time.
-int estimateRequiredBytes(int streamBytes, {required bool needsMerge}) =>
-    streamBytes <= 0 ? 0 : (needsMerge ? streamBytes * 2 : streamBytes) + downloadSpaceReserve;
+/// Bytes needed for input streams, any merged output, an optional transcode
+/// output, and a safety reserve. [streamBytes] is the combined input size.
+int estimateRequiredBytes(
+  int streamBytes, {
+  required bool needsMerge,
+  int estimatedOutputBytes = 0,
+}) {
+  if (streamBytes <= 0) return 0;
+  final mergedOutputBytes = needsMerge ? streamBytes : 0;
+  return streamBytes + mergedOutputBytes + estimatedOutputBytes + downloadSpaceReserve;
+}
+
+/// Conservative output estimate for a selected audio transcode.
+int estimateAudioOutputBytes(DownloadOption option) {
+  if (!option.transcodesAudio || option.sizeBytes <= 0) return 0;
+  switch (option.container.toLowerCase()) {
+    case 'wav':
+      return option.sizeBytes * 16;
+    case 'flac':
+      return option.sizeBytes * 3;
+    default:
+      final bitrate = option.audioOutputBitrate;
+      final sourceRate = option.audioSourceBitrateKbps;
+      if (bitrate == null || bitrate == 'Best available' || sourceRate == null || sourceRate <= 0) {
+        return option.sizeBytes * 2;
+      }
+      final targetRate = int.tryParse(bitrate.replaceAll(' kbps', ''));
+      if (targetRate == null || targetRate <= 0) return option.sizeBytes * 2;
+      return (option.sizeBytes * targetRate / sourceRate).ceil();
+  }
+}
 
 String formatByteCount(int bytes) {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -371,7 +398,12 @@ class DownloadsProvider extends ChangeNotifier {
     }
     final directory = await _downloadsDirectoryResolver();
     await directory.create(recursive: true);
-    await _ensureSpace(directory.path, option.sizeBytes, needsMerge: option.needsMerge);
+    await _ensureSpace(
+      directory.path,
+      option.sizeBytes,
+      needsMerge: option.needsMerge,
+      estimatedOutputBytes: estimateAudioOutputBytes(option),
+    );
     // Another start() for the same item may have finished while we awaited.
     final raced = byId(id);
     if (raced != null) return raced;
@@ -395,9 +427,18 @@ class DownloadsProvider extends ChangeNotifier {
 
   /// Throws a [DownloadException] when the device clearly lacks room for
   /// [streamBytes]. Unknown sizes or free space never block a download.
-  Future<void> _ensureSpace(String directory, int streamBytes, {required bool needsMerge}) async {
+  Future<void> _ensureSpace(
+    String directory,
+    int streamBytes, {
+    required bool needsMerge,
+    int estimatedOutputBytes = 0,
+  }) async {
     final resolver = _freeSpace;
-    final needed = estimateRequiredBytes(streamBytes, needsMerge: needsMerge);
+    final needed = estimateRequiredBytes(
+      streamBytes,
+      needsMerge: needsMerge,
+      estimatedOutputBytes: estimatedOutputBytes,
+    );
     if (resolver == null || needed <= 0) return;
     int? free;
     try {
@@ -514,15 +555,22 @@ class DownloadsProvider extends ChangeNotifier {
       final total = sizes.fold<int>(0, (a, b) => a + b);
       if (total > 0) entry.totalBytes = total;
       if (entry.receivedBytes == 0) {
-        final audioOutputMultiplier = switch (option.container) {
-          'wav' => 16,
-          'flac' => 3,
-          _ => 2,
-        };
+        final freshOption = DownloadOption(
+          kind: option.kind,
+          label: option.label,
+          container: option.container,
+          videoTag: option.videoTag,
+          audioTag: option.audioTag,
+          sizeBytes: total,
+          detail: option.detail,
+          audioOutputBitrate: option.audioOutputBitrate,
+          audioSourceBitrateKbps: option.audioSourceBitrateKbps,
+        );
         await _ensureSpace(
           File(entry.savedPath).parent.path,
-          option.transcodesAudio ? total * audioOutputMultiplier : total,
-          needsMerge: option.needsMerge || option.transcodesAudio,
+          total,
+          needsMerge: option.needsMerge,
+          estimatedOutputBytes: estimateAudioOutputBytes(freshOption),
         );
       }
 
