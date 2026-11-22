@@ -514,7 +514,15 @@ class DownloadsProvider extends ChangeNotifier {
       final total = sizes.fold<int>(0, (a, b) => a + b);
       if (total > 0) entry.totalBytes = total;
       if (entry.receivedBytes == 0) {
-        await _ensureSpace(File(entry.savedPath).parent.path, total, needsMerge: option.needsMerge);
+        await _ensureSpace(
+          File(entry.savedPath).parent.path,
+          option.transcodesAudio && (option.container == 'flac' || option.container == 'wav')
+              ? total * 4
+              : option.transcodesAudio
+                  ? total * 2
+                  : total,
+          needsMerge: option.needsMerge || option.transcodesAudio,
+        );
       }
 
       var doneBefore = 0;
@@ -523,7 +531,29 @@ class DownloadsProvider extends ChangeNotifier {
         doneBefore += sizes[i];
       }
 
-      if (option.needsMerge) {
+      if (option.transcodesAudio) {
+        entry.status = DownloadStatus.merging;
+        _changed();
+        final ok = await FFmpegMergeService().convertAudio(
+          inputPath: entry.singlePartPath,
+          outputPath: entry.savedPath,
+          format: option.container,
+          bitrate: option.audioOutputBitrate!,
+          sourceBitrateKbps: option.audioSourceBitrateKbps,
+        );
+        if (!ok) {
+          throw DownloadException(
+            'Could not convert audio to ${option.container.toUpperCase()}. The required encoder may be unavailable or the source stream may be invalid.',
+          );
+        }
+        final sourcePart = File(entry.singlePartPath);
+        if (await sourcePart.exists()) await sourcePart.delete();
+        final output = File(entry.savedPath);
+        final outputBytes = await output.length();
+        entry
+          ..totalBytes = outputBytes
+          ..receivedBytes = outputBytes;
+      } else if (option.needsMerge) {
         entry.status = DownloadStatus.merging;
         _changed();
         final ok = await _merge(entry.videoPartPath, entry.audioPartPath, entry.savedPath);
