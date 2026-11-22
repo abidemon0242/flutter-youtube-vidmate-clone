@@ -11,6 +11,7 @@ import 'package:tube_arena/data/repositories/feed_repository.dart';
 import 'package:tube_arena/models/video_details.dart';
 import 'package:tube_arena/models/video_model.dart';
 import 'package:tube_arena/providers/theme_controller.dart';
+import 'package:tube_arena/providers/recommendation_settings.dart';
 import 'package:tube_arena/services/youtube_extraction_service.dart';
 import 'package:tube_arena/ui/screens/home_screen.dart';
 import 'package:tube_arena/ui/widgets/video_description.dart';
@@ -161,6 +162,7 @@ void main() {
 
   testWidgets('home feed loads the next page when scrolled to the end', (tester) async {
     SharedPreferences.setMockInitialValues({});
+    final recommendations = await RecommendationSettings.load();
     final pages = FakePages([List.generate(6, (i) => v('p0-$i')), List.generate(6, (i) => v('p1-$i'))]);
     final repo = FeedRepository.withSearch((query, {String category = 'All'}) async => pages.page(0));
     final router = GoRouter(
@@ -170,6 +172,7 @@ void main() {
       MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => ThemeController()),
+          ChangeNotifierProvider<RecommendationSettings>.value(value: recommendations),
           Provider<FeedRepository>.value(value: repo),
           Provider<YoutubeExtractionService>(create: (_) => YoutubeExtractionService()),
         ],
