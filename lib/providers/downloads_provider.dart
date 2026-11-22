@@ -430,8 +430,7 @@ class DownloadsProvider extends ChangeNotifier {
       if (existing.canResume) await resume(existing.id);
       return existing;
     }
-    if (isShort) await _reserveShortSlot();
-    var reservationHeld = isShort;
+    var reservationHeld = false;
     try {
     final downloadsDirectory = await _downloadsDirectoryResolver();
     final root = downloadsDirectory.parent;
@@ -447,6 +446,10 @@ class DownloadsProvider extends ChangeNotifier {
       needsMerge: option.needsMerge,
       estimatedOutputBytes: estimateAudioOutputBytes(option),
     );
+    if (isShort) {
+      await _reserveShortSlot();
+      reservationHeld = true;
+    }
     // Another start() for the same item may have finished while we awaited.
     final raced = byId(id);
     if (raced != null) return raced;
