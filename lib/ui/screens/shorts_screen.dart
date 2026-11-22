@@ -393,10 +393,10 @@ class _ShortsScreenState extends State<ShortsScreen> {
                             onSelected: (action) async {
                               switch (action) {
                                 case 'more':
-                                  await preferences.recordMore(video.id);
+                                  await preferences.recordMoreFor(video);
                                   break;
                                 case 'less':
-                                  await preferences.recordLess(video.id);
+                                  await preferences.recordLessFor(video);
                                   break;
                                 case 'subscribe':
                                   await preferences.toggleSubscription(video.channelName, channelId: video.channelId);
