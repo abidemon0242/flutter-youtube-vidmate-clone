@@ -46,7 +46,7 @@ void main() {
     expect((await library.history()).map((item) => item.id).toList(), [first.id, second.id]);
   });
 
-  test('history ignores non-YouTube sample videos', () async {
+  test('history also records watched sample videos', () async {
     const sample = VideoModel(
       id: 'sample',
       title: 'Sample',
@@ -56,7 +56,7 @@ void main() {
 
     await library.addToHistory(sample);
 
-    expect(await library.history(), isEmpty);
+    expect((await library.history()).single.id, sample.id);
   });
 
   test('migrates bookmarks from the previous preference format', () async {
