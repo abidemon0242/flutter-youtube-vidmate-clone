@@ -69,5 +69,4 @@ void main() {
     await settings.setPersonalization(false);
     expect(settings.queryFor('Study'), 'Study');
   });
-
 }
