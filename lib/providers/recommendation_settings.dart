@@ -170,7 +170,7 @@ class RecommendationSettings extends ChangeNotifier {
     if (existingIndex >= 0) {
       _subscriptions.removeAt(existingIndex);
     } else {
-      _subscriptions.add(stableId == null || stableId.isEmpty ? channel.trim() : '${stableId}::${channel.trim()}');
+      _subscriptions.add(stableId == null || stableId.isEmpty ? channel.trim() : '$stableId::${channel.trim()}');
     }
     await _prefs.setStringList(_subscriptionsKey, _subscriptions);
     notifyListeners();
