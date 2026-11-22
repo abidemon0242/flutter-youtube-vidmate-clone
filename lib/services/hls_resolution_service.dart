@@ -320,6 +320,20 @@ class HlsResolutionService {
     required String outputPath,
     required String format,
     required String bitrate,
+  }) => downloadAudioFromUrl(
+    sourceUrl: option.audioUrl ?? option.url,
+    outputPath: outputPath,
+    format: format,
+    bitrate: bitrate,
+  );
+
+  /// Downloads and converts a direct audio/media URL without using a
+  /// YouTube extractor. The caller must supply a permitted HTTP(S) media URL.
+  Future<bool> downloadAudioFromUrl({
+    required String sourceUrl,
+    required String outputPath,
+    required String format,
+    required String bitrate,
   }) async {
     final normalizedFormat = format.toLowerCase();
     const codecs = <String, String>{
@@ -331,7 +345,6 @@ class HlsResolutionService {
       'wav': 'pcm_s16le',
     };
     final codec = codecs[normalizedFormat];
-    final sourceUrl = option.audioUrl ?? option.url;
     if (codec == null || !isSupportedMediaUrl(sourceUrl)) return false;
 
     final output = File(outputPath);
@@ -349,21 +362,19 @@ class HlsResolutionService {
       '-c:a',
       codec,
     ];
-
-    if (normalizedFormat == 'flac' || normalizedFormat == 'wav') {
-      // Lossless formats do not use a lossy bitrate selector.
-    } else if (bitrate == 'Best available') {
-      if (normalizedFormat == 'mp3') {
-        args.addAll(['-q:a', '0']);
+    if (normalizedFormat != 'flac' && normalizedFormat != 'wav') {
+      if (bitrate == 'Best available') {
+        if (normalizedFormat == 'mp3') {
+          args.addAll(['-q:a', '0']);
+        } else {
+          args.addAll(['-b:a', normalizedFormat == 'opus' ? '160k' : '256k']);
+        }
       } else {
-        args.addAll(['-b:a', normalizedFormat == 'opus' ? '160k' : '256k']);
+        final parsed = int.tryParse(bitrate.replaceAll(' kbps', ''));
+        if (parsed == null || parsed < 64 || parsed > 320) return false;
+        args.addAll(['-b:a', '${parsed}k']);
       }
-    } else {
-      final parsed = int.tryParse(bitrate.replaceAll(' kbps', ''));
-      if (parsed == null || parsed < 64 || parsed > 320) return false;
-      args.addAll(['-b:a', '${parsed}k']);
     }
-
     if (normalizedFormat == 'm4a') args.addAll(['-f', 'ipod']);
     args.add(outputPath);
 
@@ -374,7 +385,7 @@ class HlsResolutionService {
         return (await output.length()) > 0;
       }
     } catch (_) {
-      // The caller reports a failed conversion rather than a false success.
+      // Report conversion failure instead of a false success.
     }
     if (await output.exists()) await output.delete();
     return false;
