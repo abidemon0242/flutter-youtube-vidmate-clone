@@ -185,6 +185,92 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
     );
   }
 
+
+  Future<({String format, String bitrate})?> _chooseAudioOptions(
+    String title,
+  ) async {
+    const formats = <String>['MP3', 'M4A', 'AAC', 'OPUS', 'FLAC', 'WAV'];
+    const bitrates = <String>[
+      '64 kbps', '96 kbps', '128 kbps', '192 kbps',
+      '256 kbps', '320 kbps', 'Best available',
+    ];
+    var selectedFormat = 'MP3';
+    var selectedBitrate = 'Best available';
+
+    return showModalBottomSheet<({String format, String bitrate})>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final lossless = selectedFormat == 'FLAC' || selectedFormat == 'WAV';
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Choose an audio format and quality. This converts audio from a supported HLS source; it does not extract YouTube watch-page streams.',
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Audio format'),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedFormat,
+                    isExpanded: true,
+                    items: formats.map((value) => DropdownMenuItem(
+                      value: value, child: Text(value),
+                    )).toList(),
+                    onChanged: (value) {
+                      if (value != null) setSheetState(() => selectedFormat = value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Audio quality'),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: lossless ? 'Lossless' : selectedBitrate,
+                    isExpanded: true,
+                    items: (lossless ? const ['Lossless'] : bitrates)
+                        .map((value) => DropdownMenuItem(
+                          value: value, child: Text(value),
+                        )).toList(),
+                    onChanged: lossless ? null : (value) {
+                      if (value != null) setSheetState(() => selectedBitrate = value);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    lossless
+                        ? 'FLAC and WAV are lossless; bitrate selection does not apply.'
+                        : 'Best available uses a high-quality encoder setting. Higher bitrate cannot restore detail missing from the source.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => Navigator.pop(sheetContext, (
+                        format: selectedFormat,
+                        bitrate: lossless ? 'Best available' : selectedBitrate,
+                      )),
+                      icon: const Icon(Icons.audiotrack_rounded),
+                      label: const Text('Continue with audio'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _startBatch() async {
     final urls = _readUrls();
     if (urls.isEmpty) {
@@ -260,54 +346,94 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             resolver.close();
             return;
           }
-          final choice = await _chooseResolution(options, title);
-          if (choice == null) {
-            resolver.close();
-            continue;
-          }
           final id = 'hls-${DateTime.now().microsecondsSinceEpoch}-$index';
           final normalizedTitle = title
-              .replaceAll(RegExp(r'[^\w\s-]'), '')
+              .replaceAll(RegExp(r'[^\\w\\s-]'), '')
               .trim();
           final safeTitle = normalizedTitle.isEmpty ? 'media' : normalizedTitle;
           final safeBase = safeTitle.length > 70
               ? safeTitle.substring(0, 70)
               : safeTitle;
-          final fileName = '${safeBase}_$id.${choice.format}';
-          final savePath = '$documentsPath/TubeArena/Downloads/$fileName';
-          final estimatedSize = choice.option.sizeLabel;
-          final entry = DownloadEntry(
-            id: id,
-            title: title,
-            url: choice.option.url,
-            sourceUrl: rawUrl,
-            size: estimatedSize,
-            format: '${choice.option.label} ${choice.format.toUpperCase()}',
-            progress: 0,
-            savedPath: savePath,
-            status: 'downloading',
-          );
-          downloads.addDownload(entry);
-          setState(
-            () => _status = 'Downloading ${choice.option.label} • $title…',
-          );
-          final succeeded = await resolver.download(
-            option: choice.option,
-            outputPath: savePath,
-            format: choice.format,
-          );
-          downloads.addDownload(
-            entry.copyWith(
+
+          if (_audioOnly) {
+            final choice = await _chooseAudioOptions(title);
+            if (choice == null) continue;
+            final extension = choice.format.toLowerCase();
+            final savePath = '$documentsPath/TubeArena/Downloads/${safeBase}_$id.$extension';
+            final selectedKbps = int.tryParse(choice.bitrate.replaceAll(' kbps', ''));
+            final source = options.first;
+            final durationSeconds = source.estimatedBytes != null && source.bandwidth > 0
+                ? source.estimatedBytes! * 8 / source.bandwidth
+                : null;
+            final estimatedSize = (extension == 'flac' || extension == 'wav')
+                ? 'Varies (lossless)'
+                : durationSeconds != null && selectedKbps != null
+                    ? '${(durationSeconds * selectedKbps * 1000 / 8 / (1024 * 1024)).toStringAsFixed(1)} MB approx.'
+                    : 'Size unavailable';
+            final entry = DownloadEntry(
+              id: id,
+              title: title,
+              url: source.audioUrl ?? source.url,
+              sourceUrl: rawUrl,
+              size: estimatedSize,
+              format: '${choice.format} • ${choice.bitrate}',
+              progress: 0,
+              savedPath: savePath,
+              isAudioOnly: true,
+              status: 'downloading',
+            );
+            downloads.addDownload(entry);
+            setState(() => _status = 'Converting audio to ${choice.format} • $title…');
+            final succeeded = await resolver.downloadAudio(
+              option: source,
+              outputPath: savePath,
+              format: extension,
+              bitrate: choice.bitrate,
+            );
+            downloads.addDownload(entry.copyWith(
               progress: succeeded ? 100 : 0,
               status: succeeded ? 'completed' : 'failed',
-            ),
-          );
-          if (succeeded) {
-            queued++;
+            ));
+            if (succeeded) {
+              queued++;
+            } else {
+              failures.add(
+                '$title: audio conversion failed. The selected HLS stream may not contain an accessible audio track or the encoder may be unavailable.',
+              );
+            }
           } else {
-            failures.add(
-              '$title: the selected stream could not be saved as ${choice.format.toUpperCase()}. Try another available quality or format.',
+            final choice = await _chooseResolution(options, title);
+            if (choice == null) continue;
+            final savePath = '$documentsPath/TubeArena/Downloads/${safeBase}_$id.${choice.format}';
+            final entry = DownloadEntry(
+              id: id,
+              title: title,
+              url: choice.option.url,
+              sourceUrl: rawUrl,
+              size: choice.option.sizeLabel,
+              format: '${choice.option.label} ${choice.format.toUpperCase()}',
+              progress: 0,
+              savedPath: savePath,
+              status: 'downloading',
             );
+            downloads.addDownload(entry);
+            setState(() => _status = 'Downloading ${choice.option.label} • $title…');
+            final succeeded = await resolver.download(
+              option: choice.option,
+              outputPath: savePath,
+              format: choice.format,
+            );
+            downloads.addDownload(entry.copyWith(
+              progress: succeeded ? 100 : 0,
+              status: succeeded ? 'completed' : 'failed',
+            ));
+            if (succeeded) {
+              queued++;
+            } else {
+              failures.add(
+                '$title: the selected stream could not be saved as ${choice.format.toUpperCase()}. Try another available quality or format.',
+              );
+            }
           }
         } catch (error) {
           failures.add('$title: could not read the HLS quality list. $error');
@@ -420,7 +546,7 @@ class _BatchDownloadScreenState extends State<BatchDownloadScreen> {
             value: _audioOnly,
             title: const Text('Audio-only files'),
             subtitle: const Text(
-              'Accept MP3, M4A, AAC, WAV and audio WebM links.',
+              'For HLS VOD links, choose MP3, M4A, AAC, OPUS, FLAC or WAV and an audio quality. Direct audio files remain in their original format.',
             ),
             onChanged: _isProcessing
                 ? null
