@@ -565,21 +565,27 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> setShortProtected(String id, bool protected) async {
     final entry = byId(id);
     if (entry == null || !entry.isShort || entry.isProtected == protected) return;
+    final previous = entry.isProtected;
     entry.isProtected = protected;
-    if (entry.status == DownloadStatus.completed) {
-      if (protected) {
-        await _moveShortToProtectedFolder(entry);
-      } else {
-        final root = (await _downloadsDirectoryResolver()).parent;
-        final target = Directory('${root.path}/Shorts');
-        await target.create(recursive: true);
-        final source = File(entry.savedPath);
-        if (await source.exists()) {
-          final destination = _uniquePath(target, safeFileName(entry.title), entry.option.extension);
-          await source.rename(destination);
-          entry.savedPath = destination;
+    try {
+      if (entry.status == DownloadStatus.completed) {
+        if (protected) {
+          await _moveShortToProtectedFolder(entry);
+        } else {
+          final root = (await _downloadsDirectoryResolver()).parent;
+          final target = Directory('${root.path}/Shorts');
+          await target.create(recursive: true);
+          final source = File(entry.savedPath);
+          if (await source.exists()) {
+            final destination = _uniquePath(target, safeFileName(entry.title), entry.option.extension);
+            await source.rename(destination);
+            entry.savedPath = destination;
+          }
         }
       }
+    } catch (_) {
+      entry.isProtected = previous;
+      rethrow;
     }
     _changed();
   }
