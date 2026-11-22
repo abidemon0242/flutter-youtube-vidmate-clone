@@ -140,6 +140,26 @@ void main() {
     expect(provider.downloadedShorts.map((entry) => entry.id), contains(second.id));
   });
 
+  test('Shorts protection survives app restart', () async {
+    final important = await start('keep', isShort: true);
+    await _waitFor(() => important.status == DownloadStatus.completed);
+    await provider.setShortProtected(important.id, true);
+    await provider.flushSaves();
+
+    final restored = DownloadsProvider(
+      source: _ShortSource(),
+      downloadsDirectoryResolver: () async => downloadsDirectory,
+    );
+    await restored.load();
+    final saved = restored.byId(important.id);
+    expect(saved, isNotNull);
+    expect(saved!.isShort, isTrue);
+    expect(saved.isProtected, isTrue);
+    expect(saved.savedPath, contains('/Important Shorts/'));
+    expect(await File(saved.savedPath).exists(), isTrue);
+    restored.dispose();
+  });
+
   test('unlimited disables count-based replacement', () async {
     await provider.setShortsLimit(null);
     final first = await start('one', isShort: true);
