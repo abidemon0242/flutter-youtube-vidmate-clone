@@ -26,6 +26,8 @@ class DownloadEntry {
     this.receivedBytes = 0,
     this.totalBytes = 0,
     this.error,
+    this.isShort = false,
+    this.isProtected = false,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -45,6 +47,8 @@ class DownloadEntry {
   int receivedBytes;
   int totalBytes;
   String? error;
+  final bool isShort;
+  bool isProtected;
 
   double get progress => totalBytes <= 0 ? 0 : (receivedBytes / totalBytes).clamp(0, 1).toDouble();
   bool get isActive =>
@@ -69,6 +73,8 @@ class DownloadEntry {
     'receivedBytes': receivedBytes,
     'totalBytes': totalBytes,
     'error': error,
+    'isShort': isShort,
+    'isProtected': isProtected,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -84,6 +90,8 @@ class DownloadEntry {
     receivedBytes: (json['receivedBytes'] as num?)?.toInt() ?? 0,
     totalBytes: (json['totalBytes'] as num?)?.toInt() ?? 0,
     error: json['error'] as String?,
+    isShort: json['isShort'] as bool? ?? false,
+    isProtected: json['isProtected'] as bool? ?? false,
     createdAt: DateTime.tryParse(json['createdAt'] as String? ?? ''),
   );
 }
@@ -197,6 +205,8 @@ class DownloadsProvider extends ChangeNotifier {
   }
 
   static const wifiOnlyPreferenceKey = 'download_wifi_only';
+  static const shortsLimitPreferenceKey = 'shorts_download_limit_v1';
+  static const defaultShortsLimit = 1000;
 
   static Future<Directory> defaultDownloadsDirectory() async {
     final documents = await getApplicationDocumentsDirectory();
@@ -213,6 +223,8 @@ class DownloadsProvider extends ChangeNotifier {
 
   bool _wifiOnly = false;
   bool? _onWifi;
+  int? _shortsLimit = defaultShortsLimit;
+  Future<void> _shortsRotation = Future<void>.value();
 
   final List<DownloadEntry> _items = [];
   final Set<String> _selectedIds = {};
@@ -231,6 +243,25 @@ class DownloadsProvider extends ChangeNotifier {
 
   /// True when queued downloads are held back until Wi-Fi is available.
   bool get waitingForWifi => _wifiOnly && _onWifi == false;
+
+  /// Maximum number of retained Shorts; null means no count-based limit.
+  int? get shortsLimit => _shortsLimit;
+  List<DownloadEntry> get shorts => List.unmodifiable(_items.where((entry) => entry.isShort));
+  List<DownloadEntry> get downloadedShorts => List.unmodifiable(
+    _items.where((entry) => entry.isShort && entry.status == DownloadStatus.completed && File(entry.savedPath).existsSync()),
+  );
+
+  Future<void> setShortsLimit(int? value) async {
+    if (value != null && value < 1) throw ArgumentError.value(value, 'value', 'Shorts limit must be positive or null.');
+    _shortsLimit = value;
+    final prefs = await SharedPreferences.getInstance();
+    if (value == null) {
+      await prefs.remove(shortsLimitPreferenceKey);
+    } else {
+      await prefs.setInt(shortsLimitPreferenceKey, value);
+    }
+    notifyListeners();
+  }
 
   Future<void> setWifiOnly(bool value) async {
     if (_wifiOnly == value) return;
@@ -305,6 +336,9 @@ class DownloadsProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _wifiOnly = prefs.getBool(wifiOnlyPreferenceKey) ?? _wifiOnly;
+      _shortsLimit = prefs.containsKey(shortsLimitPreferenceKey)
+          ? prefs.getInt(shortsLimitPreferenceKey)
+          : defaultShortsLimit;
     } catch (error) {
       debugPrint('Could not read download settings: $error');
     }
@@ -384,15 +418,26 @@ class DownloadsProvider extends ChangeNotifier {
     required String channelName,
     required String thumbnailUrl,
     required DownloadOption option,
+    bool isShort = false,
   }) async {
     if (!_loaded) await load();
+    if (isShort && option.kind != DownloadKind.video) {
+      throw const DownloadException('Shorts library accepts video downloads only.');
+    }
+    if (isShort) await _withShortsRotation(_makeRoomForShort);
     final id = '$videoId-${option.key}';
     final existing = byId(id);
     if (existing != null) {
       if (existing.canResume) await resume(existing.id);
       return existing;
     }
-    final directory = await _downloadsDirectoryResolver();
+    final downloadsDirectory = await _downloadsDirectoryResolver();
+    final root = downloadsDirectory.parent;
+    final directory = option.kind == DownloadKind.audio
+        ? Directory('${root.path}/Audio')
+        : isShort
+        ? Directory('${root.path}/Videos/Shorts')
+        : Directory('${root.path}/Videos/Regular Videos');
     await directory.create(recursive: true);
     await _ensureSpace(
       directory.path,
@@ -414,6 +459,7 @@ class DownloadsProvider extends ChangeNotifier {
       option: option,
       savedPath: _uniquePath(directory, '${safeFileName(title)} (${option.label})', option.extension),
       totalBytes: option.sizeBytes,
+      isShort: isShort,
     );
     _items.insert(0, entry);
     _changed();
@@ -448,6 +494,77 @@ class DownloadsProvider extends ChangeNotifier {
         'but only ${formatByteCount(free)} is free.',
       );
     }
+  }
+
+  Future<void> _withShortsRotation(Future<void> Function() action) async {
+    final previous = _shortsRotation;
+    final completer = Completer<void>();
+    _shortsRotation = completer.future;
+    try {
+      await previous;
+      await action();
+    } finally {
+      completer.complete();
+    }
+  }
+
+  Future<void> _makeRoomForShort() async {
+    final limit = _shortsLimit;
+    if (limit == null) return;
+    while (_items.where((entry) => entry.isShort && entry.status != DownloadStatus.failed && entry.status != DownloadStatus.canceled).length >= limit) {
+      final candidates = _items.where((entry) =>
+        entry.isShort &&
+        !entry.isProtected &&
+        entry.status == DownloadStatus.completed
+      ).toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      if (candidates.isEmpty) {
+        throw DownloadException(
+          'Shorts limit reached. Protect important Shorts carefully or increase the limit in App Settings.',
+        );
+      }
+      final oldest = candidates.first;
+      if (!await _deleteManaged(oldest.savedPath)) {
+        throw const DownloadException('Could not safely replace the oldest Short. Check the Shorts storage folder.');
+      }
+      _items.remove(oldest);
+      _selectedIds.remove(oldest.id);
+      await _save();
+      notifyListeners();
+    }
+  }
+
+  Future<void> setShortProtected(String id, bool protected) async {
+    final entry = byId(id);
+    if (entry == null || !entry.isShort || entry.isProtected == protected) return;
+    entry.isProtected = protected;
+    if (entry.status == DownloadStatus.completed) {
+      if (protected) {
+        await _moveShortToProtectedFolder(entry);
+      } else {
+        final root = (await _downloadsDirectoryResolver()).parent;
+        final target = Directory('${root.path}/Videos/Shorts');
+        await target.create(recursive: true);
+        final source = File(entry.savedPath);
+        if (await source.exists()) {
+          final destination = _uniquePath(target, safeFileName(entry.title), entry.option.extension);
+          await source.rename(destination);
+          entry.savedPath = destination;
+        }
+      }
+    }
+    _changed();
+  }
+
+  Future<void> _moveShortToProtectedFolder(DownloadEntry entry) async {
+    final root = (await _downloadsDirectoryResolver()).parent;
+    final target = Directory('${root.path}/Videos/Important Shorts');
+    await target.create(recursive: true);
+    final source = File(entry.savedPath);
+    if (!await source.exists()) return;
+    final destination = _uniquePath(target, safeFileName(entry.title), entry.option.extension);
+    await source.rename(destination);
+    entry.savedPath = destination;
   }
 
   /// Keeps a download record in sync after its file was moved inside the
@@ -622,6 +739,9 @@ class DownloadsProvider extends ChangeNotifier {
         await File(entry.singlePartPath).rename(entry.savedPath);
       }
       if (_stopRequested.contains(entry.id)) throw _Cancelled();
+      if (entry.isShort && entry.isProtected) {
+        await _moveShortToProtectedFolder(entry);
+      }
       entry
         ..status = DownloadStatus.completed
         ..receivedBytes = entry.totalBytes;
