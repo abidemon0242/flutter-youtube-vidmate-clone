@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -34,6 +35,8 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   VideoPlayerController? _controller;
   String? _error;
   bool _saved = false;
+  double _playbackSpeed = 1.0;
+  bool _temporaryDoubleSpeed = false;
   bool _fullscreen = false;
   bool _showControls = true;
   Timer? _hideTimer;
@@ -68,11 +71,52 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     _youtube = context.read<YoutubeExtractionService>();
     _settings = context.read<PlaybackSettings>();
     WidgetsBinding.instance.addObserver(this);
+    _loadSavedState();
     _open();
     final id = widget.video.youtubeId;
     if (widget.video.isYoutube && !widget.video.isLocal && id != null) {
       _details = _youtube.details(id);
       _loadRelated();
+    }
+  }
+
+  String get _savedPreferenceKey => 'saved_video_${widget.video.youtubeId ?? widget.video.id}';
+
+  Future<void> _loadSavedState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getBool(_savedPreferenceKey) ?? false;
+      if (mounted) setState(() => _saved = saved);
+    } catch (_) {
+      // The bookmark remains usable for this screen even if preferences fail.
+    }
+  }
+
+  Future<void> _toggleSaved() async {
+    final next = !_saved;
+    setState(() => _saved = next);
+    try {
+      await (await SharedPreferences.getInstance()).setBool(_savedPreferenceKey, next);
+    } catch (_) {
+      if (mounted) setState(() => _saved = !next);
+    }
+  }
+
+  Future<void> _setPlaybackSpeed(double speed) async {
+    _playbackSpeed = speed;
+    final controller = _controller;
+    if (controller != null && controller.value.isInitialized) {
+      await controller.setPlaybackSpeed(speed);
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _setTemporaryDoubleSpeed(bool active) async {
+    if (_temporaryDoubleSpeed == active) return;
+    _temporaryDoubleSpeed = active;
+    final controller = _controller;
+    if (controller != null && controller.value.isInitialized) {
+      await controller.setPlaybackSpeed(active ? 2.0 : _playbackSpeed);
     }
   }
 
@@ -134,6 +178,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
         await controller.dispose();
         return;
       }
+      await controller.setPlaybackSpeed(_playbackSpeed);
       controller.addListener(_onPlayerChanged);
       setState(() {
         _controller = controller;
@@ -185,6 +230,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
       final position = old.value.position;
       await old.pause();
       await next.seekTo(position);
+      await next.setPlaybackSpeed(_playbackSpeed);
       old.removeListener(_onPlayerChanged);
       next.addListener(_onPlayerChanged);
       setState(() {
@@ -278,9 +324,16 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _openRelated(VideoModel video) {
-    // Replace this screen so only one player exists at a time.
-    context.pushReplacement('/watch', extra: video);
+  Future<void> _openRelated(VideoModel video) async {
+    // Keep the current Watch route underneath so Back returns to this video.
+    final controller = _controller;
+    final resumePrevious = controller?.value.isPlaying ?? false;
+    if (resumePrevious) await controller!.pause();
+    await context.push('/watch', extra: video);
+    if (!mounted) return;
+    if (resumePrevious && _controller?.value.isInitialized == true) {
+      await _controller!.play();
+    }
   }
 
   bool get _ended {
@@ -465,7 +518,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                 ActionChip(
                   label: Text(_saved ? 'Saved' : 'Save'),
                   avatar: Icon(_saved ? Icons.bookmark : Icons.bookmark_border, size: 18),
-                  onPressed: () => setState(() => _saved = !_saved),
+                  onPressed: _toggleSaved,
                 ),
               ],
             ),
@@ -575,6 +628,9 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
             : GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => _showControls ? setState(() => _showControls = false) : _scheduleHide(),
+                onLongPressStart: (_) => _setTemporaryDoubleSpeed(true),
+                onLongPressEnd: (_) => _setTemporaryDoubleSpeed(false),
+                onLongPressCancel: () => _setTemporaryDoubleSpeed(false),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -645,6 +701,22 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     ),
                   ),
+                PopupMenuButton<double>(
+                  tooltip: 'Playback speed',
+                  initialValue: _playbackSpeed,
+                  onSelected: _setPlaybackSpeed,
+                  itemBuilder: (context) => [
+                    for (final speed in [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0])
+                      PopupMenuItem(value: speed, child: Text('${speed}x')),
+                  ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      _temporaryDoubleSpeed ? '2x' : '${_playbackSpeed}x',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
                 TextButton.icon(
                   onPressed: _openPlaybackSettings,
                   style: TextButton.styleFrom(foregroundColor: Colors.white),
