@@ -174,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _sort == 'Recommended' &&
         _section != 'Trending' &&
         _section != 'Subscriptions') {
-      videos.sort((a, b) => _feedbackScore(preferences, b.id).compareTo(_feedbackScore(preferences, a.id)));
+      videos.sort((a, b) => _feedbackScore(preferences, b).compareTo(_feedbackScore(preferences, a)));
     }
     if (_sort == 'Shortest first') {
       videos.sort(
@@ -186,8 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return videos;
   }
 
-  int _feedbackScore(RecommendationSettings settings, String id) =>
-      settings.prefersMore(id) ? 2 : (settings.prefersLess(id) ? -1 : 0);
+  int _feedbackScore(RecommendationSettings settings, VideoModel video) => settings.feedbackScore(video);
 
   int? _durationSeconds(String value) {
     final parts = value.split(':');
@@ -381,11 +380,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted || action == null) return;
     switch (action) {
       case 'more':
-        await preferences.recordMore(video.id);
+        await preferences.recordMoreFor(video);
         _snack('We’ll try to show more videos like this.');
         break;
       case 'less':
-        await preferences.recordLess(video.id);
+        await preferences.recordLessFor(video);
         _snack('We’ll try to show fewer videos like this.');
         break;
       case 'why':
