@@ -197,7 +197,10 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
     final original = _format == 'Original';
     final lossless = _format == 'FLAC' || _format == 'WAV';
     final source = widget.sourceOption;
-    final unknownBestBitrate = !original && !lossless && _bitrate == 'Best available' &&
+    final unknownBestBitrate =
+        !original &&
+        !lossless &&
+        _bitrate == 'Best available' &&
         (source.audioSourceBitrateKbps == null || source.audioSourceBitrateKbps! <= 0);
     return SafeArea(
       child: Padding(
@@ -224,12 +227,27 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             const Text('Quality'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              key: ValueKey(original ? 'audio-quality-original' : lossless ? 'audio-quality-lossless' : 'audio-quality-lossy'),
-              initialValue: original ? 'Original source' : lossless ? 'Lossless' : _bitrate,
+              key: ValueKey(
+                original
+                    ? 'audio-quality-original'
+                    : lossless
+                    ? 'audio-quality-lossless'
+                    : 'audio-quality-lossy',
+              ),
+              initialValue: original
+                  ? 'Original source'
+                  : lossless
+                  ? 'Lossless'
+                  : _bitrate,
               isExpanded: true,
-              items: (original ? const ['Original source'] : lossless ? const ['Lossless'] : _bitrates)
-                  .map((quality) => DropdownMenuItem(value: quality, child: Text(quality)))
-                  .toList(),
+              items:
+                  (original
+                          ? const ['Original source']
+                          : lossless
+                          ? const ['Lossless']
+                          : _bitrates)
+                      .map((quality) => DropdownMenuItem(value: quality, child: Text(quality)))
+                      .toList(),
               onChanged: original || lossless
                   ? null
                   : (value) {
@@ -254,20 +272,26 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: unknownBestBitrate ? null : () => Navigator.pop(
-                  context,
-                  DownloadOption(
-                    kind: DownloadKind.audio,
-                    label: original ? 'Original · Keep source' : '$_format · ${lossless ? 'Lossless' : _bitrate}',
-                    container: original ? source.container : _format.toLowerCase(),
-                    videoTag: null,
-                    audioTag: source.audioTag,
-                    sizeBytes: source.sizeBytes,
-                    detail: 'Source: ${source.label} · ${source.detail}',
-                    audioOutputBitrate: original ? null : lossless ? 'Lossless' : _bitrate,
-                    audioSourceBitrateKbps: source.audioSourceBitrateKbps,
-                  ),
-                ),
+                onPressed: unknownBestBitrate
+                    ? null
+                    : () => Navigator.pop(
+                        context,
+                        DownloadOption(
+                          kind: DownloadKind.audio,
+                          label: original ? 'Original · Keep source' : '$_format · ${lossless ? 'Lossless' : _bitrate}',
+                          container: original ? source.container : _format.toLowerCase(),
+                          videoTag: null,
+                          audioTag: source.audioTag,
+                          sizeBytes: source.sizeBytes,
+                          detail: 'Source: ${source.label} · ${source.detail}',
+                          audioOutputBitrate: original
+                              ? null
+                              : lossless
+                              ? 'Lossless'
+                              : _bitrate,
+                          audioSourceBitrateKbps: source.audioSourceBitrateKbps,
+                        ),
+                      ),
                 icon: const Icon(Icons.download_rounded),
                 label: const Text('Use this audio format'),
               ),
