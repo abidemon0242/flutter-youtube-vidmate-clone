@@ -842,7 +842,13 @@ class DownloadsProvider extends ChangeNotifier {
       await sink.close();
     }
     final expected = size > 0 ? size : stream.totalBytes;
-    if (expected > 0 && have < expected) throw Exception('Connection lost before the download finished.');
+    if (expected > 0 && have != expected) {
+      throw Exception(
+        have < expected
+            ? 'Connection lost before the download finished.'
+            : 'The server returned an invalid byte range. Retry the download.',
+      );
+    }
   }
 
   // ------------------------------------------------------------- selection
