@@ -164,8 +164,8 @@ class DownloadNotificationController {
       final text = convertingAudio
           ? 'Converting audio format...'
           : mergingVideo
-          ? 'Combining video and audio...'
-          : (waitingForWifi ? 'Waiting for Wi-Fi' : 'Waiting...');
+              ? 'Combining video and audio...'
+              : (waitingForWifi ? 'Waiting for Wi-Fi' : 'Waiting...');
       return DownloadProgressInfo(title: title, text: text, percent: -1);
     }
     final total = active.fold<int>(0, (sum, e) => sum + e.totalBytes);
