@@ -43,10 +43,7 @@ void main() {
     await library.addToHistory(second);
     await library.addToHistory(first);
 
-    expect((await library.history()).map((item) => item.id).toList(), [
-      first.id,
-      second.id,
-    ]);
+    expect((await library.history()).map((item) => item.id).toList(), [first.id, second.id]);
   });
 
   test('history ignores non-YouTube sample videos', () async {
