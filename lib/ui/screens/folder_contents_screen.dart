@@ -5,9 +5,12 @@ import 'package:ffmpeg_kit_flutter_new_full/ffprobe_kit.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:permission_handler/permission_handler.dart';
+
 import '../../core/constants/app_colors.dart';
 import '../../services/ffmpeg_merge_service.dart';
 import '../../services/local_file_manager_service.dart';
+import '../../services/media_export_service.dart';
 
 class FolderContentsScreen extends StatefulWidget {
   const FolderContentsScreen({super.key, required this.folderName});
@@ -22,6 +25,7 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
   final LocalFileManagerService _fileManager = LocalFileManagerService();
   late Future<List<LocalFile>> _files;
   bool _isMerging = false;
+  final MediaExportService _mediaExport = MediaExportService();
 
   @override
   void initState() {
@@ -32,6 +36,122 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
   Future<void> _refresh() async {
     setState(() => _files = _fileManager.getFilesInFolder(widget.folderName));
     await _files;
+  }
+
+  Future<(String, bool)?> _chooseExportDestination({
+    required String initialDestination,
+  }) async {
+    var destination = initialDestination;
+    var rememberChoice = false;
+    return showDialog<(String, bool)>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Where should this file be saved?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<String>(
+                value: 'Music',
+                groupValue: destination,
+                title: const Text('Music'),
+                subtitle: const Text('Audio files'),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => destination = value);
+                  }
+                },
+              ),
+              RadioListTile<String>(
+                value: 'Movies',
+                groupValue: destination,
+                title: const Text('Movies'),
+                subtitle: const Text('Video files'),
+                onChanged: (value) {
+                  if (value != null) {
+                    setDialogState(() => destination = value);
+                  }
+                },
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: rememberChoice,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text("Remember my choice — don't ask again"),
+                onChanged: (value) {
+                  setDialogState(() => rememberChoice = value ?? false);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                (destination, rememberChoice),
+              ),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveToDevice(
+    LocalFile file, {
+    bool changeSavedDestination = false,
+  }) async {
+    try {
+      final kind = await _mediaExport.detectKind(file.path);
+      final remembered = changeSavedDestination
+          ? null
+          : await _mediaExport.rememberedDestination(kind);
+      var destination = remembered ??
+          (kind == ExportMediaKind.audio ? 'Music' : 'Movies');
+
+      if (remembered == null || changeSavedDestination) {
+        if (!mounted) return;
+        final choice = await _chooseExportDestination(
+          initialDestination: destination,
+        );
+        if (choice == null || !mounted) return;
+        destination = choice.$1;
+        if (choice.$2) {
+          await _mediaExport.rememberDestination(kind, destination);
+        }
+      }
+
+      final exportedName = await _mediaExport.exportFile(
+        sourcePath: file.path,
+        destination: destination,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved to $destination: $exportedName')),
+      );
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } on PlatformException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message ?? 'Could not save this file to the device.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not save this file: $error')),
+      );
+    }
   }
 
   Future<void> _renameFile(LocalFile file) async {
@@ -343,11 +463,23 @@ class _FolderContentsScreenState extends State<FolderContentsScreen> {
                                 );
                             }
                           }
+                          if (action == 'save') _saveToDevice(file);
+                          if (action == 'change_save_location') {
+                            _saveToDevice(file, changeSavedDestination: true);
+                          }
                           if (action == 'rename') _renameFile(file);
                           if (action == 'move') _moveFile(file);
                           if (action == 'delete') _deleteFile(file);
                         },
                         itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'save',
+                            child: Text('Save to device'),
+                          ),
+                          const PopupMenuItem(
+                            value: 'change_save_location',
+                            child: Text('Choose save location...'),
+                          ),
                           const PopupMenuItem(
                             value: 'share',
                             child: Text('Share / export'),
