@@ -184,6 +184,26 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
   String _format = 'MP3';
   String _bitrate = 'Best available';
 
+
+  String get _estimatedOutputSize {
+    final source = widget.sourceOption;
+    if (source.sizeBytes <= 0) return 'Output size estimate unavailable.';
+    if (_format == 'FLAC' || _format == 'WAV') {
+      return 'Lossless output size varies and may be much larger than the source.';
+    }
+    if (_bitrate == 'Best available' ||
+        source.audioSourceBitrateKbps == null ||
+        source.audioSourceBitrateKbps! <= 0) {
+      return 'Estimated output size: about ${formatBytes(source.sizeBytes)}.';
+    }
+    final outputRate = int.tryParse(_bitrate.replaceAll(' kbps', ''));
+    if (outputRate == null) return 'Output size estimate unavailable.';
+    final durationSeconds =
+        source.sizeBytes * 8 / (source.audioSourceBitrateKbps! * 1000);
+    final outputBytes = (durationSeconds * outputRate * 1000 / 8).round();
+    return 'Estimated output size: about ${formatBytes(outputBytes)}.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final lossless = _format == 'FLAC' || _format == 'WAV';
@@ -208,7 +228,7 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             const Text('Format'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _format,
+              initialValue: _format,
               isExpanded: true,
               items: _formats
                   .map((format) => DropdownMenuItem(
@@ -224,7 +244,7 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             const Text('Quality'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: lossless ? 'Lossless' : _bitrate,
+              initialValue: lossless ? 'Lossless' : _bitrate,
               isExpanded: true,
               items: (lossless ? const ['Lossless'] : _bitrates)
                   .map((quality) => DropdownMenuItem(
@@ -242,7 +262,13 @@ class _AudioOutputPickerState extends State<_AudioOutputPicker> {
             Text(
               lossless
                   ? 'FLAC and WAV are lossless. A bitrate setting does not apply.'
-                  : 'Best available matches the selected source stream bitrate. Increasing bitrate cannot restore detail missing from the source.',
+                  : 'Best available matches the selected source stream bitrate. '
+                      'Increasing bitrate cannot restore detail missing from the source.',
+              style: TextStyle(color: context.textSecondary, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _estimatedOutputSize,
               style: TextStyle(color: context.textSecondary, fontSize: 12),
             ),
             const SizedBox(height: 18),
