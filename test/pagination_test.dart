@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tube_arena/core/theme/app_theme.dart';
 import 'package:tube_arena/data/paged_feed.dart';
 import 'package:tube_arena/data/repositories/feed_repository.dart';
@@ -159,6 +160,7 @@ void main() {
   });
 
   testWidgets('home feed loads the next page when scrolled to the end', (tester) async {
+    SharedPreferences.setMockInitialValues({});
     final pages = FakePages([List.generate(6, (i) => v('p0-$i')), List.generate(6, (i) => v('p1-$i'))]);
     final repo = FeedRepository.withSearch((query, {String category = 'All'}) async => pages.page(0));
     final router = GoRouter(
