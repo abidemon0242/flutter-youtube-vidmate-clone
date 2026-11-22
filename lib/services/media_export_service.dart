@@ -25,13 +25,8 @@ class MediaExportService {
     ];
 
     if (audioExtensions.any(name.endsWith)) return ExportMediaKind.audio;
-    if (name.endsWith('.webm') ||
-        name.endsWith('.mkv') ||
-        name.endsWith('.mp4') ||
-        name.endsWith('.m4v') ||
-        name.endsWith('.mov') ||
-        name.endsWith('.3gp') ||
-        name.endsWith('.avi')) {
+
+    if (videoExtensions.any(name.endsWith)) {
       try {
         final session = await FFprobeKit.getMediaInformation(path);
         final information = await session.getMediaInformation();
@@ -40,17 +35,20 @@ class MediaExportService {
         final hasVideo = streams.any((stream) => stream.getType() == 'video');
         if (hasAudio && !hasVideo) return ExportMediaKind.audio;
         if (hasVideo) return ExportMediaKind.video;
-        if (name.endsWith('.webm')) {
-          throw const FormatException(
-            'Could not identify the WebM audio or video stream.',
-          );
-        }
       } catch (_) {
-        // Fall back to the known container extension below.
+        // A WebM file must not be guessed as video if probing fails.
       }
+      if (name.endsWith('.webm')) {
+        throw const FormatException(
+          'Could not identify the WebM audio or video stream.',
+        );
+      }
+      return ExportMediaKind.video;
     }
-    if (videoExtensions.any(name.endsWith)) return ExportMediaKind.video;
-    throw const FormatException('This file is not a supported audio or video file.');
+
+    throw const FormatException(
+      'This file is not a supported audio or video file.',
+    );
   }
 
   Future<String?> rememberedDestination(ExportMediaKind kind) async {
