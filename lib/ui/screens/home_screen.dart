@@ -47,10 +47,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onScroll() {
     if (!_scrollController.hasClients || _scrollController.position.extentAfter > 500) return;
     final current = _future;
-    unawaited(current.then((result) {
-      if (!mounted || !_scrollController.hasClients) return;
-      if (_scrollController.position.extentAfter <= 500) unawaited(result.feed.loadMore());
-    }));
+    unawaited(
+      current.then((result) {
+        if (!mounted || !_scrollController.hasClients) return;
+        if (_scrollController.position.extentAfter <= 500) unawaited(result.feed.loadMore());
+      }),
+    );
   }
 
   @override
@@ -433,7 +435,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (feed.canAutoLoad) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Center(child: TextButton(onPressed: feed.loadMore, child: const Text('Load more'))),
+        child: Center(
+          child: TextButton(onPressed: feed.loadMore, child: const Text('Load more')),
+        ),
       );
     }
     if (feed.error != null) {
