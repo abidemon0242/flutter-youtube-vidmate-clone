@@ -17,6 +17,7 @@ import '../../models/video_model.dart';
 import '../../providers/playback_settings.dart';
 import '../../services/home_library_service.dart';
 import '../../services/media_session_service.dart';
+import '../../services/network_monitor.dart';
 import '../../services/youtube_extraction_service.dart';
 import '../widgets/compact_video_tile.dart';
 import '../widgets/download_options_sheet.dart';
@@ -45,6 +46,9 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   late final MediaSessionService _mediaSession;
   late final YoutubeExtractionService _youtube;
   late final PlaybackSettings _settings;
+  late final ConnectivityNetworkMonitor _networkMonitor;
+  StreamSubscription<bool>? _networkSubscription;
+  bool _onWifi = false;
 
   // Streaming quality.
   List<PlaybackQuality> _qualities = const [];
@@ -72,7 +76,9 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     _mediaSession = context.read<MediaSessionService>();
     _youtube = context.read<YoutubeExtractionService>();
     _settings = context.read<PlaybackSettings>();
+    _networkMonitor = ConnectivityNetworkMonitor();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_monitorNetwork());
     _loadSavedState();
     _open();
     final id = widget.video.youtubeId;
@@ -94,6 +100,31 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           unawaited(controller.pause());
         }
       }
+    }
+  }
+
+  int get _effectivePreferredHeight =>
+      _settings.preferredHeight > 0 ? _settings.preferredHeight : (_onWifi ? 0 : 360);
+
+  Future<void> _monitorNetwork() async {
+    try {
+      _onWifi = await _networkMonitor.isOnWifi();
+      _networkSubscription ??= _networkMonitor.onWifiChanged.listen((onWifi) {
+        if (!mounted || _onWifi == onWifi) return;
+        _onWifi = onWifi;
+        if (_settings.preferredHeight == 0) unawaited(_applyNetworkQuality());
+      });
+    } catch (_) {
+      // If network classification is unavailable, keep the conservative 360p Auto cap.
+    }
+  }
+
+  Future<void> _applyNetworkQuality() async {
+    if (!mounted || _settings.preferredHeight != 0 || _qualities.isEmpty) return;
+    final next = pickPlaybackQuality(_qualities, _effectivePreferredHeight);
+    if (next != null && next.key != _quality?.key) {
+      _userPickedQuality = false;
+      await _switchQuality(next, automatic: true);
     }
   }
 
@@ -162,7 +193,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           qualities = await _youtube.hlsQualities(id);
           _hdChecked = true;
         }
-        quality = pickPlaybackQuality(qualities, _settings.preferredHeight);
+        quality = pickPlaybackQuality(qualities, _effectivePreferredHeight);
         if (quality == null) {
           throw const YoutubeServiceException(
             'Streaming is not available for this video, but you can still download it.',
@@ -227,7 +258,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     });
     final current = _quality;
     if (_userPickedQuality || current == null) return;
-    final best = pickPlaybackQuality(_qualities, _settings.preferredHeight);
+    final best = pickPlaybackQuality(_qualities, _effectivePreferredHeight);
     if (best != null && best.height > current.height) await _switchQuality(best, automatic: true);
   }
 
@@ -422,6 +453,16 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
             child: ListView(
               shrinkWrap: true,
               children: [
+                ListTile(
+                  title: const Text('Auto (network-aware)'),
+                  subtitle: Text(_onWifi ? 'Wi-Fi: best available quality' : 'Mobile / metered: up to 360p'),
+                  trailing: _settings.preferredHeight == 0 ? const Icon(Icons.check_rounded) : null,
+                  onTap: () async {
+                    await _settings.setPreferredHeight(0);
+                    _userPickedQuality = false;
+                    Navigator.pop(sheetContext);
+                  },
+                ),
                 if (_qualities.isNotEmpty) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
@@ -469,7 +510,10 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
     );
     if (!mounted) return;
     _scheduleHide();
-    if (picked == null) return;
+    if (picked == null) {
+      if (_settings.preferredHeight == 0) await _applyNetworkQuality();
+      return;
+    }
     _userPickedQuality = true;
     unawaited(_settings.setPreferredHeight(picked.height));
     await _switchQuality(picked);
@@ -479,6 +523,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _hideTimer?.cancel();
+    _networkSubscription?.cancel();
     final controller = _controller;
     if (controller != null) {
       controller.removeListener(_onPlayerChanged);
