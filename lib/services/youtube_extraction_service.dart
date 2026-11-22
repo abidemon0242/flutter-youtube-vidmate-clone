@@ -32,7 +32,7 @@ class DownloadOption {
   /// "1080p60", "720p", "Audio 128 kbps" ...
   final String label;
 
-  /// Real container of the final file: mp4, webm, mkv or m4a.
+  /// Final output container: video formats or MP3/M4A/AAC/OPUS/FLAC/WAV.
   final String container;
 
   /// Itag of the video (or muxed) stream; null for audio-only.
