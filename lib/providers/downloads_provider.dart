@@ -568,7 +568,7 @@ class DownloadsProvider extends ChangeNotifier {
         await _moveShortToProtectedFolder(entry);
       } else {
         final root = (await _downloadsDirectoryResolver()).parent;
-        final target = Directory('${root.path}/Videos/Shorts');
+        final target = Directory('${root.path}/Shorts');
         await target.create(recursive: true);
         final source = File(entry.savedPath);
         if (await source.exists()) {
