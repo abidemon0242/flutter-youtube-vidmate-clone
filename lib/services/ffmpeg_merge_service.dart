@@ -56,4 +56,72 @@ class FFmpegMergeService {
     if (await partial.exists()) await partial.delete();
     return false;
   }
+
+  /// Converts a downloaded audio-only stream to the selected output format.
+  /// Returns false if the installed FFmpeg build lacks the required encoder.
+  Future<bool> convertAudio({
+    required String inputPath,
+    required String outputPath,
+    required String format,
+    required String bitrate,
+  }) async {
+    if (_samePath(inputPath, outputPath) || !await File(inputPath).exists()) {
+      return false;
+    }
+    final normalized = format.toLowerCase();
+    const codecs = <String, String>{
+      'mp3': 'libmp3lame',
+      'm4a': 'aac',
+      'aac': 'aac',
+      'opus': 'libopus',
+      'flac': 'flac',
+      'wav': 'pcm_s16le',
+    };
+    final codec = codecs[normalized];
+    if (codec == null) return false;
+
+    await File(outputPath).parent.create(recursive: true);
+    final args = <String>[
+      '-y',
+      '-i',
+      inputPath,
+      '-map',
+      '0:a:0',
+      '-vn',
+      '-c:a',
+      codec,
+    ];
+    if (normalized != 'flac' && normalized != 'wav') {
+      if (bitrate == 'Best available') {
+        if (normalized == 'mp3') {
+          args.addAll(['-q:a', '0']);
+        } else {
+          args.addAll(['-b:a', normalized == 'opus' ? '160k' : '256k']);
+        }
+      } else {
+        final kbps = int.tryParse(bitrate.replaceAll(' kbps', ''));
+        if (kbps == null || kbps < 64 || kbps > 320) return false;
+        args.addAll(['-b:a', '${kbps}k']);
+      }
+    }
+    if (normalized == 'm4a') args.addAll(['-f', 'ipod']);
+    if (normalized == 'aac') args.addAll(['-f', 'adts']);
+    args.add(outputPath);
+
+    try {
+      final session = await FFmpegKit.executeWithArguments(args);
+      final code = await session.getReturnCode();
+      final output = File(outputPath);
+      if (ReturnCode.isSuccess(code) && await output.exists()) {
+        return await output.length() > 0;
+      }
+      _logger.e('Audio conversion failed (${code?.getValue()}): ${await session.getOutput()}');
+    } catch (error, stackTrace) {
+      _logger.e('Audio conversion failed', error: error, stackTrace: stackTrace);
+    }
+    final partial = File(outputPath);
+    if (await partial.exists()) await partial.delete();
+    return false;
+  }
+
 }
