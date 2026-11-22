@@ -438,6 +438,45 @@ void main() {
       ], waitingForWifi: true)!;
       expect(waiting.text, 'Waiting for Wi-Fi');
       expect(waiting.percent, -1);
+
+      const audioOption = DownloadOption(
+        kind: DownloadKind.audio,
+        label: 'MP3 · 192 kbps',
+        container: 'mp3',
+        videoTag: null,
+        audioTag: 140,
+        sizeBytes: 100,
+        audioOutputBitrate: '192 kbps',
+        audioSourceBitrateKbps: 128,
+      );
+      final converting = DownloadEntry(
+        id: 'audio',
+        videoId: 'audio',
+        title: 'Audio',
+        channelName: '',
+        thumbnailUrl: '',
+        option: audioOption,
+        savedPath: '/x/audio.mp3',
+        status: DownloadStatus.merging,
+      );
+      expect(
+        DownloadNotificationController.progressInfo([converting])!.text,
+        'Converting audio format...',
+      );
+      final mergingVideo = DownloadEntry(
+        id: 'video',
+        videoId: 'video',
+        title: 'Video',
+        channelName: '',
+        thumbnailUrl: '',
+        option: _muxed,
+        savedPath: '/x/video.mp4',
+        status: DownloadStatus.merging,
+      );
+      expect(
+        DownloadNotificationController.progressInfo([mergingVideo])!.text,
+        'Combining video and audio...',
+      );
     });
   });
 
@@ -492,7 +531,9 @@ void main() {
   group('save to phone helpers', () {
     test('MIME types and audio detection', () {
       expect(isAudioFile('/a/b/song.m4a'), isTrue);
+      expect(isAudioFile('/a/b/song.weba'), isTrue);
       expect(isAudioFile('/a/b/clip.mp4'), isFalse);
+      expect(mimeTypeFor('song.weba'), 'audio/webm');
       expect(mimeTypeFor('clip.mp4'), 'video/mp4');
       expect(mimeTypeFor('clip.mkv'), 'video/x-matroska');
       expect(mimeTypeFor('song.m4a'), 'audio/mp4');
