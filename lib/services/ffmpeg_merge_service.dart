@@ -64,6 +64,7 @@ class FFmpegMergeService {
     required String outputPath,
     required String format,
     required String bitrate,
+    int? sourceBitrateKbps,
   }) async {
     if (_samePath(inputPath, outputPath) || !await File(inputPath).exists()) {
       return false;
@@ -93,11 +94,11 @@ class FFmpegMergeService {
     ];
     if (normalized != 'flac' && normalized != 'wav') {
       if (bitrate == 'Best available') {
-        if (normalized == 'mp3') {
-          args.addAll(['-q:a', '0']);
-        } else {
-          args.addAll(['-b:a', normalized == 'opus' ? '160k' : '256k']);
-        }
+        final sourceRate = sourceBitrateKbps;
+        final targetRate = sourceRate != null && sourceRate > 0
+            ? sourceRate.clamp(1, 320)
+            : 128;
+        args.addAll(['-b:a', '${targetRate}k']);
       } else {
         final kbps = int.tryParse(bitrate.replaceAll(' kbps', ''));
         if (kbps == null || kbps < 64 || kbps > 320) return false;
