@@ -233,7 +233,7 @@ class _DownloadTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${entry.option.label} · ${entry.option.container.toUpperCase()}',
+                      '${entry.isShort ? 'Short · ' : ''}${entry.isProtected ? 'Important · ' : ''}${entry.option.label} · ${entry.option.container.toUpperCase()}',
                       style: TextStyle(color: context.textSecondary, fontSize: 12),
                     ),
                     Text(
