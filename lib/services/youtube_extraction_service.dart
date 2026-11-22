@@ -23,6 +23,7 @@ class DownloadOption {
     required this.audioTag,
     required this.sizeBytes,
     this.detail = '',
+    this.audioOutputBitrate,
   });
 
   final DownloadKind kind;
@@ -42,10 +43,17 @@ class DownloadOption {
   final int sizeBytes;
   final String detail;
 
+  /// When set, the downloaded source audio is transcoded to [container].
+  /// Null keeps the original YouTube audio stream unchanged.
+  final String? audioOutputBitrate;
+
+  bool get transcodesAudio => kind == DownloadKind.audio && audioOutputBitrate != null;
+
   /// True when video and audio are separate streams that must be merged.
   bool get needsMerge => videoTag != null && audioTag != null;
 
-  String get key => '${kind.name}-${videoTag ?? 0}-${audioTag ?? 0}';
+  String get key => '${kind.name}-${videoTag ?? 0}-${audioTag ?? 0}'
+      '${transcodesAudio ? '-$container-$audioOutputBitrate' : ''}';
 
   String get extension => '.$container';
 
@@ -57,6 +65,7 @@ class DownloadOption {
     'audioTag': audioTag,
     'sizeBytes': sizeBytes,
     'detail': detail,
+    'audioOutputBitrate': audioOutputBitrate,
   };
 
   factory DownloadOption.fromJson(Map<String, dynamic> json) => DownloadOption(
@@ -67,6 +76,7 @@ class DownloadOption {
     audioTag: json['audioTag'] as int?,
     sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
     detail: json['detail'] as String? ?? '',
+    audioOutputBitrate: json['audioOutputBitrate'] as String?,
   );
 }
 
