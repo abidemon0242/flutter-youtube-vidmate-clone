@@ -86,7 +86,11 @@ class FFmpegMergeService {
     if (normalized != 'flac' && normalized != 'wav') {
       if (bitrate == 'Best available') {
         final sourceRate = sourceBitrateKbps;
-        final targetRate = sourceRate != null && sourceRate > 0 ? sourceRate.clamp(1, 320) : 128;
+        if (sourceRate == null || sourceRate <= 0) {
+          _logger.w('Cannot select Best available: source bitrate is unknown.');
+          return false;
+        }
+        final targetRate = sourceRate.clamp(64, 320);
         args.addAll(['-b:a', '${targetRate}k']);
       } else {
         final kbps = int.tryParse(bitrate.replaceAll(' kbps', ''));
