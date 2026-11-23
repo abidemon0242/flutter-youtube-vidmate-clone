@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Secure default: no client uploads or downloads until a
+    // path-specific policy has been reviewed and added.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
