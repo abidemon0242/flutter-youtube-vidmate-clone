@@ -115,7 +115,11 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
 
   Future<void> _monitorNetwork() async {
     try {
-      _onWifi = await _networkMonitor.isOnWifi();
+      final onWifi = await _networkMonitor.isOnWifi();
+      // The async lookup may finish after this Watch screen has been disposed.
+      // Do not attach a stream listener that dispose() could no longer cancel.
+      if (!mounted) return;
+      _onWifi = onWifi;
       if (_settings.preferredHeight == 0 && _qualities.isNotEmpty) unawaited(_applyNetworkQuality());
       _networkSubscription ??= _networkMonitor.onWifiChanged.listen((onWifi) {
         if (!mounted || _onWifi == onWifi) return;
@@ -325,7 +329,7 @@ class _WatchScreenState extends State<WatchScreen> with WidgetsBindingObserver {
           await Permission.notification.request();
         } catch (_) {}
       }
-      if (!identical(_controller, controller)) return;
+      if (!mounted || !identical(_controller, controller)) return;
       await _mediaSession.attach(
         controller,
         id: widget.video.id,
