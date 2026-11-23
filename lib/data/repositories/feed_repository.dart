@@ -54,7 +54,14 @@ class FeedRepository {
       _cache[key] = result;
       return result;
     } on YoutubeServiceException catch (error) {
-      return FeedResult(feed: PagedFeed.fixed(_samples(category, trimmed)), isSample: true, message: error.message);
+      final fallback = FeedResult(
+        feed: PagedFeed.fixed(_samples(category, trimmed)),
+        isSample: true,
+        message: error.message,
+      );
+      // A failed refresh must not leave an older feed cached under this key.
+      _cache[key] = fallback;
+      return fallback;
     }
   }
 
