@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/playback_settings.dart';
 import '../../providers/downloads_provider.dart';
 import '../../providers/recommendation_settings.dart';
+import '../../services/google_auth_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -13,11 +14,37 @@ class SettingsScreen extends StatelessWidget {
     final recommendations = context.watch<RecommendationSettings>();
     final playback = context.watch<PlaybackSettings>();
     final downloads = context.watch<DownloadsProvider>();
+    final googleAuth = context.watch<GoogleAuthService>();
+    final user = googleAuth.currentUser;
     return Scaffold(
       appBar: AppBar(title: const Text('App settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text('Account', style: Theme.of(context).textTheme.titleLarge),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: CircleAvatar(
+              backgroundImage: user?.photoURL == null ? null : NetworkImage(user!.photoURL!),
+              child: user?.photoURL == null ? const Icon(Icons.account_circle_outlined) : null,
+            ),
+            title: Text(user?.displayName ?? 'Google account'),
+            subtitle: Text(user?.email ?? 'Signed in with Firebase Authentication'),
+            trailing: TextButton(
+              onPressed: googleAuth.isBusy ? null : () async {
+                try {
+                  await googleAuth.signOut();
+                } catch (error) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Sign-out failed: $error')),
+                  );
+                }
+              },
+              child: Text(googleAuth.isBusy ? 'Please wait…' : 'Sign out'),
+            ),
+          ),
+          const Divider(),
           Text('Recommendations', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
