@@ -26,10 +26,7 @@ void main() {
     });
 
     test('falls back to a generic message for other codes', () {
-      final error = GoogleSignInException(
-        code: GoogleSignInExceptionCode.unknownError,
-        description: 'something else',
-      );
+      final error = GoogleSignInException(code: GoogleSignInExceptionCode.unknownError, description: 'something else');
       final message = GoogleAuthService.mapGoogleSignInError(error);
       expect(message, contains('unknownError'));
       expect(message, contains('something else'));
