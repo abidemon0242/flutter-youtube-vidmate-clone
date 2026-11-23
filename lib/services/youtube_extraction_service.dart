@@ -174,7 +174,16 @@ class YoutubeExtractionService {
 
   // ----------------------------------------------------- details / related
 
+  static bool _isValidVideoId(String videoId) => RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(videoId);
+
+  static void _requireVideoId(String videoId) {
+    if (!_isValidVideoId(videoId)) {
+      throw const YoutubeServiceException('That is not a valid YouTube video ID.');
+    }
+  }
+
   Future<Video> _fullVideo(String videoId) async {
+    _requireVideoId(videoId);
     final cached = _videoCache[videoId];
     if (cached != null) return cached;
     final video = await _youtube.videos.get(videoId);
@@ -247,6 +256,7 @@ class YoutubeExtractionService {
   // -------------------------------------------------------------- streams
 
   Future<StreamManifest> manifest(String videoId, {bool fresh = false}) async {
+    _requireVideoId(videoId);
     final cached = _manifestCache[videoId];
     if (!fresh && cached != null && DateTime.now().difference(cached.fetchedAt) < _manifestTtl) {
       return cached.manifest;
