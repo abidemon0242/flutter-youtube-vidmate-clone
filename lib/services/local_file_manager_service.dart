@@ -100,14 +100,25 @@ class LocalFileManagerService {
     return value;
   }
 
+  Future<Directory?> _findFolderIgnoreCase(String name) async {
+    final expected = name.toLowerCase();
+    await for (final item in _baseDirectory.list(followLinks: false)) {
+      if (item is Directory && item.path.split(Platform.pathSeparator).last.toLowerCase() == expected) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   /// Create a custom folder
   Future<bool> createFolder(String folderName) async {
     try {
       await initialize();
       final safeName = _validatedFolderName(folderName);
       if (safeName == null || isProtectedFolder(safeName)) return false;
+      final existing = await _findFolderIgnoreCase(safeName);
       final folder = Directory('${_baseDirectory.path}/$safeName');
-      if (!folder.existsSync()) {
+      if (existing == null) {
         await folder.create(recursive: true);
         logger.i('Folder created: $folderName');
         return true;
@@ -153,8 +164,11 @@ class LocalFileManagerService {
       }
       final oldFolder = Directory('${_baseDirectory.path}/$safeOldName');
       final newFolder = Directory('${_baseDirectory.path}/$safeNewName');
+      final existingDestination = await _findFolderIgnoreCase(safeNewName);
 
-      if (oldFolder.existsSync() && await _isManagedDirectory(oldFolder) && !newFolder.existsSync()) {
+      if (oldFolder.existsSync() &&
+          await _isManagedDirectory(oldFolder) &&
+          (existingDestination == null || existingDestination.path == oldFolder.path)) {
         await oldFolder.rename(newFolder.path);
         logger.i('Folder renamed: $oldName -> $newName');
         return true;
@@ -253,7 +267,8 @@ class LocalFileManagerService {
       final basePath = await _baseDirectory.resolveSymbolicLinks();
       final sourcePath = await file.resolveSymbolicLinks();
       if (!sourcePath.startsWith('$basePath${Platform.pathSeparator}')) return null;
-      final target = Directory('${_baseDirectory.path}/$safeTarget');
+      final target = await _findFolderIgnoreCase(safeTarget) ??
+          Directory('${_baseDirectory.path}/$safeTarget');
       await target.create(recursive: true);
       if (!await _isManagedDirectory(target)) return null;
       final targetPath = await target.resolveSymbolicLinks();
@@ -351,6 +366,8 @@ class LocalFileManagerService {
       int totalSize = 0;
       for (final item in items) {
         if (item is File) {
+          final name = item.uri.pathSegments.last;
+          if (name.startsWith('.') || _hiddenSuffixes.any(name.endsWith)) continue;
           totalSize += item.lengthSync();
         }
       }
@@ -362,22 +379,30 @@ class LocalFileManagerService {
     }
   }
 
-  /// Clear all downloads
+  /// Clear files in the app's built-in download folders. Custom Library
+  /// folders are intentionally preserved because users may keep personal
+  /// files there. The download index is removed with the managed media.
   Future<bool> clearAllDownloads() async {
     try {
       await initialize();
-      final downloadsDirectory = Directory('${_baseDirectory.path}/Downloads');
-      if (!await downloadsDirectory.exists()) return true;
-      if (!await _isManagedDirectory(downloadsDirectory)) return false;
-      final items = downloadsDirectory.listSync(followLinks: false);
-      for (final item in items) {
-        if (item is Directory) {
-          await item.delete(recursive: true);
-        } else if (item is File || item is Link) {
-          await item.delete();
+      for (final folderName in ['Downloads', 'Videos', 'Audio', 'Shorts', 'Important Shorts']) {
+        final directory = await _findFolderIgnoreCase(folderName);
+        if (directory == null) continue;
+        if (!await _isManagedDirectory(directory)) return false;
+        final items = directory.listSync(followLinks: false);
+        for (final item in items) {
+          if (item is Directory) {
+            await item.delete(recursive: true);
+          } else if (item is File || item is Link) {
+            await item.delete();
+          }
         }
       }
-      logger.i('All downloads cleared');
+      for (final indexName in ['downloads.json', 'downloads.json.tmp']) {
+        final index = File('${_baseDirectory.path}/$indexName');
+        if (await index.exists()) await index.delete();
+      }
+      logger.i('All built-in download folders cleared');
       return true;
     } catch (e) {
       logger.e('Error clearing downloads: $e');
