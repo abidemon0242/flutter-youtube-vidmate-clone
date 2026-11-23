@@ -36,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final ScrollController _scrollController;
   late Future<FeedResult> _future = _load();
   final Map<String, VideoModel> _selected = {};
+  bool _autoLoading = false;
   bool _batchRunning = false;
   String _batchLabel = '';
 
@@ -47,14 +48,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients || _scrollController.position.extentAfter > 500) return;
+    if (_autoLoading || !_scrollController.hasClients || _scrollController.position.extentAfter > 500) return;
     final current = _future;
-    unawaited(
-      current.then((result) {
-        if (!mounted || !_scrollController.hasClients) return;
-        if (_scrollController.position.extentAfter <= 500) unawaited(result.feed.loadMore());
-      }),
-    );
+    // Set the guard synchronously before awaiting the page future; scroll
+    // notifications can fire many times in the same frame.
+    _autoLoading = true;
+    unawaited(() async {
+      try {
+        final result = await current;
+        if (!mounted || !identical(current, _future) || !_scrollController.hasClients) return;
+        if (_scrollController.position.extentAfter <= 500) {
+          await result.feed.loadMore();
+        }
+      } catch (error) {
+        debugPrint('Automatic feed pagination failed: $error');
+      } finally {
+        _autoLoading = false;
+      }
+    }());
   }
 
   @override
@@ -268,18 +279,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final youtube = context.read<YoutubeExtractionService>();
     final navigator = Navigator.of(context, rootNavigator: true);
-    // Looking a video up can take a few seconds; block repeat taps meanwhile.
-    showDialog<void>(
+    // Keep a reference to this exact dialog route. If the Home route is
+    // removed while metadata is loading, never pop an unrelated route.
+    final progressRoute = DialogRoute<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const PopScope(canPop: false, child: Center(child: CircularProgressIndicator())),
     );
+    unawaited(navigator.push<void>(progressRoute));
     try {
       final video = await youtube.getVideo(link);
-      navigator.pop();
-      if (mounted) context.push('/watch', extra: video);
+      if (navigator.mounted && progressRoute.isActive) navigator.removeRoute(progressRoute);
+      if (!mounted || !navigator.mounted) return;
+      context.push('/watch', extra: video);
     } catch (error) {
-      navigator.pop();
+      if (navigator.mounted && progressRoute.isActive) navigator.removeRoute(progressRoute);
+      if (!mounted) return;
       _snack(error is YoutubeServiceException ? error.message : 'Could not open this video.');
     }
   }
