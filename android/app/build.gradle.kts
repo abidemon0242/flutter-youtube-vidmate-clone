@@ -26,6 +26,7 @@ val hasReleaseSigning = releaseStoreFile != null && file(releaseStoreFile).exist
 
 android {
     namespace = "com.tubearena.app"
+    // permission_handler_android 14.x requires Android API 37 or newer.
     compileSdk = maxOf(37, flutter.compileSdkVersion)
     ndkVersion = flutter.ndkVersion
 
