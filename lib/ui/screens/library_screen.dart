@@ -111,7 +111,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _snack('Downloads is a built-in folder. Choose another name.');
       return;
     }
+    final existing = (await _files.getFolders()).where((folder) => folder.name == old).firstOrNull;
     final ok = await _files.renameFolder(old, name);
+    if (ok && existing != null) {
+      final renamed = (await _files.getFolders()).where((folder) => folder.name == name).firstOrNull;
+      if (renamed != null) _downloads.updateFolderPath(existing.path, renamed.path);
+    }
     if (!mounted) return;
     _snack(ok ? 'Folder renamed.' : 'Could not rename. The name may already be in use.');
     _selected.clear();
