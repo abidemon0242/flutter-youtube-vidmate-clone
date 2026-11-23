@@ -239,6 +239,48 @@ void main() {
     });
   });
 
+  group('library folder safety and cleanup', () {
+    test('custom folder names cannot collide by case', () async {
+      final files = LocalFileManagerService.withBaseDirectory(tubeArena);
+      expect(await files.createFolder('My Videos'), isTrue);
+      expect(await files.createFolder('my videos'), isFalse);
+      expect(await files.getFolders().then((folders) =>
+          folders.where((folder) => folder.name.toLowerCase() == 'my videos').length), 1);
+    });
+
+    test('storage size excludes hidden and partial files', () async {
+      final files = LocalFileManagerService.withBaseDirectory(tubeArena);
+      await downloads.create(recursive: true);
+      await File('${downloads.path}/final.mp4').writeAsBytes(List.filled(10, 1));
+      await File('${downloads.path}/active.mp4.part').writeAsBytes(List.filled(90, 1));
+      await File('${downloads.path}/.hidden.mp4').writeAsBytes(List.filled(30, 1));
+      await File('${downloads.path}/index.tmp').writeAsBytes(List.filled(20, 1));
+      expect(await files.getTotalStorageSize(), 10);
+    });
+
+    test('clear all downloads empties built-in folders but preserves custom folders', () async {
+      final files = LocalFileManagerService.withBaseDirectory(tubeArena);
+      for (final name in ['Downloads', 'Videos', 'Audio', 'Shorts', 'Important Shorts']) {
+        final folder = Directory('${tubeArena.path}/$name');
+        await folder.create(recursive: true);
+        await File('${folder.path}/item.bin').writeAsString('download');
+      }
+      final custom = Directory('${tubeArena.path}/My Files');
+      await custom.create(recursive: true);
+      final personal = File('${custom.path}/keep.txt')..writeAsStringSync('keep');
+      await File('${tubeArena.path}/downloads.json').writeAsString('[]');
+      await File('${tubeArena.path}/downloads.json.tmp').writeAsString('[]');
+
+      expect(await files.clearAllDownloads(), isTrue);
+      for (final name in ['Downloads', 'Videos', 'Audio', 'Shorts', 'Important Shorts']) {
+        expect(Directory('${tubeArena.path}/$name').listSync(), isEmpty);
+      }
+      expect(await personal.readAsString(), 'keep');
+      expect(await File('${tubeArena.path}/downloads.json').exists(), isFalse);
+      expect(await File('${tubeArena.path}/downloads.json.tmp').exists(), isFalse);
+    });
+  });
+
   group('free space', () {
     test('estimate counts source, merged output, transcode output, and reserve once', () {
       expect(estimateRequiredBytes(0, needsMerge: true), 0);
