@@ -155,7 +155,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<VideoModel> _visibleVideos(List<VideoModel> source) {
+    // Search is remote for discovery feeds, but these sections are already
+    // local collections. Apply the same search box locally instead of
+    // silently ignoring the query in Watch Later, History, and Subscriptions.
+    final localSearch = _query.trim().toLowerCase();
+    final searchLocalCollection = const {'Watch Later', 'History', 'Subscriptions'}.contains(_section);
     var videos = source.where((video) {
+      if (searchLocalCollection && localSearch.isNotEmpty) {
+        final title = video.title.toLowerCase();
+        final channel = video.channelName.toLowerCase();
+        if (!title.contains(localSearch) && !channel.contains(localSearch)) return false;
+      }
       if (_category > 0 && video.category != _categoryName) return false;
       final preferences = context.read<RecommendationSettings>();
       if (_section != 'Subscriptions' && preferences.isHidden(video.channelName)) return false;
