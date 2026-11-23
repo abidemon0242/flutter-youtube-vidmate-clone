@@ -3,6 +3,7 @@ package com.tubearena.app
 import android.content.ContentValues
 import android.content.Context
 import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.os.Handler
@@ -15,6 +16,9 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 /** Free space (StatFs) and "Save to phone" (MediaStore) for the Dart side. */
 object StorageChannel {
@@ -81,9 +85,17 @@ object StorageChannel {
                 val output = resolver.openOutputStream(uri) ?: throw IOException("Cannot open output")
                 output.use { out -> FileInputStream(source).use { input -> input.copyTo(out) } }
                 val done = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
-                resolver.update(uri, done, null, null)
+                if (resolver.update(uri, done, null, null) != 1) {
+                    throw IOException("MediaStore could not publish the saved media.")
+                }
             } catch (e: Exception) {
-                resolver.delete(uri, null, null)
+                // Remove the pending row so a failed save cannot leave an
+                // invisible, orphaned MediaStore item behind.
+                try {
+                    resolver.delete(uri, null, null)
+                } catch (cleanupError: Exception) {
+                    e.addSuppressed(cleanupError)
+                }
                 throw e
             }
             return uri.toString()
@@ -103,8 +115,22 @@ object StorageChannel {
             target = File(folder, "$base ($n)$ext")
             n++
         }
-        FileInputStream(source).use { input -> FileOutputStream(target).use { out -> input.copyTo(out) } }
-        MediaScannerConnection.scanFile(context, arrayOf(target.path), arrayOf(mimeType), null)
-        return target.path
+        try {
+            FileInputStream(source).use { input -> FileOutputStream(target).use { out -> input.copyTo(out) } }
+            val scanFinished = CountDownLatch(1)
+            val scannedUri = AtomicReference<Uri?>(null)
+            MediaScannerConnection.scanFile(context, arrayOf(target.path), arrayOf(mimeType)) { _, uri ->
+                scannedUri.set(uri)
+                scanFinished.countDown()
+            }
+            if (!scanFinished.await(15, TimeUnit.SECONDS) || scannedUri.get() == null) {
+                throw IOException("The saved file could not be indexed by Android Media Scanner.")
+            }
+            return target.path
+        } catch (e: Exception) {
+            // A failed or unindexed copy should not be reported as a success.
+            if (target.exists()) target.delete()
+            throw e
+        }
     }
 }
