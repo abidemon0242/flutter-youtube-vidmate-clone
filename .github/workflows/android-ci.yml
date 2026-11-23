@@ -64,16 +64,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Build split release APKs
-        run: flutter build apk --release --split-per-abi --no-pub
-
-      - name: Upload split release APKs
-        uses: actions/upload-artifact@v7
-        with:
-          name: tube-arena-release-apks
-          path: build/app/outputs/flutter-apk/*-release.apk
-          if-no-files-found: error
-          retention-days: 14
+      # Release APKs are intentionally not built in CI until a private release
+      # keystore is configured in repository Actions secrets. Never use the
+      # debug signing key for a distributable release.
 
   android-emulator-smoke-test:
     name: Install and launch on Android emulator
