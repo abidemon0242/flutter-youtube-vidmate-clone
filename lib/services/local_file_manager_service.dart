@@ -267,8 +267,7 @@ class LocalFileManagerService {
       final basePath = await _baseDirectory.resolveSymbolicLinks();
       final sourcePath = await file.resolveSymbolicLinks();
       if (!sourcePath.startsWith('$basePath${Platform.pathSeparator}')) return null;
-      final target = await _findFolderIgnoreCase(safeTarget) ??
-          Directory('${_baseDirectory.path}/$safeTarget');
+      final target = await _findFolderIgnoreCase(safeTarget) ?? Directory('${_baseDirectory.path}/$safeTarget');
       await target.create(recursive: true);
       if (!await _isManagedDirectory(target)) return null;
       final targetPath = await target.resolveSymbolicLinks();

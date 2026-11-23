@@ -244,8 +244,12 @@ void main() {
       final files = LocalFileManagerService.withBaseDirectory(tubeArena);
       expect(await files.createFolder('My Videos'), isTrue);
       expect(await files.createFolder('my videos'), isFalse);
-      expect(await files.getFolders().then((folders) =>
-          folders.where((folder) => folder.name.toLowerCase() == 'my videos').length), 1);
+      expect(
+        await files.getFolders().then(
+          (folders) => folders.where((folder) => folder.name.toLowerCase() == 'my videos').length,
+        ),
+        1,
+      );
     });
 
     test('storage size excludes hidden and partial files', () async {
