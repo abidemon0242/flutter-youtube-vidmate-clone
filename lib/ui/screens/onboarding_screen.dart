@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/google_auth_service.dart';
-import 'home_screen.dart';
 
-/// First-run entry point. Google sign-in is presented before the main app;
-/// guest access remains available when Firebase has not been configured.
+/// Mandatory sign-in entry screen. No guest or local onboarding bypass exists.
 class AppEntryScreen extends StatefulWidget {
   const AppEntryScreen({super.key});
 
@@ -15,45 +12,15 @@ class AppEntryScreen extends StatefulWidget {
 }
 
 class _AppEntryScreenState extends State<AppEntryScreen> {
-  static const _completedKey = 'onboarding_completed';
-  bool _loading = true;
-  bool _completed = false;
   bool _signingIn = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _restoreEntryState();
-  }
-
-  Future<void> _restoreEntryState() async {
-    try {
-      final preferences = await SharedPreferences.getInstance();
-      if (!mounted) return;
-      setState(() {
-        _completed = preferences.getBool(_completedKey) ?? false;
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _continueAsGuest() async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool(_completedKey, true);
-    if (mounted) setState(() => _completed = true);
-  }
-
   Future<void> _signIn(GoogleAuthService auth) async {
-    if (_signingIn || !auth.isConfigured) return;
+    if (_signingIn || !auth.isConfigured || auth.isBusy) return;
     setState(() => _signingIn = true);
     try {
       await auth.signIn();
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.setBool(_completedKey, true);
-      if (mounted) setState(() => _completed = true);
+      // TubeArenaApp listens to GoogleAuthService and switches to the
+      // authenticated router as soon as Firebase supplies currentUser.
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -67,14 +34,9 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<GoogleAuthService>();
-    if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    if (_completed || auth.currentUser != null) {
-      return const HomeScreen();
-    }
-
     final theme = Theme.of(context);
+    final busy = _signingIn || auth.isBusy;
+
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -99,48 +61,33 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Sign in with Google to connect your account. You can review app permissions when a feature needs them.',
+                    'Sign in with your Google account to continue. Authentication is required to use Tube Arena.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
-                    onPressed: !auth.isConfigured || auth.isBusy || _signingIn
+                    onPressed: !auth.isConfigured || busy
                         ? null
                         : () => _signIn(auth),
-                    icon: _signingIn || auth.isBusy
+                    icon: busy
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.login),
-                    label: Text(
-                      _signingIn || auth.isBusy
-                          ? 'Signing in…'
-                          : 'Continue with Google',
-                    ),
+                    label: Text(busy ? 'Signing in…' : 'Continue with Google'),
                   ),
                   if (!auth.isConfigured) ...[
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 14),
                     Text(
                       auth.configurationError ??
-                          'Google sign-in needs Firebase configuration. See docs/GOOGLE_SIGN_IN_SETUP.md.',
+                          'Google sign-in is not configured. Check the Firebase Android configuration and Google provider settings.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall,
                     ),
                   ],
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: _signingIn ? null : _continueAsGuest,
-                    child: const Text('Continue as guest'),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Guest mode keeps the public feed, search and local media tools available. You can sign in later from Settings.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall,
-                  ),
                 ],
               ),
             ),
