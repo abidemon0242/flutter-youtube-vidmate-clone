@@ -319,7 +319,7 @@ class YoutubeExtractionService {
     const hosts = {'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be', 'www.youtu.be'};
     if (!hosts.contains(host)) return null;
     String? candidate;
-    if (host.endsWith('youtu.be')) {
+    if (host == 'youtu.be' || host == 'www.youtu.be') {
       candidate = uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
     } else {
       candidate = uri.queryParameters['v'];
