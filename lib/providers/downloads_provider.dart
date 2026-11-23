@@ -645,13 +645,24 @@ class DownloadsProvider extends ChangeNotifier {
     if (_running.contains(entry.id)) {
       final wasMerging = entry.status == DownloadStatus.merging;
       _stopRequested.add(entry.id);
-      await _subscriptions.remove(entry.id)?.cancel();
+      final subscription = _subscriptions.remove(entry.id);
+      if (subscription != null) {
+        try {
+          await subscription.cancel().timeout(const Duration(seconds: 2));
+        } on TimeoutException {
+          debugPrint('Download stream cancellation is taking longer than expected.');
+        }
+      }
       entry.status = status;
       _changed();
       if (wasMerging) {
-        // Request cancellation and wait a bounded time. Callers must not
-        // delete inputs/outputs unless the worker has actually stopped.
-        await FFmpegMergeService.cancelForOutput(entry.savedPath);
+        // Bound the cancellation request too; the worker completion wait
+        // below is the final gate before callers may touch its files.
+        try {
+          await FFmpegMergeService.cancelForOutput(entry.savedPath).timeout(const Duration(seconds: 3));
+        } on TimeoutException {
+          debugPrint('FFmpeg cancellation request timed out for ' + entry.id);
+        }
       }
       try {
         await _finished[entry.id]?.future.timeout(const Duration(seconds: 12));
