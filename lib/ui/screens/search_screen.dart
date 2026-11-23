@@ -2,9 +2,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
 
-import '../../data/paged_feed.dart';
 import '../../data/repositories/feed_repository.dart';
-import '../../models/video_model.dart';
 import '../widgets/video_card.dart';
 
 /// Dedicated full-screen search experience. Search results are loaded only
