@@ -3,12 +3,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-/// Optional Google authentication for Tube Arena.
-///
-/// The app remains usable when Firebase is not configured. To enable sign-in,
-/// add the Firebase Android configuration described in
-/// docs/GOOGLE_SIGN_IN_SETUP.md.
+/// Required Google authentication for Tube Arena.
 class GoogleAuthService extends ChangeNotifier {
+  // OAuth web client ID from this app's google-services.json. Google Sign-In
+  // needs it as the server client ID to return the ID token Firebase expects.
+  static const _serverClientId =
+      '1097230695627-dtdgldj4sifdld7bfjg3qm3bb20d6fc7.apps.googleusercontent.com';
+
   bool _initialized = false;
   bool _busy = false;
   String? _configurationError;
@@ -25,12 +26,14 @@ class GoogleAuthService extends ChangeNotifier {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
       }
-      await GoogleSignIn.instance.initialize();
+      await GoogleSignIn.instance.initialize(
+        serverClientId: _serverClientId,
+      );
       _initialized = true;
       _configurationError = null;
     } catch (error, stackTrace) {
       _configurationError =
-          'Google sign-in is not configured yet. Add the Firebase Android configuration and enable Google as a sign-in provider.';
+          'Google sign-in could not be initialized. Check the Firebase Android configuration, OAuth client, and registered signing certificate.';
       debugPrint('Google authentication initialization failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
@@ -51,7 +54,7 @@ class GoogleAuthService extends ChangeNotifier {
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
         throw StateError(
-          'Google did not return an ID token. Check the Firebase OAuth configuration.',
+          'Google did not return an ID token. Check the OAuth client ID and Firebase Google provider configuration.',
         );
       }
       final credential = GoogleAuthProvider.credential(idToken: idToken);
@@ -67,8 +70,13 @@ class GoogleAuthService extends ChangeNotifier {
     _busy = true;
     notifyListeners();
     try {
-      await GoogleSignIn.instance.signOut();
-      await FirebaseAuth.instance.signOut();
+      // Always clear Firebase's authenticated session, even if Google account
+      // sign-out reports an error. The app-level auth gate then returns to login.
+      try {
+        await GoogleSignIn.instance.signOut();
+      } finally {
+        await FirebaseAuth.instance.signOut();
+      }
     } finally {
       _busy = false;
       notifyListeners();
