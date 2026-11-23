@@ -285,9 +285,20 @@ class LocalFileManagerService {
       try {
         await file.rename(newPath);
       } on FileSystemException {
-        // Different volume: fall back to copy + delete.
-        await file.copy(newPath);
-        await file.delete();
+        // Different volume: fall back to copy + delete. If either operation
+        // fails, remove the incomplete destination and keep the source intact.
+        try {
+          await file.copy(newPath);
+          await file.delete();
+        } catch (_) {
+          try {
+            final partial = File(newPath);
+            if (await partial.exists()) await partial.delete();
+          } catch (cleanupError) {
+            logger.w('Could not remove incomplete moved file: $cleanupError');
+          }
+          rethrow;
+        }
       }
       logger.i('File moved: $filePath -> $newPath');
       return newPath;
