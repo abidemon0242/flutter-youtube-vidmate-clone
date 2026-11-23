@@ -4,11 +4,13 @@ import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'models/video_model.dart';
 import 'providers/theme_provider.dart';
+import 'services/google_auth_service.dart';
 import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/batch_download_screen.dart';
 import 'ui/screens/folder_contents_screen.dart';
 import 'ui/screens/local_media_player_screen.dart';
 import 'ui/screens/onboarding_screen.dart';
+import 'ui/screens/home_screen.dart';
 import 'ui/screens/library_screen.dart';
 import 'ui/screens/personalization_settings_screen.dart';
 import 'ui/screens/playlist_import_screen.dart';
@@ -21,7 +23,7 @@ class TubeArenaApp extends StatelessWidget {
   static final GoRouter _router = GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (c, s) => const AppEntryScreen()),
+      GoRoute(path: '/', builder: (c, s) => const HomeScreen()),
       GoRoute(
         path: '/add-downloads',
         builder: (c, s) {
@@ -72,11 +74,29 @@ class TubeArenaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
+    final googleAuth = context.watch<GoogleAuthService>();
+    final theme = AppTheme.lightTheme;
+    final darkTheme = AppTheme.darkTheme;
+
+    // The authentication gate sits above the router, so every app route is
+    // inaccessible until Firebase reports an authenticated user. Signing out
+    // rebuilds this widget and immediately replaces the router with login.
+    if (googleAuth.currentUser == null) {
+      return MaterialApp(
+        title: 'Tube Arena',
+        debugShowCheckedModeBanner: false,
+        theme: theme,
+        darkTheme: darkTheme,
+        themeMode: themeProvider.themeMode,
+        home: const AppEntryScreen(),
+      );
+    }
+
     return MaterialApp.router(
       title: 'Tube Arena',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
+      theme: theme,
+      darkTheme: darkTheme,
       themeMode: themeProvider.themeMode,
       routerConfig: _router,
     );
