@@ -661,13 +661,13 @@ class DownloadsProvider extends ChangeNotifier {
         try {
           await FFmpegMergeService.cancelForOutput(entry.savedPath).timeout(const Duration(seconds: 3));
         } on TimeoutException {
-          debugPrint('FFmpeg cancellation request timed out for ' + entry.id);
+          debugPrint('FFmpeg cancellation request timed out for ${entry.id}');
         }
       }
       try {
         await _finished[entry.id]?.future.timeout(const Duration(seconds: 12));
       } on TimeoutException {
-        debugPrint('Download ' + entry.id + ' is still stopping; leaving its files untouched.');
+        debugPrint('Download ${entry.id} is still stopping; leaving its files untouched.');
         return false;
       }
     }
