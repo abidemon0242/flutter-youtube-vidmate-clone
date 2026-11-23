@@ -200,30 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_selected.remove(video.id) == null) _selected[video.id] = video;
   });
 
-  Future<void> _search() async {
-    final controller = TextEditingController(text: _query);
-    final query = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Search videos'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textInputAction: TextInputAction.search,
-          decoration: const InputDecoration(hintText: 'Title or channel'),
-          onSubmitted: (value) => Navigator.pop(dialogContext, value),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, controller.text), child: const Text('Search')),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (query == null || !mounted) return;
-    _query = query.trim();
-    _reload();
-  }
 
   void _clearSearch() {
     _query = '';
@@ -714,7 +690,17 @@ class _HomeScreenState extends State<HomeScreen> {
     title: const Text('Tube Arena'),
     actions: [
       IconButton(onPressed: _openLink, tooltip: 'Open YouTube link', icon: const Icon(Icons.add_link_rounded)),
-      IconButton(onPressed: _search, tooltip: 'Search', icon: const Icon(Icons.search_rounded)),
+      IconButton(
+        onPressed: () async {
+          final query = await context.push<String>('/search', extra: _query);
+          if (query != null && mounted) {
+            _query = query;
+            _reload(refresh: true);
+          }
+        },
+        tooltip: 'Search',
+        icon: const Icon(Icons.search_rounded),
+      ),
       IconButton(
         onPressed: () => context.push('/settings'),
         tooltip: 'Settings',
