@@ -6,6 +6,7 @@ import '../../data/repositories/feed_repository.dart';
 import '../widgets/video_card.dart';
 
 /// Dedicated full-screen search experience. Search results are loaded only
+/// after an explicit submission, keeping navigation separate from searching.
 /// after the user submits a non-empty query.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key, this.initialQuery = ''});
