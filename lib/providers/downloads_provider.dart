@@ -194,6 +194,7 @@ class DownloadsProvider extends ChangeNotifier {
     MergeFunction? merge,
     Future<Directory> Function()? downloadsDirectoryResolver,
     FreeSpaceResolver? freeSpace,
+    Future<File> Function()? stateFileResolver,
     NetworkMonitor? network,
     this.maxConcurrent = 2,
   }) : _source = source,
@@ -201,6 +202,7 @@ class DownloadsProvider extends ChangeNotifier {
            merge ?? ((v, a, o) => FFmpegMergeService().mergeVideoAndAudio(videoPath: v, audioPath: a, outputPath: o)),
        _downloadsDirectoryResolver = downloadsDirectoryResolver ?? defaultDownloadsDirectory,
        _freeSpace = freeSpace,
+       _stateFileResolver = stateFileResolver,
        _network = network {
     _networkSubscription = network?.onWifiChanged.listen(_onWifiChanged);
   }
@@ -218,6 +220,7 @@ class DownloadsProvider extends ChangeNotifier {
   final MergeFunction _merge;
   final Future<Directory> Function() _downloadsDirectoryResolver;
   final FreeSpaceResolver? _freeSpace;
+  final Future<File> Function()? _stateFileResolver;
   final NetworkMonitor? _network;
   StreamSubscription<bool>? _networkSubscription;
   final int maxConcurrent;
@@ -325,6 +328,8 @@ class DownloadsProvider extends ChangeNotifier {
   // ------------------------------------------------------------ persistence
 
   Future<File> _stateFile() async {
+    final resolver = _stateFileResolver;
+    if (resolver != null) return resolver();
     final dir = await _downloadsDirectoryResolver();
     return File('${dir.parent.path}/downloads.json');
   }
@@ -378,7 +383,8 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> _saveChain = Future<void>.value();
 
   // Saves run one at a time so concurrent writes never race on the temp file.
-  Future<void> _save() => _saveChain = _saveChain.then((_) => _writeState());
+  // A failed write must not poison the queue: the next save gets a fresh attempt.
+  Future<void> _save() => _saveChain = _saveChain.catchError((_) {}).then((_) => _writeState());
 
   /// Completes once every queued save has been written (used by tests).
   @visibleForTesting
@@ -391,14 +397,23 @@ class DownloadsProvider extends ChangeNotifier {
   }
 
   Future<void> _writeState() async {
+    File? tmp;
     try {
       final file = await _stateFile();
       await file.parent.create(recursive: true);
-      final tmp = File('${file.path}.tmp');
-      await tmp.writeAsString(jsonEncode(_items.map((e) => e.toJson()).toList()));
+      tmp = File('${file.path}.tmp');
+      await tmp.writeAsString(jsonEncode(_items.map((e) => e.toJson()).toList()), flush: true);
       await tmp.rename(file.path);
     } catch (error) {
+      if (tmp != null) {
+        try {
+          if (await tmp.exists()) await tmp.delete();
+        } catch (_) {
+          // Preserve the original persistence error.
+        }
+      }
       debugPrint('Could not save downloads: $error');
+      rethrow;
     }
   }
 
@@ -410,7 +425,11 @@ class DownloadsProvider extends ChangeNotifier {
       _lastNotify = now;
     }
     _notifyIfAlive();
-    if (persist) unawaited(_save());
+    if (persist) {
+      unawaited(_save().catchError((Object error) {
+        debugPrint('Download list is not yet saved; a later change will retry: $error');
+      }));
+    }
   }
 
   // ---------------------------------------------------------------- actions
@@ -537,10 +556,33 @@ class DownloadsProvider extends ChangeNotifier {
             ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
       if (candidates.isEmpty) return;
       final oldest = candidates.first;
-      if (await File(oldest.savedPath).exists() && !await _deleteManaged(oldest.savedPath)) return;
+      final wasSelected = _selectedIds.contains(oldest.id);
+
+      // Persist the list change before deleting media. If persistence fails,
+      // restore the in-memory record and leave its file untouched.
       _items.remove(oldest);
       _selectedIds.remove(oldest.id);
-      await _save();
+      try {
+        await _save();
+      } catch (error) {
+        _items.add(oldest);
+        if (wasSelected) _selectedIds.add(oldest.id);
+        _notifyIfAlive();
+        debugPrint('Shorts rotation paused because the library could not be saved: $error');
+        return;
+      }
+
+      if (await File(oldest.savedPath).exists() && !await _deleteManaged(oldest.savedPath)) {
+        _items.add(oldest);
+        if (wasSelected) _selectedIds.add(oldest.id);
+        try {
+          await _save();
+        } catch (error) {
+          debugPrint('Could not restore the Shorts record after a file-delete failure: $error');
+        }
+        _notifyIfAlive();
+        return;
+      }
       _notifyIfAlive();
     }
   }
