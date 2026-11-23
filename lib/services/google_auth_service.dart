@@ -41,6 +41,10 @@ class GoogleAuthService extends ChangeNotifier {
     _busy = true;
     notifyListeners();
     try {
+      // Clear any Google Credential Manager session left by an earlier or
+      // interrupted attempt before starting a new interactive authentication.
+      // This avoids the repeat-authentication [16] Account reauth failed path.
+      await GoogleSignIn.instance.signOut();
       final account = await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
