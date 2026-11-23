@@ -19,10 +19,29 @@ val keystoreProperties = Properties().apply {
 }
 
 fun signingValue(key: String, env: String): String? =
-    keystoreProperties.getProperty(key) ?: System.getenv(env)?.takeIf { it.isNotBlank() }
+    keystoreProperties.getProperty(key)?.takeIf { it.isNotBlank() }
+        ?: System.getenv(env)?.takeIf { it.isNotBlank() }
 
 val releaseStoreFile = signingValue("storeFile", "TUBE_ARENA_KEYSTORE_PATH")
-val hasReleaseSigning = releaseStoreFile != null && file(releaseStoreFile).exists()
+val releaseStorePassword = signingValue("storePassword", "TUBE_ARENA_KEYSTORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "TUBE_ARENA_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "TUBE_ARENA_KEY_PASSWORD")
+val hasReleaseSigning = releaseStoreFile != null &&
+    releaseStorePassword != null &&
+    releaseKeyAlias != null &&
+    releaseKeyPassword != null &&
+    file(releaseStoreFile).isFile
+
+// Fail closed: a release task must never silently fall back to the debug key.
+val releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.substringAfterLast(":").contains("Release", ignoreCase = true)
+}
+if (releaseTaskRequested && !hasReleaseSigning) {
+    throw GradleException(
+        "Release signing is not configured. Supply android/key.properties or all TUBE_ARENA_* signing variables. " +
+            "Debug builds remain available; no debug-signed release APK will be produced.",
+    )
+}
 
 android {
     namespace = "com.tubearena.app"
@@ -49,23 +68,17 @@ android {
         if (hasReleaseSigning) {
             create("release") {
                 storeFile = file(releaseStoreFile!!)
-                storePassword = signingValue("storePassword", "TUBE_ARENA_KEYSTORE_PASSWORD")
-                keyAlias = signingValue("keyAlias", "TUBE_ARENA_KEY_ALIAS")
-                keyPassword = signingValue("keyPassword", "TUBE_ARENA_KEY_PASSWORD")
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = if (hasReleaseSigning) {
-                signingConfigs.getByName("release")
-            } else {
-                logger.warn(
-                    "Tube Arena: no release keystore configured (android/key.properties). " +
-                        "Release APKs are debug-signed and must not be published.",
-                )
-                signingConfigs.getByName("debug")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }
