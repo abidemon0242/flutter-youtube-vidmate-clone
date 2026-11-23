@@ -50,9 +50,9 @@ flutter build apk --release --split-per-abi
 
 ### Release signing
 
-Release signing can use `android/key.properties` with `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`, or the `TUBE_ARENA_KEYSTORE_PATH`, `TUBE_ARENA_KEYSTORE_PASSWORD`, `TUBE_ARENA_KEY_ALIAS`, and `TUBE_ARENA_KEY_PASSWORD` environment variables.
+Release signing requires `android/key.properties` with `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`, or all four `TUBE_ARENA_*` environment variables. The build now fails closed when a release task is requested without a valid private keystore; it never falls back to the debug key.
 
-Never commit keystores, signing properties, API credentials, or private configuration. A debug-signed APK is for testing only and is not suitable for publishing as a trusted production update.
+Never commit keystores, signing properties, API credentials, or private configuration. These files are excluded by `.gitignore`. A debug APK is for testing only and is not suitable for publishing as a trusted production update.
 
 ## CI verification
 
