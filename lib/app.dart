@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'core/theme/app_theme.dart';
 import 'providers/theme_controller.dart';
+import 'services/google_auth_service.dart';
 import 'models/video_model.dart';
 import 'data/paged_feed.dart';
 import 'ui/screens/downloads_screen.dart';
@@ -13,6 +14,7 @@ import 'ui/screens/watch_screen.dart';
 import 'ui/screens/settings_screen.dart';
 import 'ui/screens/shorts_screen.dart';
 import 'ui/screens/downloaded_shorts_screen.dart';
+import 'ui/screens/onboarding_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -20,8 +22,6 @@ GoRouter buildRouter() => GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
   routes: [
-    // Tabs keep their own navigation stack and state (search, category,
-    // scroll position) while switching between them.
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => AppShell(shell: shell),
       branches: [
@@ -62,14 +62,12 @@ GoRouter buildRouter() => GoRouter(
         return ShortsScreen(feed: feed);
       },
     ),
-
     GoRoute(
       path: '/watch',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final extra = state.extra;
         final video = extra is VideoModel ? extra : VideoModel.demo;
-        // Keyed by video so opening a related video builds a fresh player.
         return WatchScreen(key: ValueKey(video.id), video: video);
       },
     ),
@@ -93,14 +91,32 @@ class _TubeArenaAppState extends State<TubeArenaApp> {
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-    title: 'Tube Arena',
-    debugShowCheckedModeBanner: false,
-    theme: AppTheme.lightTheme,
-    darkTheme: AppTheme.darkTheme,
-    themeMode: context.watch<ThemeController>().mode,
-    routerConfig: _router,
-  );
+  Widget build(BuildContext context) {
+    final themeMode = context.watch<ThemeController>().mode;
+    final googleAuth = context.watch<GoogleAuthService>();
+
+    // Keep every app route inaccessible until Firebase confirms an account.
+    // Signing out rebuilds this widget and replaces the router with login.
+    if (googleAuth.currentUser == null) {
+      return MaterialApp(
+        title: 'Tube Arena',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeMode,
+        home: const AppEntryScreen(),
+      );
+    }
+
+    return MaterialApp.router(
+      title: 'Tube Arena',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeMode,
+      routerConfig: _router,
+    );
+  }
 }
 
 class AppShell extends StatelessWidget {
@@ -112,7 +128,6 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Back on Downloads or Library returns to Home instead of closing the app.
     return PopScope(
       canPop: shell.currentIndex == 0,
       onPopInvokedWithResult: (didPop, _) {
