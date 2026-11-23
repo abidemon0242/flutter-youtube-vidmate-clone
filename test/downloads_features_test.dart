@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 
@@ -154,11 +155,17 @@ void main() {
     }
   });
 
-  DownloadsProvider makeProvider(_Source source, {FreeSpaceResolver? freeSpace, NetworkMonitor? network}) {
+  DownloadsProvider makeProvider(
+    _Source source, {
+    FreeSpaceResolver? freeSpace,
+    Future<File> Function()? stateFileResolver,
+    NetworkMonitor? network,
+  }) {
     final provider = DownloadsProvider(
       source: source,
       downloadsDirectoryResolver: () async => downloads,
       freeSpace: freeSpace,
+      stateFileResolver: stateFileResolver,
       network: network,
       merge: (video, audio, output) async {
         await File(output).writeAsBytes([...await File(video).readAsBytes(), ...await File(audio).readAsBytes()]);
@@ -171,6 +178,38 @@ void main() {
 
   Future<DownloadEntry> start(DownloadsProvider provider, {DownloadOption option = _muxed, String title = 'Video'}) =>
       provider.start(videoId: 'abcdefghijk', title: title, channelName: 'Channel', thumbnailUrl: '', option: option);
+
+  group('download persistence recovery', () {
+    test('a failed save does not block the next save', () async {
+      var failWrites = false;
+      final stateFile = File('${tubeArena.path}/downloads.json');
+      final provider = makeProvider(
+        _Source({18: List.filled(100, 1)}),
+        stateFileResolver: () async {
+          if (failWrites) throw FileSystemException('simulated storage failure');
+          return stateFile;
+        },
+      );
+
+      final entry = await start(provider);
+      await _waitFor(() => entry.status == DownloadStatus.completed);
+      await provider.flushSaves();
+      expect(await stateFile.exists(), isTrue);
+
+      failWrites = true;
+      provider.updatePath(entry.savedPath, entry.savedPath);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      failWrites = false;
+
+      // A second mutation queues a new write after the failed one.
+      provider.updatePath(entry.savedPath, entry.savedPath);
+      await provider.flushSaves();
+
+      final restored = jsonDecode(await stateFile.readAsString()) as List<dynamic>;
+      expect(restored, hasLength(1));
+      expect((restored.single as Map<String, dynamic>)['id'], entry.id);
+    });
+  });
 
   group('move to folder', () {
     test('moved downloads stay in sync and can still be deleted from Downloads', () async {
