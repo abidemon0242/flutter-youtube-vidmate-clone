@@ -139,7 +139,7 @@ void main() {
     final second = await start('second', isShort: true);
     expect(provider.byId(first.id), isNotNull, reason: 'The old Short stays safe until the replacement finishes.');
     await _waitFor(() => second.status == DownloadStatus.completed);
-    await _waitFor(() => provider.byId(first.id) == null);
+    await _waitFor(() => provider.byId(first.id) == null && !File(unprotectedPath).existsSync());
     expect(provider.byId(first.id), isNull);
     expect(await File(unprotectedPath).exists(), isFalse);
     expect(await File(originalPath).exists(), isFalse);
