@@ -144,6 +144,22 @@ void main() {
       await waitFor(() => first.status == DownloadStatus.completed);
     });
 
+    test('disposing during an active download prevents later notifications', () async {
+      final source = FakeSource({18: List.filled(1000, 7)})..gate = Completer<void>();
+      final provider = makeProvider(source);
+      var notifications = 0;
+      provider.addListener(() => notifications++);
+      final entry = await startDownload(provider, muxed);
+      await waitFor(() => entry.receivedBytes == 500);
+      final beforeDispose = notifications;
+
+      provider.dispose();
+      source.gate!.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+      expect(notifications, beforeDispose);
+    });
+
     test('pause keeps partial data and resume continues from it', () async {
       final source = FakeSource({18: List.generate(1000, (i) => i % 256)})..gate = Completer<void>();
       final provider = makeProvider(source);
@@ -262,6 +278,9 @@ void main() {
       expect(YoutubeExtractionService.extractVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
       expect(YoutubeExtractionService.extractVideoId('https://youtu.be/dQw4w9WgXcQ?t=10'), 'dQw4w9WgXcQ');
       expect(YoutubeExtractionService.extractVideoId('https://youtube.com/shorts/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+      expect(YoutubeExtractionService.extractVideoId('https://www.youtu.be/dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
+      expect(YoutubeExtractionService.extractVideoId('https://evil-youtu.be/dQw4w9WgXcQ'), isNull);
+      expect(YoutubeExtractionService.extractVideoId('https://youtu.be.evil.example/dQw4w9WgXcQ'), isNull);
       expect(YoutubeExtractionService.extractVideoId('dQw4w9WgXcQ'), 'dQw4w9WgXcQ');
       expect(YoutubeExtractionService.extractVideoId('not a link'), isNull);
     });
