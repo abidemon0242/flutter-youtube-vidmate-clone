@@ -647,6 +647,21 @@ class DownloadsProvider extends ChangeNotifier {
     if (changed) _changed();
   }
 
+  /// Rewrites persisted download paths when a Library folder is renamed.
+  /// Derived part-file paths are updated automatically because they use savedPath.
+  void updateFolderPath(String oldFolderPath, String newFolderPath) {
+    final oldPrefix = oldFolderPath.endsWith(Platform.pathSeparator)
+        ? oldFolderPath
+        : '$oldFolderPath${Platform.pathSeparator}';
+    var changed = false;
+    for (final entry in _items) {
+      if (!entry.savedPath.startsWith(oldPrefix)) continue;
+      entry.savedPath = '$newFolderPath${entry.savedPath.substring(oldFolderPath.length)}';
+      changed = true;
+    }
+    if (changed) _changed();
+  }
+
   Future<void> pause(String id) async {
     final entry = byId(id);
     if (entry == null || !entry.isActive || entry.status == DownloadStatus.merging) return;
