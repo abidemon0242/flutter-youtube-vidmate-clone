@@ -426,9 +426,11 @@ class DownloadsProvider extends ChangeNotifier {
     }
     _notifyIfAlive();
     if (persist) {
-      unawaited(_save().catchError((Object error) {
-        debugPrint('Download list is not yet saved; a later change will retry: $error');
-      }));
+      unawaited(
+        _save().catchError((Object error) {
+          debugPrint('Download list is not yet saved; a later change will retry: $error');
+        }),
+      );
     }
   }
 
