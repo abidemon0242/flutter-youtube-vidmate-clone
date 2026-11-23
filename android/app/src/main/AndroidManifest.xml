@@ -74,6 +74,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Disable Credential Manager to avoid [16] Account reauth failed on some Google Sign-In setups -->
+        <meta-data
+            android:name="com.google.android.gms.credentials.API_ENABLED"
+            android:value="false" />
+        <meta-data
+            android:name="com.google.android.gms.credentials.CredentialPickerConfig"
+            android:value="false" />
     </application>
 
     <queries>
