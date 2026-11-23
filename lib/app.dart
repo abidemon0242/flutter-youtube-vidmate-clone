@@ -8,6 +8,7 @@ import 'models/video_model.dart';
 import 'data/paged_feed.dart';
 import 'ui/screens/downloads_screen.dart';
 import 'ui/screens/home_screen.dart';
+import 'ui/screens/search_screen.dart';
 import 'ui/screens/library_screen.dart';
 import 'ui/screens/watch_screen.dart';
 import 'ui/screens/settings_screen.dart';
@@ -46,6 +47,13 @@ GoRouter buildRouter() => GoRouter(
           ],
         ),
       ],
+    ),
+    GoRoute(
+      path: '/search',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => SearchScreen(
+        initialQuery: state.extra is String ? state.extra as String : '',
+      ),
     ),
     GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
     GoRoute(
