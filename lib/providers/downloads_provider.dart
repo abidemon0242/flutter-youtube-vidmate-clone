@@ -234,10 +234,15 @@ class DownloadsProvider extends ChangeNotifier {
   final Set<String> _stopRequested = {};
   final Map<String, Completer<void>> _finished = {};
   bool _loaded = false;
+  bool _disposed = false;
   Future<void>? _loading;
   DateTime _lastNotify = DateTime.fromMillisecondsSinceEpoch(0);
 
   set source(DownloadSource value) => _source = value;
+
+  void _notifyIfAlive() {
+    if (!_disposed) notifyListeners();
+  }
 
   /// When true, downloads only run on Wi-Fi (or another unmetered network).
   bool get wifiOnly => _wifiOnly;
@@ -256,14 +261,14 @@ class DownloadsProvider extends ChangeNotifier {
     _shortsLimit = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(shortsLimitPreferenceKey, value ?? -1);
-    notifyListeners();
+    _notifyIfAlive();
   }
 
   Future<void> setWifiOnly(bool value) async {
     if (_wifiOnly == value) return;
     _wifiOnly = value;
     if (value) await _refreshWifi();
-    notifyListeners();
+    _notifyIfAlive();
     try {
       await (await SharedPreferences.getInstance()).setBool(wifiOnlyPreferenceKey, value);
     } catch (error) {
@@ -289,7 +294,7 @@ class DownloadsProvider extends ChangeNotifier {
   Future<void> _onWifiChanged(bool onWifi) async {
     if (_onWifi == onWifi) return;
     _onWifi = onWifi;
-    notifyListeners();
+    _notifyIfAlive();
     if (waitingForWifi) {
       await _holdForWifi();
     } else {
@@ -367,7 +372,7 @@ class DownloadsProvider extends ChangeNotifier {
       debugPrint('Could not load downloads: $error');
     }
     _loaded = true;
-    notifyListeners();
+    _notifyIfAlive();
   }
 
   Future<void> _saveChain = Future<void>.value();
@@ -398,12 +403,13 @@ class DownloadsProvider extends ChangeNotifier {
   }
 
   void _changed({bool persist = true, bool throttle = false}) {
+    if (_disposed) return;
     if (throttle) {
       final now = DateTime.now();
       if (now.difference(_lastNotify) < const Duration(milliseconds: 250)) return;
       _lastNotify = now;
     }
-    notifyListeners();
+    _notifyIfAlive();
     if (persist) unawaited(_save());
   }
 
@@ -535,7 +541,7 @@ class DownloadsProvider extends ChangeNotifier {
       _items.remove(oldest);
       _selectedIds.remove(oldest.id);
       await _save();
-      notifyListeners();
+      _notifyIfAlive();
     }
   }
 
@@ -627,37 +633,43 @@ class DownloadsProvider extends ChangeNotifier {
     final entry = byId(id);
     if (entry == null) return;
     final wasMerging = entry.status == DownloadStatus.merging;
-    await _stop(entry, DownloadStatus.canceled);
+    final stopped = await _stop(entry, DownloadStatus.canceled);
+    if (!stopped) return;
     await _deleteParts(entry);
     if (wasMerging) await _deleteManaged(entry.savedPath);
     entry.receivedBytes = 0;
     _changed();
   }
 
-  Future<void> _stop(DownloadEntry entry, DownloadStatus status) async {
+  Future<bool> _stop(DownloadEntry entry, DownloadStatus status) async {
     if (_running.contains(entry.id)) {
       final wasMerging = entry.status == DownloadStatus.merging;
       _stopRequested.add(entry.id);
-      unawaited(_subscriptions.remove(entry.id)?.cancel());
+      await _subscriptions.remove(entry.id)?.cancel();
       entry.status = status;
       _changed();
       if (wasMerging) {
-        // FFmpeg must exit before its input or output files are touched.
+        // Request cancellation and wait a bounded time. Callers must not
+        // delete inputs/outputs unless the worker has actually stopped.
         await FFmpegMergeService.cancelForOutput(entry.savedPath);
-        await _finished[entry.id]?.future;
-      } else {
-        // A network stream may be stalled; the worker also polls the stop flag.
-        await _finished[entry.id]?.future.timeout(const Duration(seconds: 5), onTimeout: () {});
+      }
+      try {
+        await _finished[entry.id]?.future.timeout(const Duration(seconds: 12));
+      } on TimeoutException {
+        debugPrint('Download ' + entry.id + ' is still stopping; leaving its files untouched.');
+        return false;
       }
     }
+    if (_disposed) return !_running.contains(entry.id);
     entry.status = status;
     _changed();
+    return !_running.contains(entry.id);
   }
 
   // ------------------------------------------------------------- execution
 
   void _pump() {
-    if (_source == null || waitingForWifi) return;
+    if (_disposed || _source == null || waitingForWifi) return;
     for (final entry in _items.reversed) {
       if (_running.length >= maxConcurrent) break;
       if (entry.status == DownloadStatus.queued && !_running.contains(entry.id)) {
@@ -856,20 +868,20 @@ class DownloadsProvider extends ChangeNotifier {
   void toggleSelection(String id) {
     if (byId(id) == null) return;
     if (!_selectedIds.add(id)) _selectedIds.remove(id);
-    notifyListeners();
+    _notifyIfAlive();
   }
 
   void selectAll() {
     _selectedIds
       ..clear()
       ..addAll(_items.map((e) => e.id));
-    notifyListeners();
+    _notifyIfAlive();
   }
 
   void clearSelection() {
     if (_selectedIds.isEmpty) return;
     _selectedIds.clear();
-    notifyListeners();
+    _notifyIfAlive();
   }
 
   /// Removes selected records without deleting their files.
@@ -887,7 +899,7 @@ class DownloadsProvider extends ChangeNotifier {
   /// (only inside the managed downloads folder) and any partial data. The
   /// record is removed even when there is no file left to delete.
   Future<bool> remove(DownloadEntry item, {bool deleteFile = true}) async {
-    if (item.isActive) await _stop(item, DownloadStatus.canceled);
+    if (item.isActive && !await _stop(item, DownloadStatus.canceled)) return false;
     var fileDeleted = false;
     if (deleteFile) {
       await _deleteParts(item);
@@ -978,10 +990,20 @@ class DownloadsProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     _networkSubscription?.cancel();
-    for (final subscription in _subscriptions.values) {
-      subscription.cancel();
+    for (final id in _running.toList()) {
+      _stopRequested.add(id);
+      final entry = byId(id);
+      if (entry?.status == DownloadStatus.merging && entry != null) {
+        unawaited(FFmpegMergeService.cancelForOutput(entry.savedPath));
+      }
     }
+    for (final subscription in _subscriptions.values.toList()) {
+      unawaited(subscription.cancel());
+    }
+    _subscriptions.clear();
     super.dispose();
   }
 }
