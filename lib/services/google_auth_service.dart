@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:meta/meta.dart';
 
 class GoogleAuthService extends ChangeNotifier {
   static const _serverClientId = '1097230695627-dtdgldj4sifdld7bfjg3qm3bb20d6fc7.apps.googleusercontent.com';
@@ -26,7 +27,8 @@ class GoogleAuthService extends ChangeNotifier {
       _configurationError = null;
     } catch (error, stackTrace) {
       _configurationError =
-          'Google sign-in could not be initialized. Check Firebase configuration, the OAuth client, and the registered signing certificate.';
+          'Google sign-in could not be initialized. Check Firebase configuration, the OAuth client, '
+          'and the registered signing certificate.';
       debugPrint('Google authentication initialization failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
@@ -53,10 +55,38 @@ class GoogleAuthService extends ChangeNotifier {
       }
       final credential = GoogleAuthProvider.credential(idToken: idToken);
       await FirebaseAuth.instance.signInWithCredential(credential);
+    } on GoogleSignInException catch (error) {
+      throw StateError(mapGoogleSignInError(error));
     } finally {
       _busy = false;
       notifyListeners();
     }
+  }
+
+  /// Maps Credential Manager / GoogleSignIn failures to actionable messages.
+  ///
+  /// The Android Credential Manager often returns a "canceled" exception with
+  /// the description "[16] Account reauth failed" for configuration problems
+  /// (most commonly a SHA-1 fingerprint that is not registered for the
+  /// package name in the Firebase / Google Cloud OAuth Android client).
+  /// The plugin cannot distinguish this from a real user cancellation.
+  @visibleForTesting
+  static String mapGoogleSignInError(GoogleSignInException error) {
+    final description = error.description?.toLowerCase() ?? '';
+    if (error.code == GoogleSignInExceptionCode.canceled &&
+        (description.contains('account reauth failed') || description.contains('[16]'))) {
+      return 'Google sign-in failed because the app signing certificate is not registered '
+          'with the Firebase Android OAuth client (error [16] Account reauth failed). '
+          'Add the SHA-1 (and SHA-256) fingerprint of the exact APK you installed '
+          '(debug keystore, CI keystore, or release keystore) in Firebase Project Settings '
+          '→ Your apps → Android, then download a fresh google-services.json and rebuild.';
+    }
+    if (error.code == GoogleSignInExceptionCode.clientConfigurationError ||
+        error.code == GoogleSignInExceptionCode.providerConfigurationError) {
+      return 'Google sign-in is misconfigured: ${error.description ?? error.code.name}. '
+          'Verify the web OAuth client ID, package name, and registered SHA fingerprints.';
+    }
+    return 'Google sign-in failed (${error.code.name}): ${error.description ?? 'unknown error'}';
   }
 
   Future<void> signOut() async {

@@ -56,12 +56,23 @@ jobs:
       - name: Build debug APK
         run: flutter build apk --debug --no-pub
 
-      - name: Report debug APK signing fingerprints
+      - name: Report and verify debug APK signing fingerprints
         run: |
           APK="build/app/outputs/flutter-apk/app-debug.apk"
           BUILD_TOOLS="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
           echo 'Register these Android app signing fingerprints in Firebase Project Settings:'
-          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | grep -E 'certificate SHA-1 digest:|certificate SHA-256 digest:'
+          CERT_OUTPUT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK")"
+          echo "$CERT_OUTPUT" | grep -E 'certificate SHA-1 digest:|certificate SHA-256 digest:'
+          SHA1=$(echo "$CERT_OUTPUT" | grep -oE 'SHA-1 digest: [0-9a-fA-F:]+' | head -n1 | awk '{print $3}' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "Normalized APK SHA-1: $SHA1"
+          if ! grep -qi "$SHA1" android/app/google-services.json; then
+            echo "::error::APK SHA-1 $SHA1 is not registered in android/app/google-services.json."
+            echo "This is the usual cause of GoogleSignInException [16] Account reauth failed."
+            echo "Add this SHA-1 (and the corresponding SHA-256) as an Android OAuth client in Firebase Project Settings,"
+            echo "then download a fresh google-services.json and commit it."
+            exit 1
+          fi
+          echo "SHA-1 is present in google-services.json."
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
