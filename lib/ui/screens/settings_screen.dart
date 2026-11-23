@@ -31,16 +31,16 @@ class SettingsScreen extends StatelessWidget {
             title: Text(user?.displayName ?? 'Google account'),
             subtitle: Text(user?.email ?? 'Signed in with Firebase Authentication'),
             trailing: TextButton(
-              onPressed: googleAuth.isBusy ? null : () async {
-                try {
-                  await googleAuth.signOut();
-                } catch (error) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Sign-out failed: $error')),
-                  );
-                }
-              },
+              onPressed: googleAuth.isBusy
+                  ? null
+                  : () async {
+                      try {
+                        await googleAuth.signOut();
+                      } catch (error) {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign-out failed: $error')));
+                      }
+                    },
               child: Text(googleAuth.isBusy ? 'Please wait…' : 'Sign out'),
             ),
           ),

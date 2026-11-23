@@ -4,8 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class GoogleAuthService extends ChangeNotifier {
-  static const _serverClientId =
-      '1097230695627-dtdgldj4sifdld7bfjg3qm3bb20d6fc7.apps.googleusercontent.com';
+  static const _serverClientId = '1097230695627-dtdgldj4sifdld7bfjg3qm3bb20d6fc7.apps.googleusercontent.com';
 
   bool _initialized = false;
   bool _busy = false;
@@ -14,8 +13,7 @@ class GoogleAuthService extends ChangeNotifier {
   bool get isConfigured => _initialized;
   bool get isBusy => _busy;
   String? get configurationError => _configurationError;
-  User? get currentUser =>
-      _initialized ? FirebaseAuth.instance.currentUser : null;
+  User? get currentUser => _initialized ? FirebaseAuth.instance.currentUser : null;
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -23,9 +21,7 @@ class GoogleAuthService extends ChangeNotifier {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
       }
-      await GoogleSignIn.instance.initialize(
-        serverClientId: _serverClientId,
-      );
+      await GoogleSignIn.instance.initialize(serverClientId: _serverClientId);
       _initialized = true;
       _configurationError = null;
     } catch (error, stackTrace) {
@@ -39,9 +35,7 @@ class GoogleAuthService extends ChangeNotifier {
 
   Future<void> signIn() async {
     if (!_initialized) {
-      throw StateError(
-        _configurationError ?? 'Google sign-in is not configured.',
-      );
+      throw StateError(_configurationError ?? 'Google sign-in is not configured.');
     }
     if (_busy) return;
     _busy = true;

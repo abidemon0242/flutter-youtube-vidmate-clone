@@ -20,9 +20,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
       await auth.signIn();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Google sign-in failed: $error')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Google sign-in failed: $error')));
     } finally {
       if (mounted) setState(() => _signingIn = false);
     }
@@ -45,17 +43,9 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    Icons.play_circle_fill_rounded,
-                    size: 76,
-                    color: theme.colorScheme.primary,
-                  ),
+                  Icon(Icons.play_circle_fill_rounded, size: 76, color: theme.colorScheme.primary),
                   const SizedBox(height: 20),
-                  Text(
-                    'Welcome to Tube Arena',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall,
-                  ),
+                  Text('Welcome to Tube Arena', textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 10),
                   Text(
                     'Sign in with your Google account to continue. Authentication is required to use Tube Arena.',
@@ -64,15 +54,9 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
-                    onPressed: !auth.isConfigured || busy
-                        ? null
-                        : () => _signIn(auth),
+                    onPressed: !auth.isConfigured || busy ? null : () => _signIn(auth),
                     icon: busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.login),
                     label: Text(busy ? 'Signing in…' : 'Continue with Google'),
                   ),
