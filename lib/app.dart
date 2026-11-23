@@ -83,6 +83,7 @@ class TubeArenaApp extends StatefulWidget {
 
 class _TubeArenaAppState extends State<TubeArenaApp> {
   late final GoRouter _router = buildRouter();
+  String? _lastAuthenticatedUid;
 
   @override
   void dispose() {
@@ -94,10 +95,12 @@ class _TubeArenaAppState extends State<TubeArenaApp> {
   Widget build(BuildContext context) {
     final themeMode = context.watch<ThemeController>().mode;
     final googleAuth = context.watch<GoogleAuthService>();
+    final user = googleAuth.currentUser;
 
     // Keep every app route inaccessible until Firebase confirms an account.
     // Signing out rebuilds this widget and replaces the router with login.
-    if (googleAuth.currentUser == null) {
+    if (user == null) {
+      _lastAuthenticatedUid = null;
       return MaterialApp(
         title: 'Tube Arena',
         debugShowCheckedModeBanner: false,
@@ -106,6 +109,15 @@ class _TubeArenaAppState extends State<TubeArenaApp> {
         themeMode: themeMode,
         home: const AppEntryScreen(),
       );
+    }
+
+    if (_lastAuthenticatedUid != user.uid) {
+      _lastAuthenticatedUid = user.uid;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && googleAuth.currentUser?.uid == user.uid) {
+          _router.go('/');
+        }
+      });
     }
 
     return MaterialApp.router(
