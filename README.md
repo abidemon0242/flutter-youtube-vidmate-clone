@@ -22,7 +22,7 @@ The current repair branch includes the following implementations. Some depend on
 ## Important limitations
 
 - No YouTube Data API key is used or required by this project.
-- No Firebase or Google app sign-in is implemented. Local subscriptions are not access to a user's private YouTube subscriptions.
+- Firebase Authentication with Google sign-in is implemented in the app. Its live provider, OAuth fingerprints, API-key restrictions, and Firebase project settings still require verification in the Firebase/Google Cloud consoles. Local subscriptions are not access to a user's private YouTube subscriptions.
 - Trending and Shorts discovery are search-derived, not official YouTube feeds.
 - Automatic bitrate adaptation based on measured throughput and configurable advanced prebuffering are not implemented.
 - Persistent automatic offline caching is not implemented; explicit downloads are separate from temporary playback buffering.
@@ -56,7 +56,7 @@ Never commit keystores, signing properties, API credentials, or private configur
 
 ## CI verification
 
-The Android CI workflow runs formatting, Flutter analysis, unit/widget tests, debug and split-release APK builds, and an Android emulator launch smoke test. Downloadable APKs are published as workflow artifacts when the corresponding jobs complete successfully.
+The Android CI workflow runs formatting, Flutter analysis, unit/widget tests, a debug APK build, and an Android emulator launch smoke test. Release APK generation is intentionally skipped until a private release keystore is configured in CI secrets. A downloadable debug APK is published as a workflow artifact when the job completes successfully.
 
 Check the [Actions page](https://github.com/abidemon0242/flutter-youtube-vidmate-clone/actions) for the exact commit and run result. A queued, cancelled, skipped, or `action_required` run is **not a pass**. Emulator smoke testing does not verify all device-specific behavior.
 
