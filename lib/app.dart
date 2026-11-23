@@ -52,7 +52,7 @@ GoRouter buildRouter() => GoRouter(
       path: '/search',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => SearchScreen(
-        initialQuery: state.extra is String ? state.extra! as String : '',
+        initialQuery: state.extra is String ? state.extra as String : '',
       ),
     ),
     GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
