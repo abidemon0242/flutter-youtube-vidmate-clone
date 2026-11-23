@@ -4,8 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class GoogleAuthService extends ChangeNotifier {
-  static const _serverClientId =
-      '1097230695627-dtdgldj4sifdld7bfjg3qm3bb20d6fc7.apps.googleusercontent.com';
+  static const _serverClientId = '1097230695627-dtdgldj4sifdld7bfjg3qm3bb20d6fc7.apps.googleusercontent.com';
 
   bool _initialized = false;
   bool _busy = false;
@@ -14,8 +13,7 @@ class GoogleAuthService extends ChangeNotifier {
   bool get isConfigured => _initialized;
   bool get isBusy => _busy;
   String? get configurationError => _configurationError;
-  User? get currentUser =>
-      _initialized ? FirebaseAuth.instance.currentUser : null;
+  User? get currentUser => _initialized ? FirebaseAuth.instance.currentUser : null;
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -27,13 +25,10 @@ class GoogleAuthService extends ChangeNotifier {
       // Restore a previous Google session silently when possible so Firebase
       // can re-establish the authenticated user without an interactive prompt.
       try {
-        final account = await GoogleSignIn.instance
-            .attemptLightweightAuthentication();
+        final account = await GoogleSignIn.instance.attemptLightweightAuthentication();
         if (account != null) {
           final idToken = account.authentication.idToken;
-          if (idToken != null &&
-              idToken.isNotEmpty &&
-              FirebaseAuth.instance.currentUser == null) {
+          if (idToken != null && idToken.isNotEmpty && FirebaseAuth.instance.currentUser == null) {
             final credential = GoogleAuthProvider.credential(idToken: idToken);
             await FirebaseAuth.instance.signInWithCredential(credential);
           }
@@ -55,9 +50,7 @@ class GoogleAuthService extends ChangeNotifier {
 
   Future<void> signIn() async {
     if (!_initialized) {
-      throw StateError(
-        _configurationError ?? 'Google sign-in is not configured.',
-      );
+      throw StateError(_configurationError ?? 'Google sign-in is not configured.');
     }
     if (_busy) return;
     _busy = true;
@@ -94,8 +87,7 @@ class GoogleAuthService extends ChangeNotifier {
   static String mapGoogleSignInError(GoogleSignInException error) {
     final description = error.description?.toLowerCase() ?? '';
     if (error.code == GoogleSignInExceptionCode.canceled &&
-        (description.contains('account reauth failed') ||
-            description.contains('[16]'))) {
+        (description.contains('account reauth failed') || description.contains('[16]'))) {
       return 'Google sign-in failed because the app signing certificate is not registered '
           'with the Firebase Android OAuth client (error [16] Account reauth failed). '
           'Add the SHA-1 (and SHA-256) fingerprint of the exact APK you installed '
