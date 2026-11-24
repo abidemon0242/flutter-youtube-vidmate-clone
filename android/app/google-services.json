@@ -14,19 +14,19 @@
       },
       "oauth_client": [
         {
-          "client_id": "1097230695627-t1pv4oqanosaso7p9bq97j92lmit1kjf.apps.googleusercontent.com",
+          "client_id": "1097230695627-5r06dogt0766gv0m2q60ldd0hhp61bo0.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.tubearena.app",
-            "certificate_hash": "b1ea29d8caa3121149a1f06385ab85c4b2466a41"
+            "certificate_hash": "5e492956e627b1dadf100d398c4b199772c35797"
           }
         },
         {
-          "client_id": "1097230695627-u1c8d3hbicser7jqs754ko2sa030lus4.apps.googleusercontent.com",
+          "client_id": "1097230695627-sdijh7buv1h4kro7g7u52udh5nmecbn8.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.tubearena.app",
-            "certificate_hash": "d420e5b0ffa7de82cc6a9b9910604970bc4fbc7b"
+            "certificate_hash": "16edcffcaf95069c61ec40ecc491d2d98ef88137"
           }
         },
         {
