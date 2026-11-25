@@ -11,7 +11,7 @@ void main() {
         description: '[16] Account reauth failed.',
       );
       final message = GoogleAuthService.mapGoogleSignInError(error);
-      expect(message, contains('stale Google sign-in state or an APK signing certificate'));
+      expect(message, contains('Google account authentication was rejected (error [16])'));
       expect(message, contains('SHA-1'));
       expect(message, contains('reauthentication failed'));
     });
