@@ -64,7 +64,11 @@ class GoogleAuthService extends ChangeNotifier {
     _clearLastError();
     notifyListeners();
     try {
-      final account = await GoogleSignIn.instance.authenticate();
+      // Older app installs may retain a Google Credential Manager session from a
+      // build that did not clear Google's state on sign-out. Error [16] can then
+      // occur during AccountReauth even when the APK certificate is registered.
+      // Clear that cached Google state and retry the interactive flow once.
+      final account = await _authenticateWithRecovery();
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
         throw StateError('Google did not return an ID token. Check the Firebase OAuth configuration.');
@@ -129,16 +133,34 @@ class GoogleAuthService extends ChangeNotifier {
     }
   }
 
+  Future<GoogleSignInAccount> _authenticateWithRecovery() async {
+    try {
+      return await GoogleSignIn.instance.authenticate();
+    } on GoogleSignInException catch (error) {
+      if (!_isAccountReauthFailure(error)) rethrow;
+      debugPrint('Google AccountReauth failed; clearing cached Google session and retrying once.');
+      await GoogleSignIn.instance.signOut();
+      return await GoogleSignIn.instance.authenticate();
+    }
+  }
+
+  @visibleForTesting
+  static bool isAccountReauthFailure(GoogleSignInException error) => _isAccountReauthFailure(error);
+
+  static bool _isAccountReauthFailure(GoogleSignInException error) {
+    final description = error.description?.toLowerCase() ?? '';
+    return error.code == GoogleSignInExceptionCode.canceled &&
+        (description.contains('account reauth failed') || description.contains('[16]'));
+  }
+
   @visibleForTesting
   static String mapGoogleSignInError(GoogleSignInException error) {
     final description = error.description?.toLowerCase() ?? '';
-    if (error.code == GoogleSignInExceptionCode.canceled &&
-        (description.contains('account reauth failed') || description.contains('[16]'))) {
-      return 'Google sign-in failed because the app signing certificate is not registered '
-          'with the Firebase Android OAuth client (error [16] Account reauth failed). '
-          'Add the SHA-1 (and SHA-256) fingerprint of the exact APK you installed '
-          '(debug keystore, CI keystore, or release keystore) in Firebase Project Settings '
-          '→ Your apps → Android, then download a fresh google-services.json and rebuild.';
+    if (_isAccountReauthFailure(error)) {
+      return 'Google account reauthentication failed (error [16]). This can be caused by stale '
+          'Google sign-in state or an APK signing certificate that is not registered with Firebase. '
+          'Check the internet connection and verify that the SHA-1 fingerprint for this exact APK '
+          'is registered under Firebase Project Settings → Your apps → Android.';
     }
     if (error.code == GoogleSignInExceptionCode.clientConfigurationError ||
         error.code == GoogleSignInExceptionCode.providerConfigurationError) {
