@@ -40,8 +40,7 @@ class GoogleAuthService extends ChangeNotifier {
       _configurationError = null;
     } catch (error, stackTrace) {
       _configurationError =
-          'Google sign-in could not be initialized. Check Firebase configuration, the OAuth client, '
-          'and the registered signing certificate.';
+          'Google sign-in could not be initialized. Check Firebase configuration, the OAuth client ID, and the APK signing SHA-1/SHA-256.';
       debugPrint('Google authentication initialization failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
@@ -50,39 +49,29 @@ class GoogleAuthService extends ChangeNotifier {
 
   Future<void> signIn() async {
     if (!_initialized) {
-      throw StateError(_configurationError ?? 'Google sign-in is not configured.');
+      throw StateError(
+        _configurationError ?? 'Google sign-in is not configured.',
+      );
     }
     if (_busy) return;
     _busy = true;
     notifyListeners();
     try {
-      // Do not sign out before every sign-in attempt. Credential Manager
-      // should handle the account selection/authentication flow directly.
-      // GoogleSignIn.signOut() is called by the explicit signOut() action.
       final account = await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
         throw StateError(
-          'Google did not return an ID token. Check the OAuth client ID and Firebase Google provider configuration.',
+          'Google did not return an ID token. Check the Firebase OAuth configuration.',
         );
       }
       final credential = GoogleAuthProvider.credential(idToken: idToken);
       await FirebaseAuth.instance.signInWithCredential(credential);
-    } on GoogleSignInException catch (error) {
-      throw StateError(mapGoogleSignInError(error));
     } finally {
       _busy = false;
       notifyListeners();
     }
   }
 
-  /// Maps Credential Manager / GoogleSignIn failures to actionable messages.
-  ///
-  /// The Android Credential Manager often returns a "canceled" exception with
-  /// the description "[16] Account reauth failed" for configuration problems
-  /// (most commonly a SHA-1 fingerprint that is not registered for the
-  /// package name in the Firebase / Google Cloud OAuth Android client).
-  /// The plugin cannot distinguish this from a real user cancellation.
   @visibleForTesting
   static String mapGoogleSignInError(GoogleSignInException error) {
     final description = error.description?.toLowerCase() ?? '';

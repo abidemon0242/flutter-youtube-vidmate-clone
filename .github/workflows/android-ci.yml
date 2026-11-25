@@ -53,6 +53,23 @@ jobs:
       - name: Run Flutter tests
         run: flutter test --no-pub --reporter expanded
 
+      - name: Set up persistent debug keystore
+        run: |
+          # Decode the persistent debug keystore from GitHub Actions secret.
+          # This ensures the same signing key is used across all CI runs,
+          # providing a stable SHA-1/SHA-256 fingerprint for Firebase.
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "::error::DEBUG_KEYSTORE_BASE64 secret is not configured."
+            echo "See docs/GOOGLE_SIGN_IN_SETUP.md for one-time setup instructions."
+            exit 1
+          fi
+          mkdir -p ~/.android
+          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+          chmod 600 ~/.android/debug.keystore
+          echo "Persistent debug keystore configured."
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+
       - name: Build debug APK
         run: flutter build apk --debug --no-pub
 
@@ -64,7 +81,9 @@ jobs:
           CERT_OUTPUT="$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK")"
           echo "$CERT_OUTPUT" | grep -E 'certificate SHA-1 digest:|certificate SHA-256 digest:'
           SHA1=$(echo "$CERT_OUTPUT" | grep -oE 'SHA-1 digest: [0-9a-fA-F:]+' | head -n1 | awk '{print $3}' | tr -d ':' | tr 'A-F' 'a-f')
+          SHA256=$(echo "$CERT_OUTPUT" | grep -oE 'SHA-256 digest: [0-9a-fA-F:]+' | head -n1 | awk '{print $3}' | tr -d ':' | tr 'A-F' 'a-f')
           echo "Normalized APK SHA-1: $SHA1"
+          echo "Normalized APK SHA-256: $SHA256"
           if ! grep -qi "$SHA1" android/app/google-services.json; then
             echo "::error::APK SHA-1 $SHA1 is not registered in android/app/google-services.json."
             echo "This is the usual cause of GoogleSignInException [16] Account reauth failed."
@@ -73,6 +92,12 @@ jobs:
             exit 1
           fi
           echo "SHA-1 is present in google-services.json."
+          if ! grep -qi "$SHA256" android/app/google-services.json; then
+            echo "::warning::APK SHA-256 $SHA256 is not registered in android/app/google-services.json."
+            echo "SHA-256 registration is recommended for newer Google Play Services."
+          else
+            echo "SHA-256 is present in google-services.json."
+          fi
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v7

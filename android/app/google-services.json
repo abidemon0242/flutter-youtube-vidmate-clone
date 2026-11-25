@@ -18,7 +18,7 @@
           "client_type": 1,
           "android_info": {
             "package_name": "com.tubearena.app",
-            "certificate_hash": "5e492956e627b1dadf100d398c4b199772c35797"
+            "certificate_hash": "d439ea327eea203e9c6b237e2fee85c2b627a5c5"
           }
         },
         {
@@ -26,7 +26,7 @@
           "client_type": 1,
           "android_info": {
             "package_name": "com.tubearena.app",
-            "certificate_hash": "16edcffcaf95069c61ec40ecc491d2d98ef88137"
+            "certificate_hash": "cf54db2b13855268cc04a40afc8f74ff3cce65c0bbdaef09bb6c705eac17a8e9"
           }
         },
         {
