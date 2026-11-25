@@ -84,20 +84,19 @@ jobs:
           SHA256=$(echo "$CERT_OUTPUT" | grep -oE 'SHA-256 digest: [0-9a-fA-F:]+' | head -n1 | awk '{print $3}' | tr -d ':' | tr 'A-F' 'a-f')
           echo "Normalized APK SHA-1: $SHA1"
           echo "Normalized APK SHA-256: $SHA256"
-          if ! grep -qi "$SHA1" android/app/google-services.json; then
-            echo "::error::APK SHA-1 $SHA1 is not registered in android/app/google-services.json."
-            echo "This is the usual cause of GoogleSignInException [16] Account reauth failed."
-            echo "Add this SHA-1 (and the corresponding SHA-256) as an Android OAuth client in Firebase Project Settings,"
+          if ! jq -e --arg sha "$SHA1" '[.client[]?.oauth_client[]? | select(.client_type == 1) | .android_info.certificate_hash? | ascii_downcase] | index($sha | ascii_downcase) != null' android/app/google-services.json >/dev/null; then
+            echo "::error::APK SHA-1 $SHA1 is not present in an Android OAuth client in google-services.json."
+            echo "Register the APK SHA-1 in Firebase Project Settings -> Your apps -> Android,"
             echo "then download a fresh google-services.json and commit it."
             exit 1
           fi
-          echo "SHA-1 is present in google-services.json."
-          if ! grep -qi "$SHA256" android/app/google-services.json; then
-            echo "::warning::APK SHA-256 $SHA256 is not registered in android/app/google-services.json."
-            echo "SHA-256 registration is recommended for newer Google Play Services."
-          else
-            echo "SHA-256 is present in google-services.json."
+          if ! jq -e '[.client[]?.oauth_client[]? | select(.client_type == 3)] | length > 0' android/app/google-services.json >/dev/null; then
+            echo "::error::No Web OAuth client (client_type 3) exists in google-services.json."
+            exit 1
           fi
+          echo "APK SHA-1 and Web OAuth client are present in google-services.json."
+          echo "APK SHA-256: $SHA256"
+          echo "Register SHA-256 separately in Firebase App settings; it is not an Android OAuth certificate_hash in this JSON."
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v7
