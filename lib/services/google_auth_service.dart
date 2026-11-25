@@ -4,8 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class GoogleAuthService extends ChangeNotifier {
-  static const _serverClientId = '1097230695627-dtdgldj4sifdld7bfjg3qm3bb20d6fc7.apps.googleusercontent.com';
-
   bool _initialized = false;
   bool _busy = false;
   String? _configurationError;
@@ -27,21 +25,8 @@ class GoogleAuthService extends ChangeNotifier {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
       }
-      await GoogleSignIn.instance.initialize(serverClientId: _serverClientId);
-      // Restore a previous Google session silently when possible so Firebase
-      // can re-establish the authenticated user without an interactive prompt.
-      try {
-        final account = await GoogleSignIn.instance.attemptLightweightAuthentication();
-        if (account != null) {
-          final idToken = account.authentication.idToken;
-          if (idToken != null && idToken.isNotEmpty && FirebaseAuth.instance.currentUser == null) {
-            final credential = GoogleAuthProvider.credential(idToken: idToken);
-            await FirebaseAuth.instance.signInWithCredential(credential);
-          }
-        }
-      } catch (e) {
-        debugPrint('Lightweight authentication skipped: $e');
-      }
+      await GoogleSignIn.instance.initialize();
+      // Firebase Auth restores its persisted user session automatically.
       _initialized = true;
       _configurationError = null;
       _lastError = null;
@@ -64,11 +49,8 @@ class GoogleAuthService extends ChangeNotifier {
     _clearLastError();
     notifyListeners();
     try {
-      // Older app installs may retain a Google Credential Manager session from a
-      // build that did not clear Google's state on sign-out. Error [16] can then
-      // occur during AccountReauth even when the APK certificate is registered.
-      // Clear that cached Google state and retry the interactive flow once.
-      final account = await _authenticateWithRecovery();
+      // Start Google Credential Manager only after the user explicitly taps sign-in.
+      final account = await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
         throw StateError('Google did not return an ID token. Check the Firebase OAuth configuration.');
@@ -133,17 +115,6 @@ class GoogleAuthService extends ChangeNotifier {
     }
   }
 
-  Future<GoogleSignInAccount> _authenticateWithRecovery() async {
-    try {
-      return await GoogleSignIn.instance.authenticate();
-    } on GoogleSignInException catch (error) {
-      if (!_isAccountReauthFailure(error)) rethrow;
-      debugPrint('Google AccountReauth failed; clearing cached Google session and retrying once.');
-      await GoogleSignIn.instance.signOut();
-      return await GoogleSignIn.instance.authenticate();
-    }
-  }
-
   @visibleForTesting
   static bool isAccountReauthFailure(GoogleSignInException error) => _isAccountReauthFailure(error);
 
@@ -156,10 +127,9 @@ class GoogleAuthService extends ChangeNotifier {
   @visibleForTesting
   static String mapGoogleSignInError(GoogleSignInException error) {
     if (_isAccountReauthFailure(error)) {
-      return 'Google account reauthentication failed (error [16]). This can be caused by stale '
-          'Google sign-in state or an APK signing certificate that is not registered with Firebase. '
-          'Check the internet connection and verify that the SHA-1 fingerprint for this exact APK '
-          'is registered under Firebase Project Settings → Your apps → Android.';
+      return 'Google account authentication was rejected (error [16]). Check that the Google account '
+          'can complete Google security prompts, and verify the Android package name, Web OAuth client, '
+          'and SHA-1 fingerprint for this exact APK in Firebase.';
     }
     if (error.code == GoogleSignInExceptionCode.clientConfigurationError ||
         error.code == GoogleSignInExceptionCode.providerConfigurationError) {
