@@ -47,7 +47,8 @@ class GoogleAuthService extends ChangeNotifier {
       _lastError = null;
     } catch (error, stackTrace) {
       _configurationError =
-          'Google sign-in could not be initialized. Check Firebase configuration, the OAuth client ID, and the APK signing SHA-1/SHA-256.';
+          'Google sign-in could not be initialized. Check Firebase configuration, '
+          'the OAuth client ID, and the APK signing SHA-1/SHA-256.';
       debugPrint('Google authentication initialization failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }

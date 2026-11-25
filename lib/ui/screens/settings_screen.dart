@@ -53,9 +53,12 @@ class SettingsScreen extends StatelessWidget {
                               await googleAuth.signOut();
                             } catch (error) {
                               if (!context.mounted) return;
-                              ScaffoldMessenger.of(
-                                context,
-                              ).showSnackBar(SnackBar(content: Text('Sign-out failed: $error')));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Sign-out failed: $error')),
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Sign-out failed: $error')),
+                              );
                             }
                           },
                     child: Text(googleAuth.isBusy ? 'Please wait…' : 'Sign out'),
@@ -65,7 +68,9 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               googleAuth.lastError!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.error,
+              ),
             ),
             const SizedBox(height: 8),
           ],
