@@ -66,9 +66,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                     Text(
                       auth.lastError!,
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.error,
-                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
                     ),
                   ],
                   if (!auth.isConfigured) ...[
@@ -76,7 +74,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                     Text(
                       auth.configurationError ??
                           'Google sign-in is not configured. Check Firebase Android '
-                          'configuration and Google provider settings.',
+                              'configuration and Google provider settings.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall,
                     ),
