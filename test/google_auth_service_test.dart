@@ -127,7 +127,6 @@ void main() {
         code: GoogleSignInExceptionCode.canceled,
         description: 'ACCOUNT REAUTH FAILED',
       );
-      final message = GoogleAuthService.mapGoogleSignInError(error);
       expect(GoogleAuthService.isAccountReauthFailure(error), isTrue);
     });
   });
