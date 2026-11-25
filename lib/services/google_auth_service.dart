@@ -100,7 +100,7 @@ class GoogleAuthService extends ChangeNotifier {
   }
 
   @visibleForTesting
-  String mapFirebaseAuthError(FirebaseAuthException error) {
+  static String mapFirebaseAuthError(FirebaseAuthException error) {
     switch (error.code) {
       case 'user-disabled':
         return 'This account has been disabled. Contact support for assistance.';
