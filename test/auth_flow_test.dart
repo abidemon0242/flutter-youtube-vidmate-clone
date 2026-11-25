@@ -29,10 +29,7 @@ void main() {
         when(mockGoogleAuth.currentUser).thenReturn(user);
       }
       return MaterialApp(
-        home: ChangeNotifierProvider<GoogleAuthService>.value(
-          value: mockGoogleAuth,
-          child: const SettingsScreen(),
-        ),
+        home: ChangeNotifierProvider<GoogleAuthService>.value(value: mockGoogleAuth, child: const SettingsScreen()),
       );
     }
 
@@ -113,9 +110,7 @@ void main() {
 
     testWidgets('Authentication failure and retry', (tester) async {
       // Simulate authentication failure
-      when(mockGoogleAuth.signIn()).thenThrow(
-        Exception('Google sign-in failed: Network error'),
-      );
+      when(mockGoogleAuth.signIn()).thenThrow(Exception('Google sign-in failed: Network error'));
 
       await tester.pumpWidget(createTestApp());
       await tester.pumpAndSettle();

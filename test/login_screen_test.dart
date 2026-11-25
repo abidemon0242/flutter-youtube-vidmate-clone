@@ -39,10 +39,7 @@ void main() {
       }
 
       return MaterialApp(
-        home: ChangeNotifierProvider<GoogleAuthService>.value(
-          value: mockGoogleAuth,
-          child: const SettingsScreen(),
-        ),
+        home: ChangeNotifierProvider<GoogleAuthService>.value(value: mockGoogleAuth, child: const SettingsScreen()),
       );
     }
 

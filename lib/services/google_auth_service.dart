@@ -49,9 +49,7 @@ class GoogleAuthService extends ChangeNotifier {
 
   Future<void> signIn() async {
     if (!_initialized) {
-      throw StateError(
-        _configurationError ?? 'Google sign-in is not configured.',
-      );
+      throw StateError(_configurationError ?? 'Google sign-in is not configured.');
     }
     if (_busy) return;
     _busy = true;
@@ -60,9 +58,7 @@ class GoogleAuthService extends ChangeNotifier {
       final account = await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
-        throw StateError(
-          'Google did not return an ID token. Check the Firebase OAuth configuration.',
-        );
+        throw StateError('Google did not return an ID token. Check the Firebase OAuth configuration.');
       }
       final credential = GoogleAuthProvider.credential(idToken: idToken);
       await FirebaseAuth.instance.signInWithCredential(credential);
