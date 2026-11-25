@@ -56,10 +56,7 @@ void main() {
   group('GoogleAuthService error handling logic', () {
     test('cancellation without Account reauth is preserved as cancellation', () {
       // Verify that a normal cancellation doesn't get misreported as SHA issue
-      final error = GoogleSignInException(
-        code: GoogleSignInExceptionCode.canceled,
-        description: 'User cancelled',
-      );
+      final error = GoogleSignInException(code: GoogleSignInExceptionCode.canceled, description: 'User cancelled');
       final message = GoogleAuthService.mapGoogleSignInError(error);
       expect(message, isNot(contains('SHA-1')));
       expect(message, isNot(contains('signing certificate')));

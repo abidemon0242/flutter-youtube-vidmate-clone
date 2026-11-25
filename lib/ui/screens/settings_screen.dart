@@ -53,7 +53,9 @@ class SettingsScreen extends StatelessWidget {
                               await googleAuth.signOut();
                             } catch (error) {
                               if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign-out failed: $error')));
+                              ScaffoldMessenger.of(
+                                context,
+                              ).showSnackBar(SnackBar(content: Text('Sign-out failed: $error')));
                             }
                           },
                     child: Text(googleAuth.isBusy ? 'Please wait…' : 'Sign out'),
