@@ -155,7 +155,6 @@ class GoogleAuthService extends ChangeNotifier {
 
   @visibleForTesting
   static String mapGoogleSignInError(GoogleSignInException error) {
-    final description = error.description?.toLowerCase() ?? '';
     if (_isAccountReauthFailure(error)) {
       return 'Google account reauthentication failed (error [16]). This can be caused by stale '
           'Google sign-in state or an APK signing certificate that is not registered with Firebase. '
