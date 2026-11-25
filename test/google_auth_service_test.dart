@@ -5,13 +5,13 @@ import 'package:tube_arena/services/google_auth_service.dart';
 
 void main() {
   group('GoogleAuthService.mapGoogleSignInError', () {
-    test('maps Account reauth failed to a SHA-1 registration message', () {
+    test('maps Account reauth failed without assuming a certificate mismatch', () {
       final error = GoogleSignInException(
         code: GoogleSignInExceptionCode.canceled,
         description: '[16] Account reauth failed.',
       );
       final message = GoogleAuthService.mapGoogleSignInError(error);
-      expect(message, contains('signing certificate is not registered'));
+      expect(message, contains('stale Google sign-in state or an APK signing certificate'));
       expect(message, contains('SHA-1'));
       expect(message, contains('Account reauth failed'));
     });
@@ -112,14 +112,14 @@ void main() {
       expect(message, isNot(contains('signing certificate')));
     });
 
-    test('Account reauth failed is correctly identified as SHA issue', () {
+    test('Account reauth failure is recognized for one-time session recovery', () {
       final error = GoogleSignInException(
         code: GoogleSignInExceptionCode.canceled,
         description: '[16] Account reauth failed.',
       );
       final message = GoogleAuthService.mapGoogleSignInError(error);
-      expect(message, contains('SHA-1'));
-      expect(message, contains('signing certificate is not registered'));
+      expect(GoogleAuthService.isAccountReauthFailure(error), isTrue);
+      expect(message, contains('SHA-1 fingerprint'));
     });
 
     test('case-insensitive matching for account reauth failed', () {
@@ -128,7 +128,7 @@ void main() {
         description: 'ACCOUNT REAUTH FAILED',
       );
       final message = GoogleAuthService.mapGoogleSignInError(error);
-      expect(message, contains('SHA-1'));
+      expect(GoogleAuthService.isAccountReauthFailure(error), isTrue);
     });
   });
 }
