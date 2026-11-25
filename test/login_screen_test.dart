@@ -1,124 +1,78 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:provider/provider.dart';
-import 'package:mockito/mockito.dart';
-import 'package:mockito/annotations.dart';
 
 import 'package:tube_arena/services/google_auth_service.dart';
-import 'package:tube_arena/app.dart';
+import 'package:tube_arena/ui/screens/onboarding_screen.dart';
 
-// Generate mocks
-@GenerateMocks([GoogleAuthService, User])
-import 'login_screen_test.mocks.dart';
+class LoginTestAuthService extends GoogleAuthService {
+  bool configured = true;
+  bool busy = false;
+  String? error;
+  int signInCalls = 0;
+
+  @override
+  bool get isConfigured => configured;
+
+  @override
+  bool get isBusy => busy;
+
+  @override
+  String? get configurationError => error;
+
+  @override
+  Future<void> signIn() async {
+    signInCalls++;
+  }
+}
 
 void main() {
-  group('Login Screen Tests', () {
-    late MockGoogleAuthService mockGoogleAuth;
-    late MockUser mockUser;
+  group('Login screen', () {
+    late LoginTestAuthService auth;
 
     setUp(() {
-      mockGoogleAuth = MockGoogleAuthService();
-      mockUser = MockUser();
-
-      when(mockGoogleAuth.isConfigured).thenReturn(true);
-      when(mockGoogleAuth.isBusy).thenReturn(false);
-      when(mockGoogleAuth.currentUser).thenReturn(null);
-      when(mockGoogleAuth.configurationError).thenReturn(null);
-
-      when(mockUser.displayName).thenReturn('Test User');
-      when(mockUser.email).thenReturn('test@example.com');
-      when(mockUser.photoURL).thenReturn(null);
-      when(mockUser.uid).thenReturn('test-uid');
+      auth = LoginTestAuthService();
     });
 
-    Widget createTestApp({required bool isSignedIn}) {
-      if (isSignedIn) {
-        when(mockGoogleAuth.currentUser).thenReturn(mockUser);
-      } else {
-        when(mockGoogleAuth.currentUser).thenReturn(null);
-      }
+    Widget buildScreen() => ChangeNotifierProvider<GoogleAuthService>.value(
+      value: auth,
+      child: const MaterialApp(home: AppEntryScreen()),
+    );
 
-      return MaterialApp(
-        home: ChangeNotifierProvider<GoogleAuthService>.value(value: mockGoogleAuth, child: const SettingsScreen()),
-      );
-    }
+    testWidgets('renders the app welcome and Google sign-in action', (tester) async {
+      await tester.pumpWidget(buildScreen());
 
-    testWidgets('Shows sign in button when signed out', (tester) async {
-      await tester.pumpWidget(createTestApp(isSignedIn: false));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Sign in'), findsOneWidget);
-      expect(find.text('Not signed in'), findsOneWidget);
+      expect(find.text('Welcome to Tube Arena'), findsOneWidget);
+      expect(find.textContaining('Sign in with your Google account'), findsOneWidget);
+      expect(find.text('Continue with Google'), findsOneWidget);
     });
 
-    testWidgets('Shows user info and sign out when signed in', (tester) async {
-      await tester.pumpWidget(createTestApp(isSignedIn: true));
-      await tester.pumpAndSettle();
+    testWidgets('calls the authentication service from the sign-in action', (tester) async {
+      await tester.pumpWidget(buildScreen());
 
-      expect(find.text('Test User'), findsOneWidget);
-      expect(find.text('test@example.com'), findsOneWidget);
-      expect(find.text('Sign out'), findsOneWidget);
-    });
-
-    testWidgets('Shows busy state during sign in', (tester) async {
-      when(mockGoogleAuth.isBusy).thenReturn(true);
-
-      await tester.pumpWidget(createTestApp(isSignedIn: false));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Please wait…'), findsOneWidget);
-    });
-
-    testWidgets('Shows configuration error when Firebase not configured', (tester) async {
-      when(mockGoogleAuth.isConfigured).thenReturn(false);
-      when(mockGoogleAuth.configurationError).thenReturn('Google sign-in setup is required.');
-
-      await tester.pumpWidget(createTestApp(isSignedIn: false));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Google sign-in setup is required.'), findsOneWidget);
-      expect(find.text('Sign in'), findsNothing);
-    });
-
-    testWidgets('Sign in button triggers signIn method', (tester) async {
-      await tester.pumpWidget(createTestApp(isSignedIn: false));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Sign in'));
+      await tester.tap(find.text('Continue with Google'));
       await tester.pump();
 
-      verify(mockGoogleAuth.signIn()).called(1);
+      expect(auth.signInCalls, 1);
     });
 
-    testWidgets('Sign out button triggers signOut method', (tester) async {
-      await tester.pumpWidget(createTestApp(isSignedIn: true));
-      await tester.pumpAndSettle();
+    testWidgets('does not allow sign-in when configuration is unavailable', (tester) async {
+      auth.configured = false;
+      auth.error = 'Firebase configuration is unavailable.';
 
-      await tester.tap(find.text('Sign out'));
-      await tester.pump();
+      await tester.pumpWidget(buildScreen());
 
-      verify(mockGoogleAuth.signOut()).called(1);
+      expect(find.text('Firebase configuration is unavailable.'), findsOneWidget);
+      expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
     });
 
-    testWidgets('Displays user avatar when photoURL is available', (tester) async {
-      when(mockUser.photoURL).thenReturn('https://example.com/avatar.jpg');
+    testWidgets('shows progress while authentication is busy', (tester) async {
+      auth.busy = true;
 
-      await tester.pumpWidget(createTestApp(isSignedIn: true));
-      await tester.pumpAndSettle();
+      await tester.pumpWidget(buildScreen());
 
-      // Should show CircleAvatar with network image
-      expect(find.byType(CircleAvatar), findsOneWidget);
-    });
-
-    testWidgets('Displays placeholder avatar when photoURL is null', (tester) async {
-      when(mockUser.photoURL).thenReturn(null);
-
-      await tester.pumpWidget(createTestApp(isSignedIn: true));
-      await tester.pumpAndSettle();
-
-      // Should show CircleAvatar with icon
-      final circleAvatar = tester.widget<CircleAvatar>(find.byType(CircleAvatar));
-      expect(circleAvatar.child, isA<Icon>());
+      expect(find.text('Signing in…'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
   });
 }
