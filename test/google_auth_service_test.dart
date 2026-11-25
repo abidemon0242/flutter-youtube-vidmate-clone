@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:tube_arena/services/google_auth_service.dart';
 
@@ -38,7 +39,6 @@ void main() {
         description: 'User cancelled the sign-in flow',
       );
       final message = GoogleAuthService.mapGoogleSignInError(error);
-      // Should NOT contain SHA-1 message since this is a normal cancellation
       expect(message, isNot(contains('signing certificate is not registered')));
       expect(message, contains('canceled'));
     });
@@ -53,9 +53,59 @@ void main() {
     });
   });
 
+  group('GoogleAuthService.mapFirebaseAuthError', () {
+    test('maps user-disabled error', () {
+      final error = FirebaseAuthException(code: 'user-disabled');
+      final message = GoogleAuthService.mapFirebaseAuthError(error);
+      expect(message, contains('disabled'));
+    });
+
+    test('maps invalid-credential error', () {
+      final error = FirebaseAuthException(code: 'invalid-credential');
+      final message = GoogleAuthService.mapFirebaseAuthError(error);
+      expect(message, contains('invalid or has expired'));
+    });
+
+    test('maps network-request-failed error', () {
+      final error = FirebaseAuthException(code: 'network-request-failed');
+      final message = GoogleAuthService.mapFirebaseAuthError(error);
+      expect(message, contains('Network error'));
+    });
+
+    test('maps too-many-requests error', () {
+      final error = FirebaseAuthException(code: 'too-many-requests');
+      final message = GoogleAuthService.mapFirebaseAuthError(error);
+      expect(message, contains('Too many sign-in attempts'));
+    });
+
+    test('maps requires-recent-login error', () {
+      final error = FirebaseAuthException(code: 'requires-recent-login');
+      final message = GoogleAuthService.mapFirebaseAuthError(error);
+      expect(message, contains('recent authentication'));
+    });
+
+    test('falls back to generic message for unknown error codes', () {
+      final error = FirebaseAuthException(code: 'unknown-error-code', message: 'Something went wrong');
+      final message = GoogleAuthService.mapFirebaseAuthError(error);
+      expect(message, contains('unknown-error-code'));
+      expect(message, contains('Something went wrong'));
+    });
+
+    test('maps operation-not-allowed error', () {
+      final error = FirebaseAuthException(code: 'operation-not-allowed');
+      final message = GoogleAuthService.mapFirebaseAuthError(error);
+      expect(message, contains('not enabled in Firebase'));
+    });
+
+    test('maps account-exists-with-different-credential error', () {
+      final error = FirebaseAuthException(code: 'account-exists-with-different-credential');
+      final message = GoogleAuthService.mapFirebaseAuthError(error);
+      expect(message, contains('different sign-in method'));
+    });
+  });
+
   group('GoogleAuthService error handling logic', () {
     test('cancellation without Account reauth is preserved as cancellation', () {
-      // Verify that a normal cancellation doesn't get misreported as SHA issue
       final error = GoogleSignInException(code: GoogleSignInExceptionCode.canceled, description: 'User cancelled');
       final message = GoogleAuthService.mapGoogleSignInError(error);
       expect(message, isNot(contains('SHA-1')));

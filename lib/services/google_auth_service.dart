@@ -86,7 +86,7 @@ class GoogleAuthService extends ChangeNotifier {
       }
       throw StateError(_lastError!);
     } on FirebaseAuthException catch (error) {
-      final message = _mapFirebaseAuthError(error);
+      final message = mapFirebaseAuthError(error);
       _lastError = message;
       throw StateError(message);
     } catch (error) {
@@ -99,7 +99,8 @@ class GoogleAuthService extends ChangeNotifier {
     }
   }
 
-  String _mapFirebaseAuthError(FirebaseAuthException error) {
+  @visibleForTesting
+  String mapFirebaseAuthError(FirebaseAuthException error) {
     switch (error.code) {
       case 'user-disabled':
         return 'This account has been disabled. Contact support for assistance.';
