@@ -20,7 +20,8 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
       await auth.signIn();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Google sign-in failed: $error')));
+      final message = auth.lastError ?? 'Google sign-in failed: $error';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } finally {
       if (mounted) setState(() => _signingIn = false);
     }
@@ -60,6 +61,14 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                         : const Icon(Icons.login),
                     label: Text(busy ? 'Signing in…' : 'Continue with Google'),
                   ),
+                  if (auth.lastError != null) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      auth.lastError!,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error),
+                    ),
+                  ],
                   if (!auth.isConfigured) ...[
                     const SizedBox(height: 14),
                     Text(

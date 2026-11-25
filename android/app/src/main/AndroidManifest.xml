@@ -75,7 +75,11 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- Disable Credential Manager to avoid [16] Account reauth failed on some Google Sign-In setups -->
+        <!-- Credential Manager metadata. These entries are NOT verified to disable
+             Credential Manager; their effect on Google Sign-In is undocumented.
+             The [16] Account reauth failed error is primarily caused by SHA-1/SHA-256
+             fingerprint mismatch, not Credential Manager. These entries are retained
+             as a precaution but should not be relied upon as a fix. -->
         <meta-data
             android:name="com.google.android.gms.credentials.API_ENABLED"
             android:value="false" />

@@ -30,20 +30,43 @@ class SettingsScreen extends StatelessWidget {
             ),
             title: Text(user?.displayName ?? 'Google account'),
             subtitle: Text(user?.email ?? 'Signed in with Firebase Authentication'),
-            trailing: TextButton(
-              onPressed: googleAuth.isBusy
-                  ? null
-                  : () async {
-                      try {
-                        await googleAuth.signOut();
-                      } catch (error) {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign-out failed: $error')));
-                      }
-                    },
-              child: Text(googleAuth.isBusy ? 'Please wait…' : 'Sign out'),
-            ),
+            trailing: googleAuth.currentUser == null
+                ? TextButton(
+                    onPressed: googleAuth.isBusy
+                        ? null
+                        : () async {
+                            try {
+                              await googleAuth.signIn();
+                            } catch (error) {
+                              if (!context.mounted) return;
+                              final message = googleAuth.lastError ?? 'Sign-in failed: $error';
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                            }
+                          },
+                    child: Text(googleAuth.isBusy ? 'Please wait…' : 'Sign in'),
+                  )
+                : TextButton(
+                    onPressed: googleAuth.isBusy
+                        ? null
+                        : () async {
+                            try {
+                              await googleAuth.signOut();
+                            } catch (error) {
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign-out failed: $error')));
+                            }
+                          },
+                    child: Text(googleAuth.isBusy ? 'Please wait…' : 'Sign out'),
+                  ),
           ),
+          if (googleAuth.lastError != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              googleAuth.lastError!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error),
+            ),
+            const SizedBox(height: 8),
+          ],
           const Divider(),
           Text('Recommendations', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
