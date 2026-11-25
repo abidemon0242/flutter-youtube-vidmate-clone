@@ -13,7 +13,7 @@ void main() {
       final message = GoogleAuthService.mapGoogleSignInError(error);
       expect(message, contains('stale Google sign-in state or an APK signing certificate'));
       expect(message, contains('SHA-1'));
-      expect(message, contains('Account reauth failed'));
+      expect(message, contains('reauthentication failed'));
     });
 
     test('maps client configuration errors clearly', () {
