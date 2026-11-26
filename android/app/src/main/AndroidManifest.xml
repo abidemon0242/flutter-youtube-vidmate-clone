@@ -41,6 +41,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Firebase passwordless email sign-in links open the app on Android. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="tube-arena-261114-106732.firebaseapp.com"
+                    android:pathPrefix="/__/auth/links" />
+            </intent-filter>
         </activity>
 
         <!-- Media session service for lock-screen and notification controls -->
