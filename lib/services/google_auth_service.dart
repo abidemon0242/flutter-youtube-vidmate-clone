@@ -40,9 +40,7 @@ class GoogleAuthService extends ChangeNotifier {
         // The Web OAuth client ID is required on Android to request an ID token
         // for Firebase credential exchange. CI injects it from google-services.json.
         const serverClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
-        await GoogleSignIn.instance.initialize(
-          serverClientId: serverClientId.isEmpty ? null : serverClientId,
-        );
+        await GoogleSignIn.instance.initialize(serverClientId: serverClientId.isEmpty ? null : serverClientId);
         _googleInitialized = true;
         _googleConfigurationError = null;
       } catch (error, stackTrace) {

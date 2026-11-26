@@ -99,7 +99,6 @@ void main() {
       expect(find.text('Enter a valid email address.'), findsOneWidget);
     });
 
-
     testWidgets('keeps email login available when Google OAuth is unavailable', (tester) async {
       auth.googleConfigured = false;
       await tester.pumpWidget(createTestApp(auth));

@@ -118,7 +118,8 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                   if (auth.isConfigured && !auth.isGoogleConfigured) ...[
                     const SizedBox(height: 14),
                     Text(
-                      auth.googleConfigurationError ?? 'Google sign-in is unavailable. You can use the email link option.',
+                      auth.googleConfigurationError ??
+                          'Google sign-in is unavailable. You can use the email link option.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall,
                     ),
