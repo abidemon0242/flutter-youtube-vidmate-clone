@@ -70,8 +70,18 @@ jobs:
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
 
+      - name: Read Web OAuth client ID for native Google Sign-In
+        id: oauth
+        run: |
+          WEB_CLIENT_ID=$(jq -r '.client[]?.services?.appinvite_service?.other_platform_oauth_client[]? | select(.client_type == 3) | .client_id // empty' android/app/google-services.json | head -n1)
+          if [ -z "$WEB_CLIENT_ID" ]; then
+            echo "::error::Web OAuth client ID is missing; refusing to build an APK with incomplete Google Sign-In configuration."
+            exit 1
+          fi
+          echo "web_client_id=$WEB_CLIENT_ID" >> "$GITHUB_OUTPUT"
+
       - name: Build debug APK
-        run: flutter build apk --debug --no-pub
+        run: flutter build apk --debug --no-pub --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ steps.oauth.outputs.web_client_id }}
 
       - name: Report and verify debug APK signing fingerprints
         run: |
@@ -138,7 +148,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
-          target: google_apis
+          target: google_apis_playstore
           arch: x86_64
           profile: pixel_2
           emulator-options: -no-metrics -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
