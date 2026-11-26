@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:app_links/app_links.dart';
 import 'package:provider/provider.dart';
 
 import 'app.dart';
@@ -23,6 +24,20 @@ Future<void> main() async {
   // session can enter the app directly; otherwise the mandatory login is shown.
   final googleAuth = GoogleAuthService();
   await googleAuth.initialize();
+
+  // Receive Firebase email sign-in links whether the app is already running or cold-started.
+  final appLinks = AppLinks();
+  appLinks.uriLinkStream.listen((uri) {
+    unawaited(googleAuth.completeEmailSignInLink(uri.toString()).catchError((Object error) {
+      debugPrint('Email-link sign-in failed: $error');
+    }));
+  });
+  final initialLink = await appLinks.getInitialLink();
+  if (initialLink != null) {
+    unawaited(googleAuth.completeEmailSignInLink(initialLink.toString()).catchError((Object error) {
+      debugPrint('Initial email-link sign-in failed: $error');
+    }));
+  }
 
   // Read the saved theme first (at most 1 second) so the app doesn't flash the wrong theme.
   final theme = await ThemeController.load();
