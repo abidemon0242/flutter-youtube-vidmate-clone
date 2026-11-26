@@ -49,7 +49,7 @@ void main() {
       await tester.pumpWidget(buildScreen());
 
       expect(find.text('Welcome to Tube Arena'), findsOneWidget);
-      expect(find.textContaining('Sign in with your Google account'), findsOneWidget);
+      expect(find.textContaining('Sign in to continue'), findsOneWidget);
       expect(find.text('Continue with Google'), findsOneWidget);
       expect(find.text('Send login link'), findsOneWidget);
     });
