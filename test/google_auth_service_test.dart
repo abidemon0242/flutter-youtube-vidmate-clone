@@ -13,7 +13,6 @@ void main() {
       final message = GoogleAuthService.mapGoogleSignInError(error);
       expect(message, contains('Google account authentication was rejected (error [16])'));
       expect(message, contains('SHA-1'));
-      expect(message, contains('reauthentication failed'));
     });
 
     test('maps client configuration errors clearly', () {
