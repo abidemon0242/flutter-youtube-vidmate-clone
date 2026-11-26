@@ -25,7 +25,12 @@ class GoogleAuthService extends ChangeNotifier {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
       }
-      await GoogleSignIn.instance.initialize();
+      // The Web OAuth client ID is required on Android to request an ID token
+      // for Firebase credential exchange. CI injects it from google-services.json.
+      const serverClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+      await GoogleSignIn.instance.initialize(
+        serverClientId: serverClientId.isEmpty ? null : serverClientId,
+      );
       // Firebase Auth restores its persisted user session automatically.
       _initialized = true;
       _configurationError = null;
