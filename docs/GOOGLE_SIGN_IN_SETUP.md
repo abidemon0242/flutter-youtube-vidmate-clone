@@ -84,3 +84,18 @@ Install the APK on an Android device with Google Play services, open Settings in
 - Firebase configuration contains project identifiers and OAuth client information; it is not a substitute for protecting private server credentials.
 - Never commit signing keys, passwords, OAuth client secrets, or a user's authentication tokens.
 - Google sign-in does not grant access to private YouTube subscriptions or watch history. Tube Arena's public catalog and channel RSS features remain separate.
+
+
+## 5. Enable passwordless email sign-in
+
+The onboarding screen also offers **Send login link**. This uses Firebase's built-in email-link authentication; it does not use a numeric OTP or a custom email backend.
+
+In Firebase Console for the same project:
+
+1. Open **Authentication → Sign-in method**.
+2. Enable **Email/Password**.
+3. Enable the **Email link (passwordless sign-in)** option under that provider.
+4. Confirm that `tube-arena-261114-106732.firebaseapp.com` is listed under Authentication → Settings → Authorized domains.
+5. Use the same Firebase project configuration in the Android app.
+
+The user enters an email address, receives a one-time sign-in link, and opens that link on the same Android device. The app stores the pending email locally until the link is completed. Email delivery and link completion still need a real-device check; CI can verify compilation and automated UI behavior but cannot verify inbox delivery.
