@@ -103,7 +103,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
-                    onPressed: !auth.isConfigured || busy ? null : () => _signIn(auth),
+                    onPressed: !auth.isConfigured || !auth.isGoogleConfigured || busy ? null : () => _signIn(auth),
                     icon: busy
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.login),
@@ -115,6 +115,14 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                     icon: const Icon(Icons.mail_outline),
                     label: const Text('Send login link'),
                   ),
+                  if (auth.isConfigured && !auth.isGoogleConfigured) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      auth.googleConfigurationError ?? 'Google sign-in is unavailable. You can use the email link option.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
                   if (auth.lastError != null) ...[
                     const SizedBox(height: 14),
                     Text(
