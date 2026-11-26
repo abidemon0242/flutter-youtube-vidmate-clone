@@ -44,6 +44,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Keep this check aligned with the repository's 120-character Dart formatter setting.
       - name: Check formatting
         run: dart format --line-length 120 --output=none --set-exit-if-changed lib test
 
