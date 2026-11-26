@@ -10,7 +10,15 @@ class FakeGoogleAuthService extends GoogleAuthService {
   bool busy = false;
   String? error;
   int signInCalls = 0;
+  int emailLinkCalls = 0;
+  String? requestedEmail;
   Future<void> Function()? onSignIn;
+
+  @override
+  Future<void> sendEmailSignInLink(String email) async {
+    emailLinkCalls++;
+    requestedEmail = email;
+  }
 
   @override
   bool get isConfigured => configured;
@@ -48,6 +56,7 @@ void main() {
 
       expect(find.text('Welcome to Tube Arena'), findsOneWidget);
       expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.text('Send login link'), findsOneWidget);
     });
 
     testWidgets('starts sign-in when the button is tapped', (tester) async {
@@ -57,6 +66,34 @@ void main() {
       await tester.pump();
 
       expect(auth.signInCalls, 1);
+    });
+
+
+    testWidgets('requests an email and sends a login link', (tester) async {
+      await tester.pumpWidget(createTestApp(auth));
+
+      await tester.tap(find.text('Send login link'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'student@example.com');
+      await tester.tap(find.text('Send link'));
+      await tester.pumpAndSettle();
+
+      expect(auth.emailLinkCalls, 1);
+      expect(auth.requestedEmail, 'student@example.com');
+      expect(find.textContaining('Sign-in link sent to student@example.com'), findsOneWidget);
+    });
+
+    testWidgets('rejects an invalid email before requesting a link', (tester) async {
+      await tester.pumpWidget(createTestApp(auth));
+
+      await tester.tap(find.text('Send login link'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'not-an-email');
+      await tester.tap(find.text('Send link'));
+      await tester.pumpAndSettle();
+
+      expect(auth.emailLinkCalls, 0);
+      expect(find.text('Enter a valid email address.'), findsOneWidget);
     });
 
     testWidgets('shows configuration error and disables sign-in', (tester) async {
