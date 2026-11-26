@@ -90,11 +90,76 @@ jobs:
             echo "then download a fresh google-services.json and commit it."
             exit 1
           fi
-          if ! jq -e '[.client[]?.oauth_client[]? | select(.client_type == 3)] | length > 0' android/app/google-services.json >/dev/null; then
-            echo "::error::No Web OAuth client (client_type 3) exists in google-services.json."
+          # Firebase's Google Services JSON places the Web OAuth client under
+          # services.appinvite_service.other_platform_oauth_client, not alongside
+          # Android OAuth clients in oauth_client. Check the documented location.
+          WEB_CLIENT_ID=$(jq -r '
+            .client[]?.services?.appinvite_service?.other_platform_oauth_client[]?
+            | select(.client_type == 3)
+            | .client_id // empty
+          ' android/app/google-services.json | head -n1)
+          if [ -z "$WEB_CLIENT_ID" ] || ! printf '%s' "$WEB_CLIENT_ID" | grep -Eq '^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com
+          echo "APK SHA-256: $SHA256"
+          echo "Register SHA-256 separately in Firebase App settings; it is not an Android OAuth certificate_hash in this JSON."
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: tube-arena-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      # Release APKs are intentionally not built in CI until a private release
+      # keystore is configured in repository Actions secrets. Never use the
+      # debug signing key for a distributable release.
+
+  android-emulator-smoke-test:
+    name: Install and launch on Android emulator
+    needs: flutter-checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Download debug APK
+        uses: actions/download-artifact@v8
+        with:
+          name: tube-arena-debug-apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Boot emulator, install and launch app
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-metrics -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -wipe-data -memory 2048 -cores 2
+          emulator-boot-timeout: 1200
+          disable-animations: true
+          script: bash .github/scripts/emulator-smoke.sh app-debug.apk
+
+      - name: Upload emulator screenshot
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: emulator-screenshot
+          path: emulator-screenshot.png
+          if-no-files-found: ignore
+; then
+            echo "::error::A valid Web OAuth client (client_type 3) is missing from services.appinvite_service.other_platform_oauth_client in google-services.json."
             exit 1
           fi
           echo "APK SHA-1 and Web OAuth client are present in google-services.json."
+          echo "Web OAuth client ID is configured (value intentionally not printed)."
+
           echo "APK SHA-256: $SHA256"
           echo "Register SHA-256 separately in Firebase App settings; it is not an Android OAuth certificate_hash in this JSON."
 
