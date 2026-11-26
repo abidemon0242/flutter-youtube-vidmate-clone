@@ -6,15 +6,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class GoogleAuthService extends ChangeNotifier {
   bool _initialized = false;
+  bool _googleInitialized = false;
   bool _busy = false;
   String? _configurationError;
+  String? _googleConfigurationError;
   String? _lastError;
 
   static const _pendingEmailKey = 'pending_email_sign_in';
 
   bool get isConfigured => _initialized;
+  bool get isGoogleConfigured => _googleInitialized;
   bool get isBusy => _busy;
   String? get configurationError => _configurationError;
+  String? get googleConfigurationError => _googleConfigurationError;
   String? get lastError => _lastError;
   User? get currentUser => _initialized ? FirebaseAuth.instance.currentUser : null;
 
@@ -28,19 +32,32 @@ class GoogleAuthService extends ChangeNotifier {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
       }
-      // The Web OAuth client ID is required on Android to request an ID token
-      // for Firebase credential exchange. CI injects it from google-services.json.
-      const serverClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
-      await GoogleSignIn.instance.initialize(serverClientId: serverClientId.isEmpty ? null : serverClientId);
-      // Firebase Auth restores its persisted user session automatically.
+      // Firebase readiness is independent of Google OAuth so email-link login
+      // remains available when Google-specific configuration is broken.
       _initialized = true;
       _configurationError = null;
+      try {
+        // The Web OAuth client ID is required on Android to request an ID token
+        // for Firebase credential exchange. CI injects it from google-services.json.
+        const serverClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+        await GoogleSignIn.instance.initialize(
+          serverClientId: serverClientId.isEmpty ? null : serverClientId,
+        );
+        _googleInitialized = true;
+        _googleConfigurationError = null;
+      } catch (error, stackTrace) {
+        _googleInitialized = false;
+        _googleConfigurationError =
+            'Google sign-in could not be initialized. Check the OAuth client ID and APK signing SHA-1/SHA-256.';
+        debugPrint('Google authentication initialization failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
       _lastError = null;
     } catch (error, stackTrace) {
+      _initialized = false;
       _configurationError =
-          'Google sign-in could not be initialized. Check Firebase configuration, '
-          'the OAuth client ID, and the APK signing SHA-1/SHA-256.';
-      debugPrint('Google authentication initialization failed: $error');
+          'Firebase authentication could not be initialized. Check the Firebase Android configuration.';
+      debugPrint('Firebase authentication initialization failed: $error');
       debugPrintStack(stackTrace: stackTrace);
     }
     notifyListeners();
@@ -100,8 +117,8 @@ class GoogleAuthService extends ChangeNotifier {
   }
 
   Future<void> signIn() async {
-    if (!_initialized) {
-      throw StateError(_configurationError ?? 'Google sign-in is not configured.');
+    if (!_initialized || !_googleInitialized) {
+      throw StateError(_googleConfigurationError ?? _configurationError ?? 'Google sign-in is not configured.');
     }
     if (_busy) return;
     _busy = true;
