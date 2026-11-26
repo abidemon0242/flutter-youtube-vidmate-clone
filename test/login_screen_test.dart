@@ -10,6 +10,12 @@ class LoginTestAuthService extends GoogleAuthService {
   bool busy = false;
   String? error;
   int signInCalls = 0;
+  int emailLinkCalls = 0;
+
+  @override
+  Future<void> sendEmailSignInLink(String email) async {
+    emailLinkCalls++;
+  }
 
   @override
   bool get isConfigured => configured;
@@ -45,6 +51,7 @@ void main() {
       expect(find.text('Welcome to Tube Arena'), findsOneWidget);
       expect(find.textContaining('Sign in with your Google account'), findsOneWidget);
       expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.text('Send login link'), findsOneWidget);
     });
 
     testWidgets('calls the authentication service from the sign-in action', (tester) async {
