@@ -90,15 +90,15 @@ jobs:
             echo "then download a fresh google-services.json and commit it."
             exit 1
           fi
-          # Firebase's Google Services JSON places the Web OAuth client under
-          # services.appinvite_service.other_platform_oauth_client, not alongside
-          # Android OAuth clients in oauth_client. Check the documented location.
-          WEB_CLIENT_ID=$(jq -r '
-            .client[]?.services?.appinvite_service?.other_platform_oauth_client[]?
-            | select(.client_type == 3)
-            | .client_id // empty
-          ' android/app/google-services.json | head -n1)
-          if [ -z "$WEB_CLIENT_ID" ] || ! printf '%s' "$WEB_CLIENT_ID" | grep -Eq '^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com
+          # Firebase stores the Web OAuth client under services.appinvite_service,
+          # not beside Android OAuth clients in oauth_client.
+          WEB_CLIENT_ID=$(jq -r '.client[]?.services?.appinvite_service?.other_platform_oauth_client[]? | select(.client_type == 3) | .client_id // empty' android/app/google-services.json | head -n1)
+          if [ -z "$WEB_CLIENT_ID" ] || ! printf "%s" "$WEB_CLIENT_ID" | grep -Eq "^[0-9]+-[A-Za-z0-9_-]+[.]apps[.]googleusercontent[.]com$"; then
+            echo "::error::A valid Web OAuth client (client_type 3) is missing from services.appinvite_service.other_platform_oauth_client in google-services.json."
+            exit 1
+          fi
+          echo "APK SHA-1 and Web OAuth client are present in google-services.json."
+          echo "Web OAuth client ID is configured (value intentionally not printed)."
           echo "APK SHA-256: $SHA256"
           echo "Register SHA-256 separately in Firebase App settings; it is not an Android OAuth certificate_hash in this JSON."
 
