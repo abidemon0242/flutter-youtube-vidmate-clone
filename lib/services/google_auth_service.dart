@@ -2,12 +2,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class GoogleAuthService extends ChangeNotifier {
   bool _initialized = false;
   bool _busy = false;
   String? _configurationError;
   String? _lastError;
+
+  static const _pendingEmailKey = 'pending_email_sign_in';
 
   bool get isConfigured => _initialized;
   bool get isBusy => _busy;
@@ -41,6 +44,59 @@ class GoogleAuthService extends ChangeNotifier {
       debugPrintStack(stackTrace: stackTrace);
     }
     notifyListeners();
+  }
+
+  /// Sends a Firebase passwordless sign-in link to the supplied email address.
+  Future<void> sendEmailSignInLink(String email) async {
+    if (!_initialized) {
+      throw StateError(_configurationError ?? 'Firebase authentication is not configured.');
+    }
+    if (_busy) return;
+    _busy = true;
+    _clearLastError();
+    notifyListeners();
+    try {
+      await FirebaseAuth.instance.sendSignInLinkToEmail(
+        email: email.trim(),
+        actionCodeSettings: ActionCodeSettings(
+          url: 'https://tube-arena-261114-106732.firebaseapp.com',
+          handleCodeInApp: true,
+          androidPackageName: 'com.tubearena.app',
+          androidInstallApp: false,
+          androidMinimumVersion: '24',
+        ),
+      );
+      final preferences = await SharedPreferences.getInstance();
+      await preferences.setString(_pendingEmailKey, email.trim());
+      _lastError = null;
+    } on FirebaseAuthException catch (error) {
+      _lastError = mapFirebaseAuthError(error);
+      throw StateError(_lastError!);
+    } catch (error) {
+      _lastError = 'Could not send the sign-in link: $error';
+      throw StateError(_lastError!);
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Completes a passwordless sign-in when the app is opened from the email link.
+  Future<void> completeEmailSignInLink(String link) async {
+    if (!_initialized || !FirebaseAuth.instance.isSignInWithEmailLink(link)) return;
+    final preferences = await SharedPreferences.getInstance();
+    final email = preferences.getString(_pendingEmailKey);
+    if (email == null || email.isEmpty) {
+      throw StateError('Open the sign-in link on the same device where you requested it.');
+    }
+    try {
+      await FirebaseAuth.instance.signInWithEmailLink(email: email, emailLink: link);
+      await preferences.remove(_pendingEmailKey);
+      _lastError = null;
+    } on FirebaseAuthException catch (error) {
+      _lastError = mapFirebaseAuthError(error);
+      throw StateError(_lastError!);
+    }
   }
 
   Future<void> signIn() async {
