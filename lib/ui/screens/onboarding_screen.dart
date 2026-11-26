@@ -29,10 +29,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
 
   Future<void> _sendLoginLink(GoogleAuthService auth) async {
     if (_signingIn || !auth.isConfigured || auth.isBusy) return;
-    final email = await showDialog<String>(
-      context: context,
-      builder: (_) => const _EmailSignInDialog(),
-    );
+    final email = await showDialog<String>(context: context, builder: (_) => const _EmailSignInDialog());
     if (!mounted || email == null) return;
     final emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
     if (!emailPattern.hasMatch(email)) {
@@ -157,17 +154,11 @@ class _EmailSignInDialogState extends State<_EmailSignInDialog> {
         autofocus: true,
         keyboardType: TextInputType.emailAddress,
         autocorrect: false,
-        decoration: const InputDecoration(
-          labelText: 'Email address',
-          hintText: 'name@example.com',
-        ),
+        decoration: const InputDecoration(labelText: 'Email address', hintText: 'name@example.com'),
         onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(_emailController.text.trim()),
           child: const Text('Send link'),
