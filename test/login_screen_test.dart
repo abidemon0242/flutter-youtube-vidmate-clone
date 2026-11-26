@@ -21,6 +21,9 @@ class LoginTestAuthService extends GoogleAuthService {
   bool get isConfigured => configured;
 
   @override
+  bool get isGoogleConfigured => true;
+
+  @override
   bool get isBusy => busy;
 
   @override
