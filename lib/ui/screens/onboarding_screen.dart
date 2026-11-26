@@ -27,6 +27,62 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
     }
   }
 
+  Future<void> _sendLoginLink(GoogleAuthService auth) async {
+    if (_signingIn || !auth.isConfigured || auth.isBusy) return;
+    final emailController = TextEditingController();
+    final email = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sign in with email'),
+        content: TextField(
+          controller: emailController,
+          autofocus: true,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          decoration: const InputDecoration(
+            labelText: 'Email address',
+            hintText: 'name@example.com',
+          ),
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(emailController.text.trim()),
+            child: const Text('Send link'),
+          ),
+        ],
+      ),
+    );
+    emailController.dispose();
+    if (!mounted || email == null) return;
+    final emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (!emailPattern.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid email address.')),
+      );
+      return;
+    }
+
+    setState(() => _signingIn = true);
+    try {
+      await auth.sendEmailSignInLink(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign-in link sent to $email. Open it on this device to finish signing in.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = auth.lastError ?? 'Could not send the sign-in link: $error';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted) setState(() => _signingIn = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<GoogleAuthService>();
@@ -49,7 +105,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                   Text('Welcome to Tube Arena', textAlign: TextAlign.center, style: theme.textTheme.headlineSmall),
                   const SizedBox(height: 10),
                   Text(
-                    'Sign in with your Google account to continue. Authentication is required to use Tube Arena.',
+                    'Sign in to continue. Choose Google or receive a secure sign-in link by email.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium,
                   ),
@@ -60,6 +116,12 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.login),
                     label: Text(busy ? 'Signing in…' : 'Continue with Google'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: !auth.isConfigured || busy ? null : () => _sendLoginLink(auth),
+                    icon: const Icon(Icons.mail_outline),
+                    label: const Text('Send login link'),
                   ),
                   if (auth.lastError != null) ...[
                     const SizedBox(height: 14),
@@ -73,8 +135,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
                     const SizedBox(height: 14),
                     Text(
                       auth.configurationError ??
-                          'Google sign-in is not configured. Check Firebase Android '
-                              'configuration and Google provider settings.',
+                          'Firebase authentication is not configured. Check the Firebase Android configuration.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall,
                     ),
