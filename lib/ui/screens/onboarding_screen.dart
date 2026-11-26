@@ -29,29 +29,10 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
 
   Future<void> _sendLoginLink(GoogleAuthService auth) async {
     if (_signingIn || !auth.isConfigured || auth.isBusy) return;
-    final emailController = TextEditingController();
     final email = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Sign in with email'),
-        content: TextField(
-          controller: emailController,
-          autofocus: true,
-          keyboardType: TextInputType.emailAddress,
-          autocorrect: false,
-          decoration: const InputDecoration(labelText: 'Email address', hintText: 'name@example.com'),
-          onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(emailController.text.trim()),
-            child: const Text('Send link'),
-          ),
-        ],
-      ),
+      builder: (_) => const _EmailSignInDialog(),
     );
-    emailController.dispose();
     if (!mounted || email == null) return;
     final emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
     if (!emailPattern.hasMatch(email)) {
@@ -147,6 +128,51 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _EmailSignInDialog extends StatefulWidget {
+  const _EmailSignInDialog();
+
+  @override
+  State<_EmailSignInDialog> createState() => _EmailSignInDialogState();
+}
+
+class _EmailSignInDialogState extends State<_EmailSignInDialog> {
+  final TextEditingController _emailController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Sign in with email'),
+      content: TextField(
+        controller: _emailController,
+        autofocus: true,
+        keyboardType: TextInputType.emailAddress,
+        autocorrect: false,
+        decoration: const InputDecoration(
+          labelText: 'Email address',
+          hintText: 'name@example.com',
+        ),
+        onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_emailController.text.trim()),
+          child: const Text('Send link'),
+        ),
+      ],
     );
   }
 }
