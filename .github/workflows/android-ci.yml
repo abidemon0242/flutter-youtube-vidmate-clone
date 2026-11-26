@@ -164,3 +164,41 @@ jobs:
           name: emulator-screenshot
           path: emulator-screenshot.png
           if-no-files-found: ignore
+
+  firebase-auth-emulator-test:
+    name: Firebase Auth Emulator passwordless integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+
+      - name: Start isolated Firebase Auth Emulator
+        run: |
+          firebase emulators:start --only auth --project demo-tube-arena > /tmp/firebase-auth-emulator.log 2>&1 &
+          echo $! > /tmp/firebase-auth-emulator.pid
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail http://127.0.0.1:9099/ >/dev/null; then
+              echo "Firebase Auth Emulator is accepting connections."
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/firebase-auth-emulator.log
+          echo "::error::Firebase Auth Emulator did not start in time."
+          exit 1
+
+      - name: Test passwordless email link and session lifecycle
+        run: bash .github/scripts/auth-emulator-smoke.sh
+
+      - name: Show emulator logs on failure
+        if: failure()
+        run: cat /tmp/firebase-auth-emulator.log
