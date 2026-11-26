@@ -7,6 +7,7 @@ import 'package:tube_arena/ui/screens/onboarding_screen.dart';
 
 class FakeGoogleAuthService extends GoogleAuthService {
   bool configured = true;
+  bool googleConfigured = true;
   bool busy = false;
   String? error;
   int signInCalls = 0;
@@ -24,7 +25,7 @@ class FakeGoogleAuthService extends GoogleAuthService {
   bool get isConfigured => configured;
 
   @override
-  bool get isGoogleConfigured => true;
+  bool get isGoogleConfigured => googleConfigured;
 
   @override
   bool get isBusy => busy;
@@ -96,6 +97,15 @@ void main() {
 
       expect(auth.emailLinkCalls, 0);
       expect(find.text('Enter a valid email address.'), findsOneWidget);
+    });
+
+
+    testWidgets('keeps email login available when Google OAuth is unavailable', (tester) async {
+      auth.googleConfigured = false;
+      await tester.pumpWidget(createTestApp(auth));
+
+      expect(tester.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
+      expect(tester.widget<OutlinedButton>(find.byType(OutlinedButton)).onPressed, isNotNull);
     });
 
     testWidgets('shows configuration error and disables sign-in', (tester) async {
