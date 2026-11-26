@@ -28,15 +28,19 @@ Future<void> main() async {
   // Receive Firebase email sign-in links whether the app is already running or cold-started.
   final appLinks = AppLinks();
   appLinks.uriLinkStream.listen((uri) {
-    unawaited(googleAuth.completeEmailSignInLink(uri.toString()).catchError((Object error) {
-      debugPrint('Email-link sign-in failed: $error');
-    }));
+    unawaited(
+      googleAuth.completeEmailSignInLink(uri.toString()).catchError((Object error) {
+        debugPrint('Email-link sign-in failed: $error');
+      }),
+    );
   });
   final initialLink = await appLinks.getInitialLink();
   if (initialLink != null) {
-    unawaited(googleAuth.completeEmailSignInLink(initialLink.toString()).catchError((Object error) {
-      debugPrint('Initial email-link sign-in failed: $error');
-    }));
+    unawaited(
+      googleAuth.completeEmailSignInLink(initialLink.toString()).catchError((Object error) {
+        debugPrint('Initial email-link sign-in failed: $error');
+      }),
+    );
   }
 
   // Read the saved theme first (at most 1 second) so the app doesn't flash the wrong theme.

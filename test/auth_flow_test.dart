@@ -68,7 +68,6 @@ void main() {
       expect(auth.signInCalls, 1);
     });
 
-
     testWidgets('requests an email and sends a login link', (tester) async {
       await tester.pumpWidget(createTestApp(auth));
 

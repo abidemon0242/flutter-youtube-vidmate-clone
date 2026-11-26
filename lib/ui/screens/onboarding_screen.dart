@@ -39,17 +39,11 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
           autofocus: true,
           keyboardType: TextInputType.emailAddress,
           autocorrect: false,
-          decoration: const InputDecoration(
-            labelText: 'Email address',
-            hintText: 'name@example.com',
-          ),
+          decoration: const InputDecoration(labelText: 'Email address', hintText: 'name@example.com'),
           onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(emailController.text.trim()),
             child: const Text('Send link'),
@@ -61,9 +55,7 @@ class _AppEntryScreenState extends State<AppEntryScreen> {
     if (!mounted || email == null) return;
     final emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
     if (!emailPattern.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid email address.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid email address.')));
       return;
     }
 
