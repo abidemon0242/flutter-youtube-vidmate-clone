@@ -5,6 +5,7 @@ BASE_URL="http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1"
 OOB_URL="http://127.0.0.1:9099/emulator/v1/projects/demo-tube-arena/oobCodes"
 API_KEY="fake-api-key"
 EMAIL="auth-emulator-smoke@example.test"
+TEST_PASSWORD="Emulator-Only-Password-123!"
 CONTINUE_URL="https://tube-arena-261114-106732.firebaseapp.com"
 
 request() {
@@ -18,7 +19,7 @@ request() {
 
 echo "1/5 Create an isolated test account in the Auth Emulator"
 SIGNUP=$(request POST "$BASE_URL/accounts:signUp?key=$API_KEY" \
-  "$(jq -n --arg email "$EMAIL" '{email:$email,returnSecureToken:true}')")
+  "$(jq -n --arg email "$EMAIL" --arg password "$TEST_PASSWORD" '{email:$email,password:$password,returnSecureToken:true}')")
 ID_TOKEN=$(jq -r '.idToken // empty' <<<"$SIGNUP")
 LOCAL_ID=$(jq -r '.localId // empty' <<<"$SIGNUP")
 test -n "$ID_TOKEN" && test -n "$LOCAL_ID"
