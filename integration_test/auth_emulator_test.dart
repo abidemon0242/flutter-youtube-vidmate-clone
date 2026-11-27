@@ -58,19 +58,13 @@ void main() {
     }
 
     final codes = (emulatorResponse['oobCodes'] as List<dynamic>).cast<Map<String, dynamic>>();
-    final matchingCode = codes.lastWhere(
-      (entry) => entry['email'] == email && entry['requestType'] == 'EMAIL_SIGNIN',
-    );
+    final matchingCode = codes.lastWhere((entry) => entry['email'] == email && entry['requestType'] == 'EMAIL_SIGNIN');
     final code = matchingCode['oobCode'] as String;
-    final emailLink = Uri.https(
-      'tube-arena-261114-106732.firebaseapp.com',
-      '/__/auth/links',
-      {
-        'mode': 'signIn',
-        'oobCode': code,
-        'apiKey': 'fake-api-key',
-      },
-    );
+    final emailLink = Uri.https('tube-arena-261114-106732.firebaseapp.com', '/__/auth/links', {
+      'mode': 'signIn',
+      'oobCode': code,
+      'apiKey': 'fake-api-key',
+    });
 
     expect(firebaseAuth.isSignInWithEmailLink(emailLink.toString()), isTrue);
     await service.completeEmailSignInLink(emailLink.toString());
