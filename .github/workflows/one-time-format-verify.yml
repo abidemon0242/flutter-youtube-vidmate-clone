@@ -32,10 +32,10 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
       - name: Format Dart sources
-        run: dart format --line-length 120 lib test
+        run: dart format --line-length 120 lib test integration_test
       - name: Commit generated dependency lock and formatting corrections
         run: |
-          git add lib test pubspec.lock
+          git add lib test integration_test pubspec.yaml pubspec.lock
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
