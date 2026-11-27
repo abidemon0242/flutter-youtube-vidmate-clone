@@ -5,6 +5,10 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class GoogleAuthService extends ChangeNotifier {
+  GoogleAuthService({@visibleForTesting Future<String?> Function()? googleIdTokenProvider})
+    : _googleIdTokenProvider = googleIdTokenProvider;
+
+  final Future<String?> Function()? _googleIdTokenProvider;
   bool _initialized = false;
   bool _googleInitialized = false;
   bool _busy = false;
@@ -115,7 +119,7 @@ class GoogleAuthService extends ChangeNotifier {
   }
 
   Future<void> signIn() async {
-    if (!_initialized || !_googleInitialized) {
+    if (!_initialized || (!_googleInitialized && _googleIdTokenProvider == null)) {
       throw StateError(_googleConfigurationError ?? _configurationError ?? 'Google sign-in is not configured.');
     }
     if (_busy) return;
@@ -124,8 +128,9 @@ class GoogleAuthService extends ChangeNotifier {
     notifyListeners();
     try {
       // Start Google Credential Manager only after the user explicitly taps sign-in.
-      final account = await GoogleSignIn.instance.authenticate();
-      final idToken = account.authentication.idToken;
+      final idToken = _googleIdTokenProvider != null
+          ? await _googleIdTokenProvider()
+          : (await GoogleSignIn.instance.authenticate()).authentication.idToken;
       if (idToken == null || idToken.isEmpty) {
         throw StateError('Google did not return an ID token. Check the Firebase OAuth configuration.');
       }
