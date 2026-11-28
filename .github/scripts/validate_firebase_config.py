@@ -55,7 +55,7 @@ def main():
     if not android_clients:
         fail("No Android OAuth client (type 1) found in oauth_client")
     if not web_clients:
-        fail("No Web OAuth client (type 3) found in services.appinvite_service.other_platform_oauth_client")
+        fail("No Web OAuth client (type 3) found in oauth_client")
 
     # Check duplicates within the authoritative oauth_client list only.
     # Firebase normally repeats the Web client under appinvite_service, so
@@ -82,7 +82,7 @@ def main():
                 fail(f"Invalid certificate hash length: {len(cert)} (expected 40 for SHA-1 or 64 for SHA-256)")
 
     print(f"Android OAuth clients (type 1 in oauth_client): {len(android_clients)}")
-    print(f"Web OAuth clients (type 3 in appinvite_service): {len(web_clients)}")
+    print(f"Web OAuth clients (type 3 in oauth_client): {len(web_clients)}")
     print("Firebase configuration validation: PASS")
 
 
