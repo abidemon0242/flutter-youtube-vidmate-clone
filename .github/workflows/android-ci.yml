@@ -28,6 +28,31 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Validate Firebase configuration
+        run: python3 .github/scripts/validate_firebase_config.py
+
+      - name: Verify package name consistency
+        run: |
+          set -euo pipefail
+          MANIFEST_PKG=$(grep -oP 'package="\K[^"]+' android/app/src/main/AndroidManifest.xml || true)
+          GRADLE_PKG=$(grep -oP 'applicationId\s*=\s*"\K[^"]+' android/app/build.gradle.kts)
+          JSON_PKG=$(python3 -c "import json; print(json.load(open('android/app/google-services.json'))['client'][0]['client_info']['android_client_info']['package_name'])")
+          echo "Manifest package: ${MANIFEST_PKG:-<none>}"
+          echo "Gradle applicationId: $GRADLE_PKG"
+          echo "google-services.json package: $JSON_PKG"
+          if [ "$GRADLE_PKG" != "$JSON_PKG" ]; then
+            echo "::error::Package name mismatch: build.gradle.kts ($GRADLE_PKG) != google-services.json ($JSON_PKG)"
+            exit 1
+          fi
+          echo "Package name consistency: PASS"
+
+      - name: Validate shell scripts
+        run: |
+          set -euo pipefail
+          bash -n .github/scripts/emulator-smoke.sh
+          python3 -c "import yaml; yaml.safe_load(open('.github/workflows/android-ci.yml'))"
+          echo "Shell scripts and workflow YAML: PASS"
+
       - name: Set up Java
         uses: actions/setup-java@v6
         with:
