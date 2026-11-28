@@ -41,21 +41,27 @@ def main():
     print(f"Package name: {package_name}")
 
     # --- OAuth clients ---
+    # Android OAuth clients are in oauth_client array (type 1)
     oauth_clients = client.get("oauth_client", [])
     if not oauth_clients:
-        fail("No OAuth clients found")
+        fail("No OAuth clients found in oauth_client array")
 
     android_clients = [c for c in oauth_clients if c.get("client_type") == 1]
-    web_clients = [c for c in oauth_clients if c.get("client_type") == 3]
+
+    # Web OAuth client is in services.appinvite_service.other_platform_oauth_client (type 3)
+    services = client.get("services", {})
+    appinvite = services.get("appinvite_service", {})
+    other_platform = appinvite.get("other_platform_oauth_client", [])
+    web_clients = [c for c in other_platform if c.get("client_type") == 3]
 
     if not android_clients:
-        fail("No Android OAuth client (type 1) found")
+        fail("No Android OAuth client (type 1) found in oauth_client")
     if not web_clients:
-        fail("No Web OAuth client (type 3) found")
+        fail("No Web OAuth client (type 3) found in services.appinvite_service.other_platform_oauth_client")
 
-    # Check for duplicate client IDs
-    ids = [c.get("client_id") for c in oauth_clients]
-    if len(ids) != len(set(ids)):
+    # Check for duplicate client IDs across both locations
+    all_ids = [c.get("client_id") for c in oauth_clients] + [c.get("client_id") for c in other_platform]
+    if len(all_ids) != len(set(all_ids)):
         fail("Duplicate OAuth client IDs found")
 
     # Validate Web client ID format
@@ -75,8 +81,8 @@ def main():
             else:
                 fail(f"Invalid certificate hash length: {len(cert)} (expected 40 for SHA-1 or 64 for SHA-256)")
 
-    print(f"Android OAuth clients (type 1): {len(android_clients)}")
-    print(f"Web OAuth clients (type 3): {len(web_clients)}")
+    print(f"Android OAuth clients (type 1 in oauth_client): {len(android_clients)}")
+    print(f"Web OAuth clients (type 3 in appinvite_service): {len(web_clients)}")
     print("Firebase configuration validation: PASS")
 
 
