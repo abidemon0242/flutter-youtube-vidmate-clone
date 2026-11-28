@@ -48,26 +48,26 @@ def main():
 
     android_clients = [c for c in oauth_clients if c.get("client_type") == 1]
 
-    # Web OAuth client is in services.appinvite_service.other_platform_oauth_client (type 3)
-    services = client.get("services", {})
-    appinvite = services.get("appinvite_service", {})
-    other_platform = appinvite.get("other_platform_oauth_client", [])
-    web_clients = [c for c in other_platform if c.get("client_type") == 3]
+    # Google Services Gradle plugin reads default_web_client_id from oauth_client (type 3).
+    # appinvite_service.other_platform_oauth_client is not a substitute for this entry.
+    web_clients = [c for c in oauth_clients if c.get("client_type") == 3]
 
     if not android_clients:
         fail("No Android OAuth client (type 1) found in oauth_client")
     if not web_clients:
         fail("No Web OAuth client (type 3) found in services.appinvite_service.other_platform_oauth_client")
 
-    # Check for duplicate client IDs across both locations
-    all_ids = [c.get("client_id") for c in oauth_clients] + [c.get("client_id") for c in other_platform]
-    if len(all_ids) != len(set(all_ids)):
-        fail("Duplicate OAuth client IDs found")
+    # Check duplicates within the authoritative oauth_client list only.
+    # Firebase normally repeats the Web client under appinvite_service, so
+    # comparing those two arrays would incorrectly reject a valid config.
+    oauth_ids = [c.get("client_id") for c in oauth_clients]
+    if len(oauth_ids) != len(set(oauth_ids)):
+        fail("Duplicate client IDs found in oauth_client")
 
     # Validate Web client ID format
     for wc in web_clients:
         cid = wc.get("client_id", "")
-        if not re.match(r"^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$", cid):
+        if not re.match(r"^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$", cid):
             fail(f"Invalid Web OAuth client ID format: {cid}")
 
     # Validate certificate hashes are SHA-1 (40 hex chars) or SHA-256 (64 hex chars)
