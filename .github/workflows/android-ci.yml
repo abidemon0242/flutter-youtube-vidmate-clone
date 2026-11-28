@@ -99,7 +99,7 @@ jobs:
       - name: Read Web OAuth client ID for native Google Sign-In
         id: oauth
         run: |
-          WEB_CLIENT_ID=$(jq -r '.client[]?.services?.appinvite_service?.other_platform_oauth_client[]? | select(.client_type == 3) | .client_id // empty' android/app/google-services.json | head -n1)
+          WEB_CLIENT_ID=$(jq -r '.client[]?.oauth_client[]? | select(.client_type == 3) | .client_id // empty' android/app/google-services.json | head -n1)
           if [ -z "$WEB_CLIENT_ID" ]; then
             echo "::error::Web OAuth client ID is missing; refusing to build an APK with incomplete Google Sign-In configuration."
             exit 1
@@ -128,7 +128,7 @@ jobs:
           fi
           # Firebase stores the Web OAuth client under services.appinvite_service,
           # not beside Android OAuth clients in oauth_client.
-          WEB_CLIENT_ID=$(jq -r '.client[]?.services?.appinvite_service?.other_platform_oauth_client[]? | select(.client_type == 3) | .client_id // empty' android/app/google-services.json | head -n1)
+          WEB_CLIENT_ID=$(jq -r '.client[]?.oauth_client[]? | select(.client_type == 3) | .client_id // empty' android/app/google-services.json | head -n1)
           if [ -z "$WEB_CLIENT_ID" ] || ! printf "%s" "$WEB_CLIENT_ID" | grep -Eq "^[0-9]+-[A-Za-z0-9_-]+[.]apps[.]googleusercontent[.]com$"; then
             echo "::error::A valid Web OAuth client (client_type 3) is missing from services.appinvite_service.other_platform_oauth_client in google-services.json."
             exit 1
@@ -182,7 +182,7 @@ jobs:
 
       - name: Read Web OAuth client ID
         run: |
-          WEB_CLIENT_ID=$(jq -r '.client[]?.services?.appinvite_service?.other_platform_oauth_client[]? | select(.client_type == 3) | .client_id // empty' android/app/google-services.json | head -n1)
+          WEB_CLIENT_ID=$(jq -r '.client[]?.oauth_client[]? | select(.client_type == 3) | .client_id // empty' android/app/google-services.json | head -n1)
           if [ -z "$WEB_CLIENT_ID" ]; then
             echo "::error::Web OAuth client ID is missing from google-services.json."
             exit 1
